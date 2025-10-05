@@ -49,9 +49,10 @@ pub fn run() {
             });
 
             // Set up application state
+            let db_clone_for_state = Arc::clone(&db_service);
             app.manage(AppState {
                 timer_service,
-                database_service: db_service,
+                database_service: db_clone_for_state,
             });
 
             // Listen for break reminder event
