@@ -128,7 +128,7 @@ pub async fn export_config(
 
 /// Get list of monitors
 #[tauri::command]
-pub fn get_monitors(app: AppHandle) -> Result<Vec<MonitorInfo>, String> {
+pub fn get_monitors(_app: AppHandle) -> Result<Vec<MonitorInfo>, String> {
     // This is a placeholder implementation
     // In production, you would query actual monitor information
     Ok(vec![MonitorInfo {
@@ -153,14 +153,14 @@ pub fn get_system_status() -> Result<SystemStatus, String> {
 
 /// Open reminder window
 #[tauri::command]
-pub fn open_reminder_window(app: AppHandle, fullscreen: bool) -> Result<(), String> {
+pub fn open_reminder_window(_app: AppHandle, _fullscreen: bool) -> Result<(), String> {
     // Implementation will be in main.rs
     Ok(())
 }
 
 /// Close reminder window
 #[tauri::command]
-pub fn close_reminder_window(app: AppHandle) -> Result<(), String> {
+pub fn close_reminder_window(_app: AppHandle) -> Result<(), String> {
     // Implementation will be in main.rs
     Ok(())
 }

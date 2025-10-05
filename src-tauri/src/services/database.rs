@@ -31,27 +31,31 @@ impl DatabaseService {
 
     /// Save settings to database
     pub async fn save_settings(&self, settings: &Settings) -> AppResult<()> {
-        let mut stored_settings = self.settings.lock().map_err(|_| AppError::DatabaseError)?;
+        let mut stored_settings = self.settings.lock()
+            .map_err(|e| AppError::DatabaseError(format!("Failed to lock settings: {}", e)))?;
         *stored_settings = settings.clone();
         Ok(())
     }
 
     /// Load settings from database
     pub async fn load_settings(&self) -> AppResult<Settings> {
-        let settings = self.settings.lock().map_err(|_| AppError::DatabaseError)?;
+        let settings = self.settings.lock()
+            .map_err(|e| AppError::DatabaseError(format!("Failed to lock settings: {}", e)))?;
         Ok(settings.clone())
     }
 
     /// Save a completed session
     pub async fn save_session(&self, session: &Session) -> AppResult<()> {
-        let mut sessions = self.sessions.lock().map_err(|_| AppError::DatabaseError)?;
+        let mut sessions = self.sessions.lock()
+            .map_err(|e| AppError::DatabaseError(format!("Failed to lock sessions: {}", e)))?;
         sessions.push(session.clone());
         Ok(())
     }
 
     /// Get analytics data for a date range
     pub async fn get_analytics(&self, query: &AnalyticsQuery) -> AppResult<AnalyticsData> {
-        let sessions = self.sessions.lock().map_err(|_| AppError::DatabaseError)?;
+        let sessions = self.sessions.lock()
+            .map_err(|e| AppError::DatabaseError(format!("Failed to lock sessions: {}", e)))?;
 
         // Filter sessions by date range
         let filtered: Vec<&Session> = sessions
