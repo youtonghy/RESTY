@@ -2,7 +2,41 @@
 
 A cross-platform desktop application built with Tauri and React for periodic eye rest reminders.
 
-## Features
+## 🚀 Quick Start
+
+### Windows Users
+
+**遇到 `'vite' 不是内部或外部命令` 错误？**
+
+这是因为缺少依赖。解决方法：
+
+#### 方法 1: 使用启动脚本（推荐）
+双击运行 `start-dev.bat`
+
+#### 方法 2: 手动命令
+```powershell
+pnpm install    # 安装依赖
+pnpm run dev    # 启动开发服务器
+```
+
+然后访问控制台显示的 Local 地址（通常是 http://localhost:5173/）
+
+📖 详细说明: 查看 [快速开始.md](快速开始.md) 或 [WINDOWS.md](WINDOWS.md)
+
+### macOS/Linux Users
+
+```bash
+# Install dependencies
+pnpm install
+
+# Development mode
+pnpm run dev
+
+# Or run full app (requires Rust)
+pnpm tauri dev
+```
+
+## ✨ Features
 
 ✅ **Completed Core Features:**
 
