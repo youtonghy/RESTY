@@ -43,6 +43,14 @@ export function Dashboard() {
     return '#cbd5e0';
   };
 
+  const handleTakeBreak = async () => {
+    try {
+      await api.startBreak();
+    } catch (error) {
+      console.error('Failed to start break:', error);
+    }
+  };
+
   return (
     <div className="page dashboard">
       <div className="container">
@@ -96,6 +104,14 @@ export function Dashboard() {
               </div>
             </div>
           </div>
+
+          {/* Take Break Button - Only show during work phase */}
+          {isWorkPhase && (
+            <button className="btn-take-break" onClick={handleTakeBreak}>
+              <span className="btn-icon">☕</span>
+              <span>{t('dashboard.takeBreak')}</span>
+            </button>
+          )}
 
           {/* Simple Info */}
           <div className="timer-info">

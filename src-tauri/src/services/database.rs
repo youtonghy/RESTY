@@ -2,38 +2,114 @@ use crate::models::{Session, Settings, AnalyticsQuery, AnalyticsData};
 use crate::utils::{AppError, AppResult};
 use chrono::{DateTime, Utc};
 use std::sync::Mutex;
+use std::path::PathBuf;
 use tauri::AppHandle;
 
 /// Database service for managing persistent data
-/// Currently using in-memory storage for simplicity
+/// Uses JSON files for persistence
 pub struct DatabaseService {
     app: AppHandle,
     settings: Mutex<Settings>,
     sessions: Mutex<Vec<Session>>,
+    data_dir: PathBuf,
 }
 
 impl DatabaseService {
     /// Create a new database service instance
     pub fn new(app: AppHandle) -> Self {
+        // Get app data directory
+        let data_dir = app.path()
+            .app_data_dir()
+            .unwrap_or_else(|_| PathBuf::from("."));
+
         Self {
             app,
             settings: Mutex::new(Settings::default()),
             sessions: Mutex::new(Vec::new()),
+            data_dir,
         }
     }
 
     /// Initialize database schema
     pub async fn initialize(&self) -> AppResult<()> {
-        // For now, we're using in-memory storage
-        // TODO: Implement persistent SQLite storage
+        // Create data directory if it doesn't exist
+        if !self.data_dir.exists() {
+            std::fs::create_dir_all(&self.data_dir)
+                .map_err(|e| AppError::DatabaseError(format!("Failed to create data directory: {}", e)))?;
+        }
+
+        // Load settings from file
+        self.load_settings_from_file()?;
+
+        // Load sessions from file
+        self.load_sessions_from_file()?;
+
+        Ok(())
+    }
+
+    /// Get settings file path
+    fn settings_file(&self) -> PathBuf {
+        self.data_dir.join("settings.json")
+    }
+
+    /// Get sessions file path
+    fn sessions_file(&self) -> PathBuf {
+        self.data_dir.join("sessions.json")
+    }
+
+    /// Load settings from file
+    fn load_settings_from_file(&self) -> AppResult<()> {
+        let file_path = self.settings_file();
+
+        if file_path.exists() {
+            let content = std::fs::read_to_string(&file_path)
+                .map_err(|e| AppError::DatabaseError(format!("Failed to read settings file: {}", e)))?;
+
+            let loaded_settings: Settings = serde_json::from_str(&content)
+                .map_err(|e| AppError::DatabaseError(format!("Failed to parse settings: {}", e)))?;
+
+            let mut settings = self.settings.lock()
+                .map_err(|e| AppError::DatabaseError(format!("Failed to lock settings: {}", e)))?;
+            *settings = loaded_settings;
+        }
+
+        Ok(())
+    }
+
+    /// Load sessions from file
+    fn load_sessions_from_file(&self) -> AppResult<()> {
+        let file_path = self.sessions_file();
+
+        if file_path.exists() {
+            let content = std::fs::read_to_string(&file_path)
+                .map_err(|e| AppError::DatabaseError(format!("Failed to read sessions file: {}", e)))?;
+
+            let loaded_sessions: Vec<Session> = serde_json::from_str(&content)
+                .map_err(|e| AppError::DatabaseError(format!("Failed to parse sessions: {}", e)))?;
+
+            let mut sessions = self.sessions.lock()
+                .map_err(|e| AppError::DatabaseError(format!("Failed to lock sessions: {}", e)))?;
+            *sessions = loaded_sessions;
+        }
+
         Ok(())
     }
 
     /// Save settings to database
     pub async fn save_settings(&self, settings: &Settings) -> AppResult<()> {
+        // Update in-memory settings
         let mut stored_settings = self.settings.lock()
             .map_err(|e| AppError::DatabaseError(format!("Failed to lock settings: {}", e)))?;
         *stored_settings = settings.clone();
+        drop(stored_settings);
+
+        // Persist to file
+        let json = serde_json::to_string_pretty(settings)
+            .map_err(|e| AppError::DatabaseError(format!("Failed to serialize settings: {}", e)))?;
+
+        std::fs::write(self.settings_file(), json)
+            .map_err(|e| AppError::DatabaseError(format!("Failed to write settings file: {}", e)))?;
+
         Ok(())
     }
 
@@ -46,9 +122,18 @@ impl DatabaseService {
 
     /// Save a completed session
     pub async fn save_session(&self, session: &Session) -> AppResult<()> {
+        // Add to in-memory sessions
         let mut sessions = self.sessions.lock()
             .map_err(|e| AppError::DatabaseError(format!("Failed to lock sessions: {}", e)))?;
         sessions.push(session.clone());
+
+        // Persist to file
+        let json = serde_json::to_string_pretty(&*sessions)
+            .map_err(|e| AppError::DatabaseError(format!("Failed to serialize sessions: {}", e)))?;
+
+        std::fs::write(self.sessions_file(), json)
+            .map_err(|e| AppError::DatabaseError(format!("Failed to write sessions file: {}", e)))?;
+
         Ok(())
     }
 
