@@ -56,10 +56,23 @@ pub fn run() {
 
             // Listen for break reminder event
             let app_handle = app.handle().clone();
+            let db_clone = Arc::clone(&db_service);
             app.listen("show-break-reminder", move |_event| {
                 let app = app_handle.clone();
+                let db = db_clone.clone();
                 tauri::async_runtime::spawn(async move {
-                    if let Err(e) = show_break_reminder_window(&app) {
+                    // Load settings to check reminder mode
+                    let settings = match db.lock().await.load_settings().await {
+                        Ok(s) => s,
+                        Err(e) => {
+                            eprintln!("Failed to load settings: {}", e);
+                            return;
+                        }
+                    };
+
+                    let is_fullscreen = matches!(settings.reminder_mode, crate::models::ReminderMode::Fullscreen);
+
+                    if let Err(e) = show_break_reminder_window(&app, is_fullscreen) {
                         eprintln!("Failed to show break reminder: {}", e);
                     }
                 });
@@ -89,38 +102,56 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-/// Show break reminder window at top-right corner
-fn show_break_reminder_window(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+/// Show break reminder window (fullscreen or floating)
+fn show_break_reminder_window(app: &tauri::AppHandle, is_fullscreen: bool) -> Result<(), Box<dyn std::error::Error>> {
     // Check if window already exists
     if let Some(window) = app.get_webview_window("break-reminder") {
         window.set_focus()?;
         return Ok(());
     }
 
-    // Create new break reminder window
-    let window = WebviewWindowBuilder::new(
-        app,
-        "break-reminder",
-        WebviewUrl::App("break-reminder.html".into())
-    )
-    .title("Break Time - RESTY")
-    .inner_size(400.0, 600.0)
-    .resizable(false)
-    .maximized(false)
-    .decorations(true)
-    .always_on_top(true)
-    .skip_taskbar(false)
-    .center()
-    .build()?;
+    if is_fullscreen {
+        // Create fullscreen reminder window
+        let window = WebviewWindowBuilder::new(
+            app,
+            "break-reminder",
+            WebviewUrl::App("break-reminder.html".into())
+        )
+        .title("Break Time - RESTY")
+        .fullscreen(true)
+        .resizable(false)
+        .decorations(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .build()?;
 
-    // Position at top-right corner
-    if let Ok(monitor) = window.current_monitor() {
-        if let Some(monitor) = monitor {
-            let screen = monitor.size();
-            let window_size = window.outer_size()?;
-            let x = screen.width as i32 - window_size.width as i32 - 20;
-            let y = 20;
-            window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }))?;
+        window.set_focus()?;
+    } else {
+        // Create floating window at top-right corner
+        let window = WebviewWindowBuilder::new(
+            app,
+            "break-reminder",
+            WebviewUrl::App("break-reminder.html".into())
+        )
+        .title("Break Time - RESTY")
+        .inner_size(400.0, 600.0)
+        .resizable(false)
+        .maximized(false)
+        .decorations(true)
+        .always_on_top(true)
+        .skip_taskbar(false)
+        .center()
+        .build()?;
+
+        // Position at top-right corner
+        if let Ok(monitor) = window.current_monitor() {
+            if let Some(monitor) = monitor {
+                let screen = monitor.size();
+                let window_size = window.outer_size()?;
+                let x = screen.width as i32 - window_size.width as i32 - 20;
+                let y = 20;
+                window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }))?;
+            }
         }
     }
 

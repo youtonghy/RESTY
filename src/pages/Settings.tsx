@@ -32,6 +32,10 @@ export function Settings() {
     try {
       await api.saveSettings(localSettings);
       setSettings(localSettings);
+
+      // Update timer durations immediately
+      await api.updateTimerDurations(localSettings.workDuration, localSettings.breakDuration);
+
       setMessage(t('notifications.settingsSaved'));
     } catch (error) {
       setMessage(t('errors.saveFailed'));
