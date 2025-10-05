@@ -25,7 +25,7 @@
         .container {
             text-align: center;
             padding: 40px;
-            max-width: 600px;
+            max-width: 100%;
         }
 
         .icon {
@@ -44,28 +44,28 @@
         }
 
         h1 {
-            font-size: 48px;
+            font-size: 36px;
             font-weight: 700;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
         }
 
         p {
-            font-size: 24px;
-            margin-bottom: 30px;
+            font-size: 18px;
+            margin-bottom: 25px;
             opacity: 0.95;
         }
 
         .timer {
-            font-size: 72px;
+            font-size: 64px;
             font-weight: 700;
-            margin: 30px 0;
+            margin: 25px 0;
             font-variant-numeric: tabular-nums;
             text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
         }
 
         .tips {
-            margin-top: 40px;
+            margin-top: 30px;
             padding: 20px;
             background: rgba(255, 255, 255, 0.1);
             border-radius: 12px;
@@ -73,8 +73,8 @@
         }
 
         .tips h3 {
-            font-size: 20px;
-            margin-bottom: 15px;
+            font-size: 18px;
+            margin-bottom: 12px;
         }
 
         .tips ul {
@@ -84,9 +84,9 @@
         }
 
         .tips li {
-            font-size: 16px;
-            margin: 8px 0;
-            padding-left: 24px;
+            font-size: 14px;
+            margin: 6px 0;
+            padding-left: 20px;
             position: relative;
         }
 
@@ -95,6 +95,46 @@
             position: absolute;
             left: 0;
             font-weight: bold;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-skip {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .btn-skip:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .btn-extend {
+            background: rgba(255, 255, 255, 0.9);
+            color: #667eea;
+        }
+
+        .btn-extend:hover {
+            background: white;
+            transform: translateY(-2px);
         }
 
         .btn-close {
@@ -129,6 +169,17 @@
 
         <div class="timer" id="timer">5:00</div>
 
+        <div class="actions">
+            <button class="btn btn-skip" onclick="skipBreak()">
+                <span>⏭️</span>
+                <span>Skip Break</span>
+            </button>
+            <button class="btn btn-extend" onclick="extendBreak()">
+                <span>⏰</span>
+                <span>+5 Minutes</span>
+            </button>
+        </div>
+
         <div class="tips">
             <h3>Break Tips:</h3>
             <ul>
@@ -143,6 +194,7 @@
     <script>
         const { listen } = window.__TAURI__.event;
         const { appWindow } = window.__TAURI__.window;
+        const { invoke } = window.__TAURI__.core;
 
         let remainingSeconds = 300; // 5 minutes default
 
@@ -162,6 +214,25 @@
                 updateTimer();
             }
         });
+
+        // Skip break and start work
+        async function skipBreak() {
+            try {
+                await invoke('skip_phase');
+                closeWindow();
+            } catch (error) {
+                console.error('Failed to skip:', error);
+            }
+        }
+
+        // Extend break by 5 minutes
+        async function extendBreak() {
+            try {
+                await invoke('extend_phase');
+            } catch (error) {
+                console.error('Failed to extend:', error);
+            }
+        }
 
         // Close window function
         function closeWindow() {

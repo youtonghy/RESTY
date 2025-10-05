@@ -123,6 +123,13 @@
     "no": "No",
     "minutes": "minutes",
     "seconds": "seconds",
-    "hours": "hours"
+    "hours": "hours",
+    "running": "Running",
+    "stopped": "Stopped"
+  },
+  "dashboard": {
+    "workMessage": "Focus on your work. Take care of your eyes!",
+    "breakMessage": "Relax and rest your eyes for a moment.",
+    "idleMessage": "Ready to start? Click below to begin."
   }
 }

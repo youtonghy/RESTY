@@ -123,6 +123,13 @@
     "no": "否",
     "minutes": "分钟",
     "seconds": "秒",
-    "hours": "小时"
+    "hours": "小时",
+    "running": "运行中",
+    "stopped": "已停止"
+  },
+  "dashboard": {
+    "workMessage": "专注工作，注意保护眼睛！",
+    "breakMessage": "放松一下，让眼睛休息片刻。",
+    "idleMessage": "准备好了吗？点击下方开始。"
   }
 }
