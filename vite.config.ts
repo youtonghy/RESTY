@@ -17,7 +17,8 @@ export default defineConfig(async () => ({
     // Use port 1420 when running with Tauri, otherwise use any available port
     port: host ? 1420 : undefined,
     strictPort: !!host, // Only enforce strict port when running with Tauri
-    host: host || "localhost",
+    // Force IPv4 to avoid Windows IPv6 permission issues
+    host: host || "127.0.0.1",
     hmr: host
       ? {
           protocol: "ws",

@@ -8,6 +8,12 @@ A cross-platform desktop application built with Tauri and React for periodic eye
 
 **遇到 `'vite' 不是内部或外部命令` 错误？**
 
+先运行 `pnpm install` 安装依赖。
+
+**遇到 `EACCES: permission denied ::1:xxxx` 错误？**
+
+这是 Windows IPv6 权限问题，已修复！现在使用 IPv4。
+
 这是因为缺少依赖。解决方法：
 
 #### 方法 1: 使用启动脚本（推荐）
@@ -19,7 +25,9 @@ pnpm install    # 安装依赖
 pnpm run dev    # 启动开发服务器
 ```
 
-然后访问控制台显示的 Local 地址（通常是 http://localhost:5173/）
+然后访问控制台显示的地址：**http://127.0.0.1:5173/**
+
+**注意**: 使用 `127.0.0.1` 而不是 `localhost` 以避免 IPv6 问题。
 
 📖 详细说明: 查看 [快速开始.md](快速开始.md) 或 [WINDOWS.md](WINDOWS.md)
 
