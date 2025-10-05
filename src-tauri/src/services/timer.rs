@@ -23,6 +23,7 @@ struct TimerServiceState {
     last_tick: Instant,
     current_session_id: Option<String>,
     current_session_start: Option<chrono::DateTime<Utc>>,
+    auto_cycle: bool, // Auto cycle between work and break
 }
 
 impl TimerService {
@@ -39,6 +40,7 @@ impl TimerService {
                 last_tick: Instant::now(),
                 current_session_id: None,
                 current_session_start: None,
+                auto_cycle: true, // Enable auto cycle by default
             })),
             app,
         })
@@ -158,11 +160,31 @@ impl TimerService {
             None
         };
 
+        // Check if auto-cycle is enabled and timer finished
+        let should_auto_cycle = timer_finished && state.auto_cycle;
+        let next_phase = state.phase.clone();
+
         drop(state);
         self.emit_timer_update()?;
 
         if timer_finished {
             self.emit_timer_finished()?;
+
+            // Auto-cycle to next phase
+            if should_auto_cycle {
+                match next_phase {
+                    TimerPhase::Work => {
+                        // Work finished, start break and show reminder
+                        self.start_break()?;
+                        self.show_break_reminder()?;
+                    }
+                    TimerPhase::Break => {
+                        // Break finished, start work
+                        self.start_work()?;
+                    }
+                    TimerPhase::Idle => {}
+                }
+            }
         }
 
         Ok(session)
@@ -230,6 +252,14 @@ impl TimerService {
     fn emit_timer_finished(&self) -> AppResult<()> {
         self.app
             .emit("timer-finished", ())
+            .map_err(|e| crate::utils::AppError::TauriError(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Show break reminder window
+    fn show_break_reminder(&self) -> AppResult<()> {
+        self.app
+            .emit("show-break-reminder", ())
             .map_err(|e| crate::utils::AppError::TauriError(e.to_string()))?;
         Ok(())
     }
