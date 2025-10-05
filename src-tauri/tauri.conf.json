@@ -5,16 +5,27 @@
   "identifier": "com.youtonghy.resty",
   "build": {
     "beforeDevCommand": "pnpm dev",
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://127.0.0.1:13000",
     "beforeBuildCommand": "pnpm build",
     "frontendDist": "../dist"
   },
   "app": {
     "windows": [
       {
-        "title": "resty",
-        "width": 800,
-        "height": 600
+        "label": "main",
+        "title": "RESTY - Eye Care Reminder",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false,
+        "center": true,
+        "skipTaskbar": false,
+        "visible": true
       }
     ],
     "security": {

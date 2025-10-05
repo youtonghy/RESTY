@@ -2,6 +2,22 @@
 
 A cross-platform desktop application built with Tauri and React for periodic eye rest reminders.
 
+## 📦 Two Running Modes
+
+RESTY can run in two modes:
+
+1. **Web Development Mode** (No Rust required)
+   - Frontend only, runs in browser
+   - Fast startup, hot reload
+   - Use: `pnpm run dev`
+
+2. **Desktop Application Mode** (Requires Rust)
+   - Full native desktop app
+   - Native window, system integration
+   - Use: `pnpm tauri dev`
+
+📖 **Desktop App Guide**: See [DESKTOP_APP.md](DESKTOP_APP.md) for full desktop setup
+
 ## 🚀 Quick Start
 
 ### Windows Users
@@ -25,12 +41,12 @@ pnpm install    # 安装依赖
 pnpm run dev    # 启动开发服务器
 ```
 
-然后访问控制台显示的地址：**http://127.0.0.1:3000/**
+然后访问控制台显示的地址：**http://127.0.0.1:13000/**
 
 **注意**:
 - 使用 `127.0.0.1` 而不是 `localhost`（避免 IPv6 问题）
-- 默认端口 `3000`（避免低端口权限问题）
-- 如果端口被占用会自动尝试 3001, 3002...
+- 开发模式端口: `13000`（避免低端口权限问题）
+- 如果端口被占用会自动尝试下一个端口
 
 📖 详细说明: 查看 [快速开始.md](快速开始.md) 或 [WINDOWS.md](WINDOWS.md)
 
