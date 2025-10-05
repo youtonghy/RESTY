@@ -1,0 +1,128 @@
+{
+  "app": {
+    "name": "RESTY",
+    "description": "Eye care reminder application"
+  },
+  "settings": {
+    "title": "Settings",
+    "timer": {
+      "title": "Timer Settings",
+      "workDuration": "Work Duration (minutes)",
+      "breakDuration": "Break Duration (minutes)",
+      "enableForceBreak": "Force break mode",
+      "forceBreakDescription": "Prevent skipping during break time"
+    },
+    "reminder": {
+      "title": "Reminder Settings",
+      "mode": "Display Mode",
+      "fullscreen": "Fullscreen",
+      "floating": "Floating Window",
+      "floatingPosition": "Window Position",
+      "opacity": "Window Opacity",
+      "playSound": "Play notification sound"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "theme": "Theme",
+      "light": "Light",
+      "dark": "Dark",
+      "auto": "Auto"
+    },
+    "system": {
+      "title": "System",
+      "autostart": "Launch on system startup",
+      "minimizeToTray": "Minimize to system tray",
+      "closeToTray": "Close to system tray"
+    },
+    "language": {
+      "title": "Language",
+      "select": "Select Language"
+    },
+    "actions": {
+      "save": "Save Settings",
+      "reset": "Reset to Defaults",
+      "import": "Import Configuration",
+      "export": "Export Configuration"
+    }
+  },
+  "reminder": {
+    "title": {
+      "work": "Time to Work",
+      "break": "Time to Rest"
+    },
+    "message": {
+      "work": "Your break is over. Ready to get back to work?",
+      "break": "You've been working for a while. Time to rest your eyes!"
+    },
+    "countdown": "Remaining: {{time}}",
+    "actions": {
+      "skip": "Skip",
+      "extend": "Extend 5 min",
+      "startBreak": "Start Break Now"
+    }
+  },
+  "analytics": {
+    "title": "Statistics",
+    "overview": "Overview",
+    "totalWork": "Total Work Time",
+    "totalBreak": "Total Break Time",
+    "breakCount": "Break Sessions",
+    "completionRate": "Completion Rate",
+    "timeRange": {
+      "today": "Today",
+      "week": "This Week",
+      "month": "This Month",
+      "custom": "Custom Range"
+    },
+    "timeline": "Timeline",
+    "noData": "No data available for selected period"
+  },
+  "tray": {
+    "show": "Show Window",
+    "hide": "Hide Window",
+    "startWork": "Start Work Session",
+    "startBreak": "Take a Break",
+    "pause": "Pause Timer",
+    "resume": "Resume Timer",
+    "settings": "Settings",
+    "analytics": "Statistics",
+    "quit": "Quit"
+  },
+  "shortcuts": {
+    "toggle": "Start/Pause",
+    "skip": "Skip Current Phase",
+    "extend": "Extend Time",
+    "immediateBreak": "Start Break Immediately",
+    "showWindow": "Show/Hide Window"
+  },
+  "notifications": {
+    "workStarted": "Work session started",
+    "breakStarted": "Break time! Rest your eyes.",
+    "breakEnded": "Break completed. Ready to work!",
+    "timerPaused": "Timer paused",
+    "timerResumed": "Timer resumed",
+    "settingsSaved": "Settings saved successfully",
+    "configImported": "Configuration imported",
+    "configExported": "Configuration exported"
+  },
+  "errors": {
+    "invalidDuration": "Duration must be between 1 and 120 minutes",
+    "invalidOpacity": "Opacity must be between 0 and 100",
+    "importFailed": "Failed to import configuration",
+    "exportFailed": "Failed to export configuration",
+    "saveFailed": "Failed to save settings",
+    "loadFailed": "Failed to load settings",
+    "unknown": "An unexpected error occurred"
+  },
+  "common": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "close": "Close",
+    "ok": "OK",
+    "yes": "Yes",
+    "no": "No",
+    "minutes": "minutes",
+    "seconds": "seconds",
+    "hours": "hours"
+  }
+}

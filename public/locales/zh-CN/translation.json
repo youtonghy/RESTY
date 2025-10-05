@@ -1,0 +1,128 @@
+{
+  "app": {
+    "name": "RESTY",
+    "description": "护眼休息提醒应用"
+  },
+  "settings": {
+    "title": "设置",
+    "timer": {
+      "title": "计时设置",
+      "workDuration": "工作时长(分钟)",
+      "breakDuration": "休息时长(分钟)",
+      "enableForceBreak": "强制休息模式",
+      "forceBreakDescription": "休息期间禁止跳过"
+    },
+    "reminder": {
+      "title": "提醒设置",
+      "mode": "显示模式",
+      "fullscreen": "全屏",
+      "floating": "浮窗",
+      "floatingPosition": "窗口位置",
+      "opacity": "窗口透明度",
+      "playSound": "播放提示音"
+    },
+    "appearance": {
+      "title": "外观",
+      "theme": "主题",
+      "light": "浅色",
+      "dark": "深色",
+      "auto": "自动"
+    },
+    "system": {
+      "title": "系统",
+      "autostart": "开机自启",
+      "minimizeToTray": "最小化到托盘",
+      "closeToTray": "关闭到托盘"
+    },
+    "language": {
+      "title": "语言",
+      "select": "选择语言"
+    },
+    "actions": {
+      "save": "保存设置",
+      "reset": "恢复默认",
+      "import": "导入配置",
+      "export": "导出配置"
+    }
+  },
+  "reminder": {
+    "title": {
+      "work": "开始工作",
+      "break": "休息时间"
+    },
+    "message": {
+      "work": "休息结束了,准备好继续工作了吗?",
+      "break": "您已经工作一段时间了,该休息一下眼睛了!"
+    },
+    "countdown": "剩余时间: {{time}}",
+    "actions": {
+      "skip": "跳过",
+      "extend": "延长5分钟",
+      "startBreak": "立即休息"
+    }
+  },
+  "analytics": {
+    "title": "统计",
+    "overview": "概览",
+    "totalWork": "总工作时长",
+    "totalBreak": "总休息时长",
+    "breakCount": "休息次数",
+    "completionRate": "完成率",
+    "timeRange": {
+      "today": "今天",
+      "week": "本周",
+      "month": "本月",
+      "custom": "自定义"
+    },
+    "timeline": "时间轴",
+    "noData": "所选时段暂无数据"
+  },
+  "tray": {
+    "show": "显示窗口",
+    "hide": "隐藏窗口",
+    "startWork": "开始工作",
+    "startBreak": "开始休息",
+    "pause": "暂停计时",
+    "resume": "继续计时",
+    "settings": "设置",
+    "analytics": "统计",
+    "quit": "退出"
+  },
+  "shortcuts": {
+    "toggle": "开始/暂停",
+    "skip": "跳过当前阶段",
+    "extend": "延长时间",
+    "immediateBreak": "立即休息",
+    "showWindow": "显示/隐藏窗口"
+  },
+  "notifications": {
+    "workStarted": "工作时段已开始",
+    "breakStarted": "休息时间!让眼睛休息一下吧。",
+    "breakEnded": "休息完成,准备工作!",
+    "timerPaused": "计时器已暂停",
+    "timerResumed": "计时器已恢复",
+    "settingsSaved": "设置保存成功",
+    "configImported": "配置导入成功",
+    "configExported": "配置导出成功"
+  },
+  "errors": {
+    "invalidDuration": "时长必须在1到120分钟之间",
+    "invalidOpacity": "透明度必须在0到100之间",
+    "importFailed": "导入配置失败",
+    "exportFailed": "导出配置失败",
+    "saveFailed": "保存设置失败",
+    "loadFailed": "加载设置失败",
+    "unknown": "发生未知错误"
+  },
+  "common": {
+    "confirm": "确认",
+    "cancel": "取消",
+    "close": "关闭",
+    "ok": "确定",
+    "yes": "是",
+    "no": "否",
+    "minutes": "分钟",
+    "seconds": "秒",
+    "hours": "小时"
+  }
+}

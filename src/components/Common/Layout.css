@@ -1,0 +1,22 @@
+.layout {
+  min-height: 100vh;
+  background: var(--color-background);
+}
+
+.layout-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--spacing-lg);
+  padding-bottom: calc(var(--spacing-lg) + 80px); /* Space for bottom nav */
+}
+
+.layout-main {
+  width: 100%;
+}
+
+/* Desktop styles */
+@media (min-width: 769px) {
+  .layout-content {
+    padding-bottom: var(--spacing-lg);
+  }
+}
