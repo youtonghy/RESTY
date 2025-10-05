@@ -14,11 +14,12 @@ export default defineConfig(async () => ({
   clearScreen: false,
   // 2. server configuration
   server: {
-    // Use port 1420 when running with Tauri, otherwise use any available port
-    port: host ? 1420 : undefined,
-    strictPort: !!host, // Only enforce strict port when running with Tauri
+    // Use different ports to avoid Windows permission issues
+    // Tauri mode: 1420, Dev mode: 3000 (higher port, less likely to have permission issues)
+    port: host ? 1420 : 3000,
+    strictPort: false, // Always find available port if specified port is taken
     // Force IPv4 to avoid Windows IPv6 permission issues
-    host: host || "127.0.0.1",
+    host: "127.0.0.1",
     hmr: host
       ? {
           protocol: "ws",

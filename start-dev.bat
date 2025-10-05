@@ -25,7 +25,7 @@ echo.
 echo [2/2] Starting development server...
 echo.
 echo Server will start on an available port
-echo (usually http://localhost:5173/ or similar)
+echo (usually http://127.0.0.1:3000/ or similar)
 echo.
 echo The URL will be displayed below:
 echo Press Ctrl+C to stop the server
