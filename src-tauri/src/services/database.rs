@@ -3,7 +3,7 @@ use crate::utils::{AppError, AppResult};
 use chrono::{DateTime, Utc};
 use std::sync::Mutex;
 use std::path::PathBuf;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 /// Database service for managing persistent data
 /// Uses JSON files for persistence
