@@ -55,9 +55,11 @@
       "break": "您已经工作一段时间了,该休息一下眼睛了!"
     },
     "countdown": "剩余时间: {{time}}",
+    "simpleBreakTime": "休息 {{minutes}} 分钟",
     "actions": {
       "skip": "跳过",
       "extend": "延长5分钟",
+      "extend5min": "添加5分钟休息",
       "startBreak": "立即休息"
     }
   },

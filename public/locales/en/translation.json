@@ -55,9 +55,11 @@
       "break": "You've been working for a while. Time to rest your eyes!"
     },
     "countdown": "Remaining: {{time}}",
+    "simpleBreakTime": "Break for {{minutes}} minutes",
     "actions": {
       "skip": "Skip",
       "extend": "Extend 5 min",
+      "extend5min": "Add 5 min break",
       "startBreak": "Start Break Now"
     }
   },
