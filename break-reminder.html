@@ -231,17 +231,19 @@
 
     <script>
         (function () {
-            const tauri = window.__TAURI__;
+            const tauriGlobal = window.__TAURI__ || {};
+            const tauriCore = tauriGlobal.core;
+            const tauriEvent = tauriGlobal.event;
+            const tauriWindow = tauriGlobal.window;
 
-            if (!tauri) {
+            if (!tauriCore || !tauriCore.invoke || !tauriEvent || !tauriEvent.listen) {
                 console.error('Tauri API is not available.');
                 return;
             }
 
-            const { event, window: tauriWindow, core } = tauri;
-            const { listen } = event;
-            const { appWindow } = tauriWindow;
-            const { invoke } = core;
+            const invoke = tauriCore.invoke.bind(tauriCore);
+            const listen = tauriEvent.listen.bind(tauriEvent);
+            const appWindow = tauriWindow && tauriWindow.appWindow ? tauriWindow.appWindow : null;
 
             const state = {
                 remainingSeconds: 0,
@@ -250,8 +252,6 @@
                 status: 'stopped',
                 forceBreak: false,
                 countdownId: null,
-                skipProcessing: false,
-                extendProcessing: false,
             };
 
             const elements = {
@@ -260,90 +260,120 @@
                 subtitle: document.getElementById('subtitle'),
                 timer: document.getElementById('timer'),
                 skip: document.getElementById('skip-btn'),
+                skipLabel: document.querySelector('#skip-btn .label'),
                 extend: document.getElementById('extend-btn'),
+                extendLabel: document.querySelector('#extend-btn .label'),
                 close: document.getElementById('close-btn'),
                 body: document.body,
             };
 
+            const listeners = [];
+
             function formatTime(seconds) {
-                const safeSeconds = Math.max(0, Math.floor(seconds));
-                const minutes = Math.floor(safeSeconds / 60);
-                const remainder = safeSeconds % 60;
+                const value = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
+                const minutes = Math.floor(value / 60);
+                const remainder = value % 60;
                 return `${minutes.toString().padStart(2, '0')}:${remainder.toString().padStart(2, '0')}`;
             }
 
             function updateTimerDisplay() {
-                elements.timer.textContent = formatTime(state.remainingSeconds);
+                if (elements.timer) {
+                    elements.timer.textContent = formatTime(state.remainingSeconds);
+                }
+
                 const phaseLabel = state.phase === 'break' ? 'Break' : state.phase === 'work' ? 'Work' : 'Timer';
                 document.title = `${formatTime(state.remainingSeconds)} • ${phaseLabel}`;
-
-                if (state.remainingSeconds <= 0) {
-                    stopCountdown();
-                }
-            }
-
-            function updatePhaseDisplay() {
-                const phase = state.phase;
-                elements.body.dataset.phase = phase;
-
-                const isBreak = phase === 'break';
-                elements.icon.textContent = isBreak ? '👀' : '💪';
-                elements.title.textContent = isBreak ? 'Time to Rest!' : 'Back to Focus';
-                elements.subtitle.textContent = isBreak
-                    ? 'Give your eyes a break'
-                    : 'Let’s get productive again';
-
-                const skipLabel = isBreak ? 'Skip Break' : 'Skip';
-                const extendLabel = isBreak ? '+5 Minutes' : '+5 Minutes';
-                elements.skip.querySelector('.label').textContent = skipLabel;
-                elements.extend.querySelector('.label').textContent = extendLabel;
-            }
-
-            function ensureCountdown() {
-                if (state.countdownId || state.status !== 'running' || state.remainingSeconds <= 0) {
-                    return;
-                }
-
-                state.countdownId = window.setInterval(() => {
-                    if (state.remainingSeconds > 0) {
-                        state.remainingSeconds -= 1;
-                        updateTimerDisplay();
-                    } else {
-                        stopCountdown();
-                    }
-                }, 1000);
-            }
-
-            function stopCountdown() {
-                if (state.countdownId) {
-                    window.clearInterval(state.countdownId);
-                    state.countdownId = null;
-                }
             }
 
             function updateSkipAvailability() {
-                const canSkip = !state.forceBreak || state.phase !== 'break';
-                elements.skip.disabled = !canSkip || state.skipProcessing;
-                if (!canSkip) {
+                if (!elements.skip) {
+                    return;
+                }
+
+                const blockSkip = state.forceBreak && state.phase === 'break';
+                if (!elements.skip.classList.contains('loading')) {
+                    elements.skip.disabled = blockSkip;
+                }
+
+                if (blockSkip) {
                     elements.skip.title = 'Force break is enabled in settings';
                 } else {
                     elements.skip.removeAttribute('title');
                 }
             }
 
-            function updateExtendAvailability() {
-                elements.extend.disabled = state.extendProcessing;
+            function updatePhaseDisplay() {
+                if (elements.body) {
+                    elements.body.dataset.phase = state.phase || 'break';
+                }
+
+                const isBreak = state.phase === 'break';
+
+                if (elements.icon) {
+                    elements.icon.textContent = isBreak ? '👀' : '💪';
+                }
+
+                if (elements.title) {
+                    elements.title.textContent = isBreak ? 'Time to Rest!' : 'Back to Focus';
+                }
+
+                if (elements.subtitle) {
+                    elements.subtitle.textContent = isBreak
+                        ? 'Give your eyes a break'
+                        : 'Let’s get productive again';
+                }
+
+                if (elements.skipLabel) {
+                    elements.skipLabel.textContent = isBreak ? 'Skip Break' : 'Skip';
+                }
+
+                if (elements.extendLabel) {
+                    elements.extendLabel.textContent = '+5 Minutes';
+                }
+
+                updateSkipAvailability();
+            }
+
+            function clearCountdown() {
+                if (state.countdownId) {
+                    window.clearInterval(state.countdownId);
+                    state.countdownId = null;
+                }
+            }
+
+            function startCountdown() {
+                clearCountdown();
+
+                if (state.phase !== 'break' || state.status !== 'running' || state.remainingSeconds <= 0) {
+                    return;
+                }
+
+                state.countdownId = window.setInterval(() => {
+                    if (state.status !== 'running' || state.phase !== 'break') {
+                        clearCountdown();
+                        return;
+                    }
+
+                    if (state.remainingSeconds > 0) {
+                        state.remainingSeconds -= 1;
+                        updateTimerDisplay();
+                    } else {
+                        clearCountdown();
+                    }
+                }, 1000);
             }
 
             async function requestWindowClose() {
                 try {
                     await invoke('close_reminder_window');
                 } catch (error) {
-                    console.error('Failed to close via command, closing window directly.', error);
-                    try {
-                        await appWindow.close();
-                    } catch (closeError) {
-                        console.error('Failed to close window directly:', closeError);
+                    console.warn('Failed to close via command. Falling back to direct window close.', error);
+                    if (appWindow && typeof appWindow.close === 'function') {
+                        try {
+                            await appWindow.close();
+                        } catch (closeError) {
+                            console.error('Failed to close window directly:', closeError);
+                        }
                     }
                 }
             }
@@ -361,105 +391,119 @@
                     state.status = info.state;
                 }
 
-                if (typeof info.remainingSeconds === 'number') {
-                    state.remainingSeconds = info.remainingSeconds;
+                if (typeof info.remainingSeconds === 'number' && Number.isFinite(info.remainingSeconds)) {
+                    state.remainingSeconds = Math.max(0, Math.floor(info.remainingSeconds));
                 }
 
-                if (typeof info.totalSeconds === 'number') {
-                    state.totalSeconds = info.totalSeconds;
+                if (typeof info.totalSeconds === 'number' && Number.isFinite(info.totalSeconds)) {
+                    state.totalSeconds = Math.max(0, Math.floor(info.totalSeconds));
                 }
 
                 updatePhaseDisplay();
                 updateTimerDisplay();
 
-                if (state.status === 'running') {
-                    ensureCountdown();
+                if (state.phase === 'break' && state.status === 'running') {
+                    startCountdown();
                 } else {
-                    stopCountdown();
-                }
-
-                updateSkipAvailability();
-                updateExtendAvailability();
-
-                if (state.phase !== 'break' && state.status === 'running') {
-                    requestWindowClose();
+                    clearCountdown();
+                    if (state.phase !== 'break') {
+                        requestWindowClose();
+                    }
                 }
             }
 
-            async function loadInitialData() {
-                try {
-                    const [settings, info] = await Promise.all([
-                        invoke('load_settings'),
-                        invoke('get_timer_info'),
-                    ]);
+            function applySettings(settings) {
+                if (settings && typeof settings.enableForceBreak === 'boolean') {
+                    state.forceBreak = settings.enableForceBreak;
+                }
+                updateSkipAvailability();
+            }
 
-                    if (settings && typeof settings.enableForceBreak === 'boolean') {
-                        state.forceBreak = settings.enableForceBreak;
+            function setButtonLoading(button, loading) {
+                if (!button) {
+                    return;
+                }
+
+                button.classList.toggle('loading', loading);
+                if (button === elements.skip) {
+                    button.disabled = loading || (state.forceBreak && state.phase === 'break');
+                } else {
+                    button.disabled = loading;
+                }
+            }
+
+            listeners.push(
+                listen('timer-update', (event) => {
+                    applyTimerInfo(event.payload);
+                })
+            );
+
+            listeners.push(
+                listen('settings-change', (event) => {
+                    applySettings(event.payload);
+                })
+            );
+
+            listeners.push(
+                listen('phase-change', (event) => {
+                    const phase = event.payload;
+                    if (typeof phase === 'string') {
+                        state.phase = phase;
+                        updatePhaseDisplay();
+                        if (phase !== 'break') {
+                            requestWindowClose();
+                        }
+                    }
+                })
+            );
+
+            listeners.push(
+                listen('timer-finished', () => {
+                    if (state.phase !== 'break') {
+                        requestWindowClose();
+                    }
+                })
+            );
+
+            if (elements.skip) {
+                elements.skip.addEventListener('click', async () => {
+                    if (state.forceBreak && state.phase === 'break') {
+                        return;
                     }
 
-                    applyTimerInfo(info);
-                } catch (error) {
-                    console.error('Failed to load initial data:', error);
-                } finally {
-                    updateSkipAvailability();
-                    updateExtendAvailability();
-                }
+                    setButtonLoading(elements.skip, true);
+
+                    try {
+                        await invoke('skip_phase');
+                        await requestWindowClose();
+                    } catch (error) {
+                        console.error('Failed to skip phase:', error);
+                    } finally {
+                        setButtonLoading(elements.skip, false);
+                        updateSkipAvailability();
+                    }
+                });
             }
 
-            listen('timer-update', (event) => {
-                applyTimerInfo(event.payload);
-            });
+            if (elements.extend) {
+                elements.extend.addEventListener('click', async () => {
+                    setButtonLoading(elements.extend, true);
 
-            listen('timer-finished', () => {
-                if (state.phase === 'break') {
+                    try {
+                        await invoke('extend_phase');
+                    } catch (error) {
+                        console.error('Failed to extend phase:', error);
+                    } finally {
+                        setButtonLoading(elements.extend, false);
+                    }
+                });
+            }
+
+            if (elements.close) {
+                elements.close.addEventListener('click', () => {
                     requestWindowClose();
-                }
-            });
-
-            elements.skip.addEventListener('click', async () => {
-                if (state.skipProcessing || elements.skip.disabled) {
-                    return;
-                }
-
-                state.skipProcessing = true;
-                elements.skip.classList.add('loading');
-                updateSkipAvailability();
-
-                try {
-                    await invoke('skip_phase');
-                    await requestWindowClose();
-                } catch (error) {
-                    console.error('Failed to skip phase:', error);
-                } finally {
-                    state.skipProcessing = false;
-                    elements.skip.classList.remove('loading');
-                    updateSkipAvailability();
-                }
-            });
-
-            elements.extend.addEventListener('click', async () => {
-                if (state.extendProcessing || elements.extend.disabled) {
-                    return;
-                }
-
-                state.extendProcessing = true;
-                elements.extend.classList.add('loading');
-                updateExtendAvailability();
-
-                try {
-                    await invoke('extend_phase');
-                } catch (error) {
-                    console.error('Failed to extend phase:', error);
-                } finally {
-                    state.extendProcessing = false;
-                    elements.extend.classList.remove('loading');
-                    updateExtendAvailability();
-                }
-            });
-
-            elements.close.addEventListener('click', () => {
-                requestWindowClose();
-            });
+                });
+            }
 
             window.addEventListener('keydown', (event) => {
                 if (event.key === 'Escape') {
@@ -467,9 +511,37 @@
                 }
             });
 
-            loadInitialData();
-            updatePhaseDisplay();
-            updateTimerDisplay();
+            window.addEventListener('beforeunload', () => {
+                clearCountdown();
+                listeners.forEach((subscription) => {
+                    subscription
+                        .then((unlisten) => {
+                            if (typeof unlisten === 'function') {
+                                unlisten();
+                            }
+                        })
+                        .catch(() => undefined);
+                });
+            });
+
+            (async () => {
+                updatePhaseDisplay();
+                updateTimerDisplay();
+
+                try {
+                    const settings = await invoke('load_settings');
+                    applySettings(settings);
+                } catch (error) {
+                    console.error('Failed to load settings:', error);
+                }
+
+                try {
+                    const info = await invoke('get_timer_info');
+                    applyTimerInfo(info);
+                } catch (error) {
+                    console.error('Failed to load timer info:', error);
+                }
+            })();
         })();
     </script>
 </body>

@@ -7,15 +7,30 @@ import { Dashboard } from './pages/Dashboard';
 import { Settings } from './pages/Settings';
 import { Analytics } from './pages/Analytics';
 import { useAppStore } from './store';
+import type { Settings as AppSettings } from './types';
 import * as api from './utils/api';
 import './App.css';
 import './i18n';
 
 function App() {
   const { i18n } = useTranslation();
-  const { settings, setTimerInfo } = useAppStore();
+  const { settings } = useAppStore();
 
   useEffect(() => {
+    // Helper to open/close reminder window based on phase
+    const handleReminderForPhase = (phase: string, settingsOverride?: AppSettings) => {
+      const activeSettings = settingsOverride ?? useAppStore.getState().settings;
+      if (phase === 'break') {
+        api.openReminderWindow(activeSettings.reminderMode === 'fullscreen').catch((error) => {
+          console.error('Failed to open reminder window:', error);
+        });
+      } else {
+        api.closeReminderWindow().catch((error) => {
+          console.error('Failed to close reminder window:', error);
+        });
+      }
+    };
+
     // Load initial settings
     api.loadSettings().then((loaded) => {
       useAppStore.getState().setSettings(loaded);
@@ -29,7 +44,13 @@ function App() {
     // Listen for timer updates
     unsubscribers.push(
       api.onTimerUpdate((info) => {
-        setTimerInfo(info);
+        const store = useAppStore.getState();
+        const previousPhase = store.timerInfo.phase;
+        store.setTimerInfo(info);
+
+        if (previousPhase !== info.phase) {
+          handleReminderForPhase(info.phase, store.settings);
+        }
       })
     );
 
@@ -37,26 +58,14 @@ function App() {
     unsubscribers.push(
       api.onPhaseChange((phase) => {
         console.log('Phase changed to:', phase);
+        handleReminderForPhase(phase);
       })
     );
 
-    // Listen for timer finished
+    // Listen for timer finished (for logging only)
     unsubscribers.push(
       api.onTimerFinished(() => {
         console.log('Timer finished');
-        const { settings: currentSettings, timerInfo: currentTimer } = useAppStore.getState();
-
-        if (currentTimer.phase === 'break') {
-          api
-            .openReminderWindow(currentSettings.reminderMode === 'fullscreen')
-            .catch((error) => {
-              console.error('Failed to open reminder window:', error);
-            });
-        } else {
-          api.closeReminderWindow().catch((error) => {
-            console.error('Failed to close reminder window:', error);
-          });
-        }
       })
     );
 
