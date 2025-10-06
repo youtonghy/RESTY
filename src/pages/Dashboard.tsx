@@ -9,7 +9,7 @@ import './Dashboard.css';
  */
 export function Dashboard() {
   const { t } = useTranslation();
-  const { timerInfo, setTimerInfo, settings } = useAppStore();
+  const { timerInfo, setTimerInfo } = useAppStore();
   const [displaySeconds, setDisplaySeconds] = useState(timerInfo.remainingSeconds);
   const [timeDisplay, setTimeDisplay] = useState('00:00');
   const latestRemainingRef = useRef(timerInfo.remainingSeconds);
@@ -86,28 +86,6 @@ export function Dashboard() {
     return '#cbd5e0';
   };
 
-  const handleTakeBreak = async () => {
-    const fullscreen = settings.reminderMode === 'fullscreen';
-
-    try {
-      await api.startBreak();
-    } catch (error) {
-      console.error('Failed to start break:', error);
-      return;
-    }
-
-    api.openReminderWindow(fullscreen).catch((error) => {
-      console.error('Failed to open reminder window:', error);
-    });
-
-    try {
-      const updatedInfo = await api.getTimerInfo();
-      setTimerInfo(updatedInfo);
-    } catch (error) {
-      console.error('Failed to refresh timer info:', error);
-    }
-  };
-
   return (
     <div className="page dashboard">
       <div className="container">
@@ -161,18 +139,6 @@ export function Dashboard() {
               </div>
             </div>
           </div>
-
-          {/* Take Break Button - Only show during work phase */}
-          {isWorkPhase && (
-            <button
-              className="btn-take-break"
-              onClick={handleTakeBreak}
-              aria-label={t('dashboard.takeBreak')}
-            >
-              <span className="btn-icon">☕</span>
-            </button>
-          )}
-
           {/* Simple Info */}
           <div className="timer-info">
             <p className="timer-hint">
