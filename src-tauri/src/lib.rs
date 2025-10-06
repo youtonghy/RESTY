@@ -7,12 +7,24 @@ use commands::AppState;
 use services::{DatabaseService, TimerService};
 use std::sync::Arc;
 use tauri::{Listener, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::menu::{MenuBuilder, MenuItemBuilder};
+use tauri::tray::TrayIconBuilder;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// 构建并运行 Tauri 应用，初始化数据库、计时服务与事件监听。
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        // Intercept main window close to minimize instead of exiting
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                // Only affect the main window
+                if window.label() == "main" {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
         .setup(|app| {
             let app_handle = app.handle().clone();
 
@@ -80,6 +92,64 @@ pub fn run() {
                     }
                 });
             });
+
+            // Create system tray with menu
+            {
+                // Build tray menu
+                let show_item = MenuItemBuilder::new("显示主窗口").id("show").build(app)?;
+                let quit_item = MenuItemBuilder::new("退出").id("quit").build(app)?;
+                let menu = MenuBuilder::new(app)
+                    .items(&[&show_item, &quit_item])
+                    .build()?;
+
+                // Build tray icon
+                let mut tray_builder = TrayIconBuilder::new()
+                    .menu(&menu)
+                    .on_menu_event(|app, event| {
+                        let id = event.id().as_ref();
+                        match id {
+                            "show" => {
+                                if let Some(win) = app.get_webview_window("main") {
+                                    let _ = win.show();
+                                    let _ = win.set_focus();
+                                }
+                            }
+                            "quit" => {
+                                std::process::exit(0);
+                            }
+                            _ => {}
+                        }
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        match event {
+                            tauri::tray::TrayIconEvent::Click { .. } => {
+                                let app = tray.app_handle();
+                                if let Some(win) = app.get_webview_window("main") {
+                                    // Toggle show/hide on click
+                                    if let Ok(visible) = win.is_visible() {
+                                        if visible {
+                                            let _ = win.hide();
+                                        } else {
+                                            let _ = win.show();
+                                            let _ = win.set_focus();
+                                        }
+                                    } else {
+                                        let _ = win.show();
+                                        let _ = win.set_focus();
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    })
+                    .tooltip("RESTY");
+
+                if let Some(icon) = app.default_window_icon().cloned() {
+                    tray_builder = tray_builder.icon(icon);
+                }
+
+                let _tray = tray_builder.build(app)?;
+            }
 
             Ok(())
         })
