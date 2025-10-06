@@ -140,7 +140,7 @@ pub fn show_break_reminder_window(
             WebviewUrl::App("index.html#reminder".into()),
         )
         .title("Break Time - RESTY")
-        .inner_size(360.0, 420.0)
+        .inner_size(340.0, 300.0)
         .resizable(false)
         .maximized(false)
         .decorations(false)
@@ -154,7 +154,7 @@ pub fn show_break_reminder_window(
                 let screen = monitor.size();
                 let window_size = window.outer_size()?;
                 let x = screen.width as i32 - window_size.width as i32 - 20;
-                let y = 20;
+                let y = 96; // move downward to avoid top-right system/UI controls
                 window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }))?;
             }
         }
