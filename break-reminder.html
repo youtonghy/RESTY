@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Break Time - RESTY</title>
     <style>
+        :root {
+            color-scheme: light;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,25 +17,45 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             display: flex;
             align-items: center;
             justify-content: center;
             height: 100vh;
             overflow: hidden;
+            padding: 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: background 0.6s ease;
+        }
+
+        body[data-phase="break"] {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        body[data-phase="work"] {
+            background: linear-gradient(135deg, #34d399 0%, #059669 100%);
+        }
+
+        body[data-phase="idle"] {
+            background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
         }
 
         .container {
+            position: relative;
             text-align: center;
             padding: 40px;
-            max-width: 100%;
+            max-width: 520px;
+            width: 100%;
+            border-radius: 32px;
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.35);
+            backdrop-filter: blur(18px);
         }
 
         .icon {
             font-size: 80px;
-            margin-bottom: 20px;
-            animation: pulse 2s ease-in-out infinite;
+            margin-bottom: 24px;
+            animation: pulse 2.4s ease-in-out infinite;
         }
 
         @keyframes pulse {
@@ -39,101 +63,92 @@
                 transform: scale(1);
             }
             50% {
-                transform: scale(1.1);
+                transform: scale(1.12);
             }
         }
 
         h1 {
             font-size: 36px;
             font-weight: 700;
-            margin-bottom: 15px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+            margin-bottom: 14px;
+            text-shadow: 0 8px 18px rgba(30, 41, 59, 0.45);
         }
 
         p {
             font-size: 18px;
-            margin-bottom: 25px;
+            margin-bottom: 30px;
             opacity: 0.95;
         }
 
         .timer {
-            font-size: 64px;
+            font-size: 72px;
             font-weight: 700;
-            margin: 25px 0;
+            margin: 20px 0 40px;
             font-variant-numeric: tabular-nums;
-            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
-        }
-
-        .tips {
-            margin-top: 30px;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-        }
-
-        .tips h3 {
-            font-size: 18px;
-            margin-bottom: 12px;
-        }
-
-        .tips ul {
-            list-style: none;
-            text-align: left;
-            display: inline-block;
-        }
-
-        .tips li {
-            font-size: 14px;
-            margin: 6px 0;
-            padding-left: 20px;
-            position: relative;
-        }
-
-        .tips li::before {
-            content: "✓";
-            position: absolute;
-            left: 0;
-            font-weight: bold;
+            letter-spacing: 2px;
+            text-shadow: 0 16px 40px rgba(15, 23, 42, 0.55);
         }
 
         .actions {
             display: flex;
-            gap: 12px;
+            gap: 16px;
             justify-content: center;
-            margin-top: 30px;
+            flex-wrap: wrap;
         }
 
         .btn {
-            padding: 12px 24px;
+            padding: 14px 26px;
             border: none;
-            border-radius: 8px;
+            border-radius: 14px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, opacity 0.25s ease;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            min-width: 168px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
+        }
+
+        .btn:focus-visible {
+            outline: 2px solid rgba(255, 255, 255, 0.8);
+            outline-offset: 3px;
+        }
+
+        .btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.55;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .btn.loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .btn.loading .emoji {
+            animation: pulse 1.4s ease-in-out infinite;
         }
 
         .btn-skip {
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.18);
             color: white;
         }
 
-        .btn-skip:hover {
-            background: rgba(255, 255, 255, 0.3);
+        .btn-skip:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.28);
             transform: translateY(-2px);
         }
 
         .btn-extend {
-            background: rgba(255, 255, 255, 0.9);
-            color: #667eea;
+            background: rgba(255, 255, 255, 0.92);
+            color: #3949ab;
         }
 
-        .btn-extend:hover {
-            background: white;
+        .btn-extend:hover:not(:disabled) {
+            background: #ffffff;
             transform: translateY(-2px);
         }
 
@@ -141,119 +156,321 @@
             position: absolute;
             top: 20px;
             right: 20px;
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.22);
             border: none;
             color: white;
-            width: 40px;
-            height: 40px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
-            font-size: 24px;
+            font-size: 26px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: background 0.3s;
+            transition: background 0.3s ease, transform 0.3s ease;
         }
 
         .btn-close:hover {
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.32);
+            transform: translateY(-2px);
+        }
+
+        .emoji {
+            font-size: 20px;
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 16px;
+            }
+
+            .container {
+                padding: 32px 24px;
+            }
+
+            h1 {
+                font-size: 28px;
+            }
+
+            p {
+                font-size: 16px;
+            }
+
+            .timer {
+                font-size: 56px;
+            }
+
+            .btn {
+                min-width: 140px;
+                font-size: 14px;
+            }
         }
     </style>
 </head>
-<body>
-    <button class="btn-close" onclick="closeWindow()">×</button>
+<body data-phase="break">
     <div class="container">
-        <div class="icon">👀</div>
+        <button type="button" class="btn-close" id="close-btn" aria-label="Close reminder window">×</button>
+
+        <div class="icon" id="icon" aria-hidden="true">👀</div>
         <h1 id="title">Time to Rest!</h1>
         <p id="subtitle">Give your eyes a break</p>
 
-        <div class="timer" id="timer">5:00</div>
+        <div class="timer" id="timer">05:00</div>
 
         <div class="actions">
-            <button class="btn btn-skip" onclick="skipBreak()">
-                <span>⏭️</span>
-                <span>Skip Break</span>
+            <button type="button" class="btn btn-skip" id="skip-btn">
+                <span class="emoji">⏭️</span>
+                <span class="label">Skip Break</span>
             </button>
-            <button class="btn btn-extend" onclick="extendBreak()">
-                <span>⏰</span>
-                <span>+5 Minutes</span>
+            <button type="button" class="btn btn-extend" id="extend-btn">
+                <span class="emoji">⏰</span>
+                <span class="label">+5 Minutes</span>
             </button>
-        </div>
-
-        <div class="tips">
-            <h3>Break Tips:</h3>
-            <ul>
-                <li>Look at something 20 feet (6 meters) away</li>
-                <li>Blink your eyes several times</li>
-                <li>Stand up and stretch your body</li>
-                <li>Drink some water</li>
-            </ul>
         </div>
     </div>
 
     <script>
-        const { listen } = window.__TAURI__.event;
-        const { appWindow } = window.__TAURI__.window;
-        const { invoke } = window.__TAURI__.core;
+        (function () {
+            const tauri = window.__TAURI__;
 
-        let remainingSeconds = 300; // 5 minutes default
+            if (!tauri) {
+                console.error('Tauri API is not available.');
+                return;
+            }
 
-        async function loadInitialTimer() {
-            try {
-                const info = await invoke('get_timer_info');
-                if (info && typeof info.remainingSeconds === 'number') {
-                    remainingSeconds = info.remainingSeconds;
-                    updateTimer();
+            const { event, window: tauriWindow, core } = tauri;
+            const { listen } = event;
+            const { appWindow } = tauriWindow;
+            const { invoke } = core;
+
+            const state = {
+                remainingSeconds: 0,
+                totalSeconds: 0,
+                phase: 'break',
+                status: 'stopped',
+                forceBreak: false,
+                countdownId: null,
+                skipProcessing: false,
+                extendProcessing: false,
+            };
+
+            const elements = {
+                icon: document.getElementById('icon'),
+                title: document.getElementById('title'),
+                subtitle: document.getElementById('subtitle'),
+                timer: document.getElementById('timer'),
+                skip: document.getElementById('skip-btn'),
+                extend: document.getElementById('extend-btn'),
+                close: document.getElementById('close-btn'),
+                body: document.body,
+            };
+
+            function formatTime(seconds) {
+                const safeSeconds = Math.max(0, Math.floor(seconds));
+                const minutes = Math.floor(safeSeconds / 60);
+                const remainder = safeSeconds % 60;
+                return `${minutes.toString().padStart(2, '0')}:${remainder.toString().padStart(2, '0')}`;
+            }
+
+            function updateTimerDisplay() {
+                elements.timer.textContent = formatTime(state.remainingSeconds);
+                const phaseLabel = state.phase === 'break' ? 'Break' : state.phase === 'work' ? 'Work' : 'Timer';
+                document.title = `${formatTime(state.remainingSeconds)} • ${phaseLabel}`;
+
+                if (state.remainingSeconds <= 0) {
+                    stopCountdown();
                 }
-            } catch (error) {
-                console.error('Failed to load timer info:', error);
             }
-        }
 
-        // Update timer display
-        function updateTimer() {
-            const minutes = Math.floor(remainingSeconds / 60);
-            const seconds = remainingSeconds % 60;
-            document.getElementById('timer').textContent =
-                `${minutes}:${seconds.toString().padStart(2, '0')}`;
-        }
+            function updatePhaseDisplay() {
+                const phase = state.phase;
+                elements.body.dataset.phase = phase;
 
-        // Listen for timer updates
-        listen('timer-update', (event) => {
-            const info = event.payload;
-            if (info.phase === 'break' && info.state === 'running') {
-                remainingSeconds = info.remainingSeconds;
-                updateTimer();
+                const isBreak = phase === 'break';
+                elements.icon.textContent = isBreak ? '👀' : '💪';
+                elements.title.textContent = isBreak ? 'Time to Rest!' : 'Back to Focus';
+                elements.subtitle.textContent = isBreak
+                    ? 'Give your eyes a break'
+                    : 'Let’s get productive again';
+
+                const skipLabel = isBreak ? 'Skip Break' : 'Skip';
+                const extendLabel = isBreak ? '+5 Minutes' : '+5 Minutes';
+                elements.skip.querySelector('.label').textContent = skipLabel;
+                elements.extend.querySelector('.label').textContent = extendLabel;
             }
-        });
 
-        // Skip break and start work
-        async function skipBreak() {
-            try {
-                await invoke('skip_phase');
-                closeWindow();
-            } catch (error) {
-                console.error('Failed to skip:', error);
+            function ensureCountdown() {
+                if (state.countdownId || state.status !== 'running' || state.remainingSeconds <= 0) {
+                    return;
+                }
+
+                state.countdownId = window.setInterval(() => {
+                    if (state.remainingSeconds > 0) {
+                        state.remainingSeconds -= 1;
+                        updateTimerDisplay();
+                    } else {
+                        stopCountdown();
+                    }
+                }, 1000);
             }
-        }
 
-        // Extend break by 5 minutes
-        async function extendBreak() {
-            try {
-                await invoke('extend_phase');
-            } catch (error) {
-                console.error('Failed to extend:', error);
+            function stopCountdown() {
+                if (state.countdownId) {
+                    window.clearInterval(state.countdownId);
+                    state.countdownId = null;
+                }
             }
-        }
 
-        // Close window function
-        function closeWindow() {
-            appWindow.close();
-        }
+            function updateSkipAvailability() {
+                const canSkip = !state.forceBreak || state.phase !== 'break';
+                elements.skip.disabled = !canSkip || state.skipProcessing;
+                if (!canSkip) {
+                    elements.skip.title = 'Force break is enabled in settings';
+                } else {
+                    elements.skip.removeAttribute('title');
+                }
+            }
 
-        // Initialize
-        loadInitialTimer();
-        updateTimer();
+            function updateExtendAvailability() {
+                elements.extend.disabled = state.extendProcessing;
+            }
+
+            async function requestWindowClose() {
+                try {
+                    await invoke('close_reminder_window');
+                } catch (error) {
+                    console.error('Failed to close via command, closing window directly.', error);
+                    try {
+                        await appWindow.close();
+                    } catch (closeError) {
+                        console.error('Failed to close window directly:', closeError);
+                    }
+                }
+            }
+
+            function applyTimerInfo(info) {
+                if (!info) {
+                    return;
+                }
+
+                if (typeof info.phase === 'string') {
+                    state.phase = info.phase;
+                }
+
+                if (typeof info.state === 'string') {
+                    state.status = info.state;
+                }
+
+                if (typeof info.remainingSeconds === 'number') {
+                    state.remainingSeconds = info.remainingSeconds;
+                }
+
+                if (typeof info.totalSeconds === 'number') {
+                    state.totalSeconds = info.totalSeconds;
+                }
+
+                updatePhaseDisplay();
+                updateTimerDisplay();
+
+                if (state.status === 'running') {
+                    ensureCountdown();
+                } else {
+                    stopCountdown();
+                }
+
+                updateSkipAvailability();
+                updateExtendAvailability();
+
+                if (state.phase !== 'break' && state.status === 'running') {
+                    requestWindowClose();
+                }
+            }
+
+            async function loadInitialData() {
+                try {
+                    const [settings, info] = await Promise.all([
+                        invoke('load_settings'),
+                        invoke('get_timer_info'),
+                    ]);
+
+                    if (settings && typeof settings.enableForceBreak === 'boolean') {
+                        state.forceBreak = settings.enableForceBreak;
+                    }
+
+                    applyTimerInfo(info);
+                } catch (error) {
+                    console.error('Failed to load initial data:', error);
+                } finally {
+                    updateSkipAvailability();
+                    updateExtendAvailability();
+                }
+            }
+
+            listen('timer-update', (event) => {
+                applyTimerInfo(event.payload);
+            });
+
+            listen('timer-finished', () => {
+                if (state.phase === 'break') {
+                    requestWindowClose();
+                }
+            });
+
+            elements.skip.addEventListener('click', async () => {
+                if (state.skipProcessing || elements.skip.disabled) {
+                    return;
+                }
+
+                state.skipProcessing = true;
+                elements.skip.classList.add('loading');
+                updateSkipAvailability();
+
+                try {
+                    await invoke('skip_phase');
+                    await requestWindowClose();
+                } catch (error) {
+                    console.error('Failed to skip phase:', error);
+                } finally {
+                    state.skipProcessing = false;
+                    elements.skip.classList.remove('loading');
+                    updateSkipAvailability();
+                }
+            });
+
+            elements.extend.addEventListener('click', async () => {
+                if (state.extendProcessing || elements.extend.disabled) {
+                    return;
+                }
+
+                state.extendProcessing = true;
+                elements.extend.classList.add('loading');
+                updateExtendAvailability();
+
+                try {
+                    await invoke('extend_phase');
+                } catch (error) {
+                    console.error('Failed to extend phase:', error);
+                } finally {
+                    state.extendProcessing = false;
+                    elements.extend.classList.remove('loading');
+                    updateExtendAvailability();
+                }
+            });
+
+            elements.close.addEventListener('click', () => {
+                requestWindowClose();
+            });
+
+            window.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    requestWindowClose();
+                }
+            });
+
+            loadInitialData();
+            updatePhaseDisplay();
+            updateTimerDisplay();
+        })();
     </script>
 </body>
 </html>

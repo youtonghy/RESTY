@@ -44,10 +44,19 @@ function App() {
     unsubscribers.push(
       api.onTimerFinished(() => {
         console.log('Timer finished');
-        const currentSettings = useAppStore.getState().settings;
-        api.openReminderWindow(currentSettings.reminderMode === 'fullscreen').catch((error) => {
-          console.error('Failed to open reminder window:', error);
-        });
+        const { settings: currentSettings, timerInfo: currentTimer } = useAppStore.getState();
+
+        if (currentTimer.phase === 'break') {
+          api
+            .openReminderWindow(currentSettings.reminderMode === 'fullscreen')
+            .catch((error) => {
+              console.error('Failed to open reminder window:', error);
+            });
+        } else {
+          api.closeReminderWindow().catch((error) => {
+            console.error('Failed to close reminder window:', error);
+          });
+        }
       })
     );
 
