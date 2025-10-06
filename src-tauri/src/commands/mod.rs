@@ -2,7 +2,7 @@ use crate::models::{Settings, TimerInfo, AnalyticsData, AnalyticsQuery, MonitorI
 use crate::services::{DatabaseService, TimerService};
 use crate::utils::{AppError, AppResult};
 use std::sync::Arc;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 /// Application state shared across commands
 pub struct AppState {
