@@ -231,19 +231,19 @@
 
     <script>
         (function () {
-            const tauriGlobal = window.__TAURI__ || {};
-            const tauriCore = tauriGlobal.core;
-            const tauriEvent = tauriGlobal.event;
-            const tauriWindow = tauriGlobal.window;
+            const tauriGlobal = window.__TAURI__;
+            const coreApi = tauriGlobal?.core;
+            const eventApi = tauriGlobal?.event;
+            const windowApi = tauriGlobal?.window;
 
-            if (!tauriCore || !tauriCore.invoke || !tauriEvent || !tauriEvent.listen) {
+            if (!coreApi || !eventApi) {
                 console.error('Tauri API is not available.');
                 return;
             }
 
-            const invoke = tauriCore.invoke.bind(tauriCore);
-            const listen = tauriEvent.listen.bind(tauriEvent);
-            const appWindow = tauriWindow && tauriWindow.appWindow ? tauriWindow.appWindow : null;
+            const { invoke } = coreApi;
+            const { listen } = eventApi;
+            const appWindow = windowApi?.appWindow ?? null;
 
             const state = {
                 remainingSeconds: 0,
@@ -268,6 +268,16 @@
             };
 
             const listeners = [];
+            const listenerPromises = [];
+
+            async function addListener(eventName, handler) {
+                try {
+                    const unlisten = await listen(eventName, handler);
+                    listeners.push(unlisten);
+                } catch (error) {
+                    console.error(`Failed to register listener for ${eventName}:`, error);
+                }
+            }
 
             function formatTime(seconds) {
                 const value = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
@@ -432,38 +442,30 @@
                 }
             }
 
-            listeners.push(
-                listen('timer-update', (event) => {
-                    applyTimerInfo(event.payload);
-                })
-            );
+            listenerPromises.push(addListener('timer-update', (event) => {
+                applyTimerInfo(event.payload);
+            }));
 
-            listeners.push(
-                listen('settings-change', (event) => {
-                    applySettings(event.payload);
-                })
-            );
+            listenerPromises.push(addListener('settings-change', (event) => {
+                applySettings(event.payload);
+            }));
 
-            listeners.push(
-                listen('phase-change', (event) => {
-                    const phase = event.payload;
-                    if (typeof phase === 'string') {
-                        state.phase = phase;
-                        updatePhaseDisplay();
-                        if (phase !== 'break') {
-                            requestWindowClose();
-                        }
-                    }
-                })
-            );
-
-            listeners.push(
-                listen('timer-finished', () => {
-                    if (state.phase !== 'break') {
+            listenerPromises.push(addListener('phase-change', (event) => {
+                const phase = event.payload;
+                if (typeof phase === 'string') {
+                    state.phase = phase;
+                    updatePhaseDisplay();
+                    if (phase !== 'break') {
                         requestWindowClose();
                     }
-                })
-            );
+                }
+            }));
+
+            listenerPromises.push(addListener('timer-finished', () => {
+                if (state.phase !== 'break') {
+                    requestWindowClose();
+                }
+            }));
 
             if (elements.skip) {
                 elements.skip.addEventListener('click', async () => {
@@ -513,20 +515,26 @@
 
             window.addEventListener('beforeunload', () => {
                 clearCountdown();
-                listeners.forEach((subscription) => {
-                    subscription
-                        .then((unlisten) => {
-                            if (typeof unlisten === 'function') {
-                                unlisten();
-                            }
-                        })
-                        .catch(() => undefined);
+                listeners.forEach((unlisten) => {
+                    try {
+                        if (typeof unlisten === 'function') {
+                            unlisten();
+                        }
+                    } catch (error) {
+                        console.error('Failed to unlisten:', error);
+                    }
                 });
             });
 
             (async () => {
                 updatePhaseDisplay();
                 updateTimerDisplay();
+
+                try {
+                    await Promise.all(listenerPromises);
+                } catch (error) {
+                    console.error('Failed to register listeners:', error);
+                }
 
                 try {
                     const settings = await invoke('load_settings');
