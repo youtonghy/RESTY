@@ -136,6 +136,21 @@
     "takeBreak": "Take a Break Now",
     "nextBreakAt": "Next break at {{time}}",
     "nextWorkAt": "Next work at {{time}}",
-    "nextEventUnavailable": "Schedule pending"
+    "nextEventUnavailable": "Schedule pending",
+    "currentStatus": "Current Status",
+    "nextWork": "Next Work",
+    "nextBreak": "Next Break",
+    "notScheduled": "Not scheduled",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "dayProgress": "Day Progress",
+    "weekProgress": "Week Progress",
+    "monthProgress": "Month Progress",
+    "yearProgress": "Year Progress",
+    "eyeCareTips": "Eye Care Tips",
+    "refreshTips": "Refresh Tips",
+    "working": "Working",
+    "breaking": "On Break",
+    "idle": "Idle"
   }
 }

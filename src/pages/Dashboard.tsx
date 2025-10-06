@@ -2,10 +2,16 @@ import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
 import * as api from '../utils/api';
+import { GradientTitle } from '../components/Dashboard/GradientTitle';
+import { FeatureCard } from '../components/Dashboard/FeatureCard';
+import { PercentCard } from '../components/Dashboard/PercentCard';
+import { NextSlotCard } from '../components/Dashboard/NextSlotCard';
+import { TipsCard } from '../components/Dashboard/TipsCard';
+import { ThemeToggle } from '../components/Dashboard/ThemeToggle';
 import './Dashboard.css';
 
 /**
- * 仪表盘页面：展示当前番茄钟状态，并提供快速操作入口。
+ * 仪表盘页面：苹果发布会风格的卡片式布局
  */
 export function Dashboard() {
   const { t } = useTranslation();
@@ -33,117 +39,160 @@ export function Dashboard() {
     };
   }, [setTimerInfo]);
 
-  const isStopped = timerInfo.state === 'stopped';
+  // Status calculations
   const isWorkPhase = timerInfo.phase === 'work';
   const isBreakPhase = timerInfo.phase === 'break';
+  const isIdlePhase = timerInfo.phase === 'idle';
+  const isRunning = timerInfo.state === 'running';
 
-  const progress = useMemo(() => {
-    if (timerInfo.totalMinutes <= 0) {
-      return 0;
-    }
-    return Math.min(timerInfo.remainingMinutes / timerInfo.totalMinutes, 1);
-  }, [timerInfo.remainingMinutes, timerInfo.totalMinutes]);
-
-  const nextTransitionDisplay = useMemo(() => {
-    if (!timerInfo.nextTransitionTime) {
-      return '--:--';
-    }
-    const time = new Date(timerInfo.nextTransitionTime);
-    if (Number.isNaN(time.getTime())) {
-      return '--:--';
-    }
-    return time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }, [timerInfo.nextTransitionTime]);
-
-  const nextTransitionLabel = useMemo(() => {
-    if (!timerInfo.nextTransitionTime) {
-      return t('dashboard.nextEventUnavailable');
-    }
+  const getStatusInfo = () => {
     if (isWorkPhase) {
-      return t('dashboard.nextBreakAt', { time: nextTransitionDisplay });
+      return {
+        status: t('dashboard.working'),
+        description: t('dashboard.workMessage'),
+        indicator: 'working'
+      };
     }
     if (isBreakPhase) {
-      return t('dashboard.nextWorkAt', { time: nextTransitionDisplay });
+      return {
+        status: t('dashboard.breaking'),
+        description: t('dashboard.breakMessage'),
+        indicator: 'break'
+      };
     }
-    return t('dashboard.nextEventUnavailable');
-  }, [isWorkPhase, isBreakPhase, nextTransitionDisplay, t, timerInfo.nextTransitionTime]);
-
-  const getPhaseIcon = () => {
-    if (isWorkPhase) return '💼';
-    if (isBreakPhase) return '☕';
-    return '⏱️';
+    return {
+      status: t('dashboard.idle'),
+      description: t('dashboard.idleMessage'),
+      indicator: 'idle'
+    };
   };
 
-  const getPhaseLabel = () => {
-    if (isWorkPhase) return t('reminder.title.work');
-    if (isBreakPhase) return t('reminder.title.break');
-    return t('app.name');
+  // Progress calculations
+  const calculateProgress = () => {
+    const now = new Date();
+    const timezoneOffset = now.getTimezoneOffset() * 60 * 1000; // Convert to milliseconds
+    const localNow = new Date(now.getTime() - timezoneOffset);
+
+    // Day progress
+    const dayStart = new Date(localNow);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(localNow);
+    dayEnd.setHours(23, 59, 59, 999);
+    const dayProgress = ((localNow.getTime() - dayStart.getTime()) / (dayEnd.getTime() - dayStart.getTime())) * 100;
+
+    // Week progress (ISO week starts on Monday)
+    const weekStart = new Date(localNow);
+    const day = weekStart.getDay();
+    const diff = weekStart.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
+    weekStart.setDate(diff);
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+    const weekProgress = ((localNow.getTime() - weekStart.getTime()) / (weekEnd.getTime() - weekStart.getTime())) * 100;
+
+    // Month progress
+    const monthStart = new Date(localNow.getFullYear(), localNow.getMonth(), 1);
+    monthStart.setHours(0, 0, 0, 0);
+    const monthEnd = new Date(localNow.getFullYear(), localNow.getMonth() + 1, 0);
+    monthEnd.setHours(23, 59, 59, 999);
+    const monthProgress = ((localNow.getTime() - monthStart.getTime()) / (monthEnd.getTime() - monthStart.getTime())) * 100;
+
+    // Year progress
+    const yearStart = new Date(localNow.getFullYear(), 0, 1);
+    yearStart.setHours(0, 0, 0, 0);
+    const yearEnd = new Date(localNow.getFullYear() + 1, 0, 1);
+    yearEnd.setHours(0, 0, 0, -1);
+    const yearProgress = ((localNow.getTime() - yearStart.getTime()) / (yearEnd.getTime() - yearStart.getTime())) * 100;
+
+    return {
+      day: Math.min(dayProgress, 100),
+      week: Math.min(weekProgress, 100),
+      month: Math.min(monthProgress, 100),
+      year: Math.min(yearProgress, 100)
+    };
   };
 
-  const getPhaseColor = () => {
-    if (isWorkPhase) return '#667eea';
-    if (isBreakPhase) return '#48bb78';
-    return '#cbd5e0';
+  const progress = calculateProgress();
+
+  // Mock next slots data (this would come from your backend/scheduler)
+  const getNextWorkTime = () => {
+    // Example: next work session starts 2 hours from now
+    const nextWork = new Date();
+    nextWork.setHours(nextWork.getHours() + 2);
+    return nextWork.toISOString();
   };
+
+  const getNextBreakTime = () => {
+    // Example: next break starts in 30 minutes
+    const nextBreak = new Date();
+    nextBreak.setMinutes(nextBreak.getMinutes() + 30);
+    return nextBreak.toISOString();
+  };
+
+  const statusInfo = getStatusInfo();
 
   return (
     <div className="page dashboard">
-      <div className="container">
-        {/* Minimal Timer Display */}
-        <section className="timer-display-minimal">
-          {/* Status Badge */}
-          <div className="status-badge" style={{ backgroundColor: getPhaseColor() }}>
-            <span className="status-icon">{getPhaseIcon()}</span>
-            <span className="status-text">{getPhaseLabel()}</span>
-          </div>
+      <ThemeToggle />
 
-          {/* Large Timer Circle */}
-          <div className="timer-circle-container">
-            <svg className="timer-svg" viewBox="0 0 400 400">
-              {/* Background Circle */}
-              <circle
-                className="timer-bg"
-                cx="200"
-                cy="200"
-                r="180"
-                fill="none"
-                stroke="#e2e8f0"
-                strokeWidth="16"
-              />
-              {/* Progress Circle */}
-              {!isStopped && (
-                <circle
-                  className="timer-progress"
-                  cx="200"
-                  cy="200"
-                  r="180"
-                  fill="none"
-                  stroke={getPhaseColor()}
-                  strokeWidth="16"
-                  strokeLinecap="round"
-                  strokeDasharray={`${2 * Math.PI * 180}`}
-                  strokeDashoffset={`${2 * Math.PI * 180 * (1 - progress)}`}
-                  transform="rotate(-90 200 200)"
-                  style={{ transition: 'stroke-dashoffset 1s linear' }}
-                />
-              )}
-            </svg>
+      <div className="dashboard-container">
+        <GradientTitle>RESTY</GradientTitle>
 
-            {/* Time Display */}
-            <div className="timer-content">
-              <div className="timer-time">{nextTransitionDisplay}</div>
-              <div className="timer-subtitle">{nextTransitionLabel}</div>
+        <div className="dashboard-grid">
+          {/* Current Status Card */}
+          <FeatureCard
+            icon={isWorkPhase ? '💼' : isBreakPhase ? '☕' : '⏱️'}
+            title={t('dashboard.currentStatus')}
+            className="status-card"
+          >
+            <div className="status-badge">
+              <div className={`status-indicator ${statusInfo.indicator}`} />
+              <span>{statusInfo.status}</span>
             </div>
-          </div>
-          {/* Simple Info */}
-          <div className="timer-info">
-            <p className="timer-hint">
-              {isWorkPhase && t('dashboard.workMessage')}
-              {isBreakPhase && t('dashboard.breakMessage')}
-              {!isWorkPhase && !isBreakPhase && t('dashboard.idleMessage')}
-            </p>
-          </div>
-        </section>
+            <div className="card-secondary">{statusInfo.description}</div>
+          </FeatureCard>
+
+          {/* Next Work Card */}
+          <NextSlotCard
+            type="work"
+            time={getNextWorkTime()}
+          />
+
+          {/* Next Break Card */}
+          <NextSlotCard
+            type="break"
+            time={getNextBreakTime()}
+          />
+
+          {/* Progress Cards */}
+          <PercentCard
+            icon="📅"
+            title={t('dashboard.dayProgress')}
+            percentage={progress.day}
+          />
+
+          <PercentCard
+            icon="📆"
+            title={t('dashboard.weekProgress')}
+            percentage={progress.week}
+          />
+
+          <PercentCard
+            icon="📊"
+            title={t('dashboard.monthProgress')}
+            percentage={progress.month}
+          />
+
+          <PercentCard
+            icon="📈"
+            title={t('dashboard.yearProgress')}
+            percentage={progress.year}
+          />
+
+          {/* Tips Card */}
+          <TipsCard />
+        </div>
       </div>
     </div>
   );
