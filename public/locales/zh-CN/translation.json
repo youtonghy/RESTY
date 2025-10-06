@@ -136,21 +136,6 @@
     "takeBreak": "立即休息",
     "nextBreakAt": "下次休息时间 {{time}}",
     "nextWorkAt": "下次开始工作 {{time}}",
-    "nextEventUnavailable": "暂无排程信息",
-    "currentStatus": "当前状态",
-    "nextWork": "下次工作",
-    "nextBreak": "下次休息",
-    "notScheduled": "未计划",
-    "today": "今天",
-    "tomorrow": "明天",
-    "dayProgress": "今天已过",
-    "weekProgress": "本周已过",
-    "monthProgress": "本月已过",
-    "yearProgress": "今年已过",
-    "eyeCareTips": "护眼技巧",
-    "refreshTips": "换一批",
-    "working": "工作中",
-    "breaking": "休息中",
-    "idle": "离线"
+    "nextEventUnavailable": "暂无排程信息"
   }
 }
