@@ -9,7 +9,7 @@ import './Dashboard.css';
  */
 export function Dashboard() {
   const { t } = useTranslation();
-  const { timerInfo, setTimerInfo } = useAppStore();
+  const { timerInfo, setTimerInfo, settings } = useAppStore();
   const [displaySeconds, setDisplaySeconds] = useState(timerInfo.remainingSeconds);
   const [timeDisplay, setTimeDisplay] = useState('00:00');
   const latestRemainingRef = useRef(timerInfo.remainingSeconds);
@@ -87,10 +87,24 @@ export function Dashboard() {
   };
 
   const handleTakeBreak = async () => {
+    const fullscreen = settings.reminderMode === 'fullscreen';
+
     try {
       await api.startBreak();
     } catch (error) {
       console.error('Failed to start break:', error);
+      return;
+    }
+
+    api.openReminderWindow(fullscreen).catch((error) => {
+      console.error('Failed to open reminder window:', error);
+    });
+
+    try {
+      const updatedInfo = await api.getTimerInfo();
+      setTimerInfo(updatedInfo);
+    } catch (error) {
+      console.error('Failed to refresh timer info:', error);
     }
   };
 
