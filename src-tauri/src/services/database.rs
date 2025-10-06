@@ -5,8 +5,8 @@ use std::sync::Mutex;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
-/// Database service for managing persistent data
-/// Uses JSON files for persistence
+/// Database service for managing persistent data.
+/// 使用本地 JSON 文件持久化设置与会话历史。
 pub struct DatabaseService {
     app: AppHandle,
     settings: Mutex<Settings>,
@@ -16,6 +16,7 @@ pub struct DatabaseService {
 
 impl DatabaseService {
     /// Create a new database service instance
+    /// 计算数据目录并初始化内存缓存。
     pub fn new(app: AppHandle) -> Self {
         // Get app data directory
         let data_dir = app.path()
@@ -31,6 +32,7 @@ impl DatabaseService {
     }
 
     /// Initialize database schema
+    /// 创建数据目录，加载已有设置与历史会话。
     pub async fn initialize(&self) -> AppResult<()> {
         // Create data directory if it doesn't exist
         if !self.data_dir.exists() {
@@ -96,6 +98,7 @@ impl DatabaseService {
     }
 
     /// Save settings to database
+    /// 同步写入内存缓存与 `settings.json`。
     pub async fn save_settings(&self, settings: &Settings) -> AppResult<()> {
         // Update in-memory settings
         let mut stored_settings = self.settings.lock()
@@ -114,6 +117,7 @@ impl DatabaseService {
     }
 
     /// Load settings from database
+    /// 返回内存中的设置快照。
     pub async fn load_settings(&self) -> AppResult<Settings> {
         let settings = self.settings.lock()
             .map_err(|e| AppError::DatabaseError(format!("Failed to lock settings: {}", e)))?;
@@ -121,6 +125,7 @@ impl DatabaseService {
     }
 
     /// Save a completed session
+    /// 追加会话记录并写入 `sessions.json`。
     pub async fn save_session(&self, session: &Session) -> AppResult<()> {
         // Add to in-memory sessions
         let mut sessions = self.sessions.lock()
@@ -138,6 +143,7 @@ impl DatabaseService {
     }
 
     /// Get analytics data for a date range
+    /// 按时间区间筛选会话，计算统计指标。
     pub async fn get_analytics(&self, query: &AnalyticsQuery) -> AppResult<AnalyticsData> {
         let sessions = self.sessions.lock()
             .map_err(|e| AppError::DatabaseError(format!("Failed to lock sessions: {}", e)))?;

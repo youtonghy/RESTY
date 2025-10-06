@@ -10,6 +10,9 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+/**
+ * 基于设置与系统偏好控制主题，并在 DOM 上设置 `data-theme`。
+ */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const { settings, setSettings } = useAppStore();
   const [effectiveTheme, setEffectiveTheme] = useState<'light' | 'dark'>('light');
@@ -53,6 +56,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * 暴露上下文 hook，确保只在 ThemeProvider 内部使用。
+ */
 export function useTheme() {
   const context = useContext(ThemeContext);
   if (!context) {

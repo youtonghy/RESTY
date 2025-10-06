@@ -2,6 +2,9 @@ import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import './Navigation.css';
 
+/**
+ * 主导航组件：根据当前路由高亮菜单，并提供多语言标签。
+ */
 export function Navigation() {
   const { t } = useTranslation();
   const location = useLocation();

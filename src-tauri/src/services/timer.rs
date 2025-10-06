@@ -7,7 +7,8 @@ use tauri::{AppHandle, Emitter};
 use tokio::time;
 use uuid::Uuid;
 
-/// Timer service for managing work/break cycles
+/// Timer service for managing work/break cycles.
+/// 负责管理工作/休息阶段状态与事件广播。
 pub struct TimerService {
     state: Arc<Mutex<TimerServiceState>>,
     app: AppHandle,
@@ -28,6 +29,7 @@ struct TimerServiceState {
 
 impl TimerService {
     /// Create a new timer service
+    /// 初始化服务，记录工作/休息时长并保留 AppHandle。
     pub fn new(app: AppHandle, work_duration: u32, break_duration: u32) -> Arc<Self> {
         Arc::new(Self {
             state: Arc::new(Mutex::new(TimerServiceState {
@@ -47,6 +49,7 @@ impl TimerService {
     }
 
     /// Start work session
+    /// 切换到工作阶段并重置计时。
     pub fn start_work(&self) -> AppResult<()> {
         let mut state = self.state.lock().unwrap();
         state.phase = TimerPhase::Work;
@@ -64,6 +67,7 @@ impl TimerService {
     }
 
     /// Start break session
+    /// 切换到休息阶段并重置计时。
     pub fn start_break(&self) -> AppResult<()> {
         let mut state = self.state.lock().unwrap();
         state.phase = TimerPhase::Break;
@@ -81,6 +85,7 @@ impl TimerService {
     }
 
     /// Pause timer
+    /// 将计时器状态标记为暂停，不再递减剩余时间。
     pub fn pause(&self) -> AppResult<()> {
         let mut state = self.state.lock().unwrap();
         if state.state == TimerState::Running {
@@ -92,6 +97,7 @@ impl TimerService {
     }
 
     /// Resume timer
+    /// 恢复暂停的计时并重置最后一次 tick 时间。
     pub fn resume(&self) -> AppResult<()> {
         let mut state = self.state.lock().unwrap();
         if state.state == TimerState::Paused {
@@ -104,6 +110,7 @@ impl TimerService {
     }
 
     /// Skip current phase
+    /// 终止当前阶段并生成会话记录，返回给上层持久化。
     pub fn skip(&self) -> AppResult<Session> {
         let state = self.state.lock().unwrap();
         let session = self.create_session_record(&state, true);
@@ -114,6 +121,7 @@ impl TimerService {
     }
 
     /// Extend current phase by seconds
+    /// 延长当前阶段剩余时长，并通知前端刷新进度。
     pub fn extend(&self, seconds: u32) -> AppResult<()> {
         let mut state = self.state.lock().unwrap();
         state.remaining_seconds += seconds;
@@ -124,6 +132,7 @@ impl TimerService {
     }
 
     /// Stop timer
+    /// 回到 Idle 状态，清空当前会话。
     pub fn stop(&self) -> AppResult<()> {
         let mut state = self.state.lock().unwrap();
         state.phase = TimerPhase::Idle;
@@ -138,6 +147,7 @@ impl TimerService {
     }
 
     /// Tick timer (call every second)
+    /// 定时器后台循环调用，每秒递减并在阶段结束时自动轮换。
     pub fn tick(&self) -> AppResult<Option<Session>> {
         let mut state = self.state.lock().unwrap();
 
@@ -232,6 +242,7 @@ impl TimerService {
     }
 
     /// Emit timer update event
+    /// 将计时器状态推送给前端，驱动 UI 更新。
     fn emit_timer_update(&self) -> AppResult<()> {
         let info = self.get_info();
         self.app
@@ -241,6 +252,7 @@ impl TimerService {
     }
 
     /// Emit phase change event
+    /// 通知前端阶段切换，用于弹窗或文案更新。
     fn emit_phase_change(&self, phase: &str) -> AppResult<()> {
         self.app
             .emit("phase-change", phase)
@@ -249,6 +261,7 @@ impl TimerService {
     }
 
     /// Emit timer finished event
+    /// 通知前端计时结束，可触发提示音或其他反馈。
     fn emit_timer_finished(&self) -> AppResult<()> {
         self.app
             .emit("timer-finished", ())
@@ -257,6 +270,7 @@ impl TimerService {
     }
 
     /// Show break reminder window
+    /// 触发前端或主进程创建休息提醒窗口。
     fn show_break_reminder(&self) -> AppResult<()> {
         self.app
             .emit("show-break-reminder", ())
@@ -265,6 +279,7 @@ impl TimerService {
     }
 
     /// Start background ticker
+    /// 在 Tokio 任务中启动秒级循环，持续驱动计时逻辑。
     pub fn start_ticker(self: Arc<Self>) {
         let service = Arc::clone(&self);
         tokio::spawn(async move {

@@ -1,13 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
 import * as api from '../utils/api';
 import './Dashboard.css';
 
+/**
+ * 仪表盘页面：展示当前番茄钟状态，并提供快速操作入口。
+ */
 export function Dashboard() {
   const { t } = useTranslation();
   const { timerInfo, setTimerInfo } = useAppStore();
+  const [displaySeconds, setDisplaySeconds] = useState(timerInfo.remainingSeconds);
   const [timeDisplay, setTimeDisplay] = useState('00:00');
+  const latestRemainingRef = useRef(timerInfo.remainingSeconds);
+  const lastSyncRef = useRef(Date.now());
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     // Load initial timer info
@@ -15,10 +22,46 @@ export function Dashboard() {
   }, [setTimerInfo]);
 
   useEffect(() => {
-    const minutes = Math.floor(timerInfo.remainingSeconds / 60);
-    const seconds = timerInfo.remainingSeconds % 60;
-    setTimeDisplay(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
+    latestRemainingRef.current = timerInfo.remainingSeconds;
+    lastSyncRef.current = Date.now();
+    setDisplaySeconds(timerInfo.remainingSeconds);
   }, [timerInfo.remainingSeconds]);
+
+  useEffect(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    if (timerInfo.state !== 'running') {
+      return;
+    }
+
+    const startRemaining = timerInfo.remainingSeconds;
+    latestRemainingRef.current = startRemaining;
+    lastSyncRef.current = Date.now();
+    setDisplaySeconds(startRemaining);
+
+    intervalRef.current = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - lastSyncRef.current) / 1000);
+      const baseSeconds = latestRemainingRef.current;
+      const nextValue = Math.max(baseSeconds - elapsed, 0);
+      setDisplaySeconds((prev) => (prev === nextValue ? prev : nextValue));
+    }, 1000);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [timerInfo.state]);
+
+  useEffect(() => {
+    const minutes = Math.floor(displaySeconds / 60);
+    const seconds = displaySeconds % 60;
+    setTimeDisplay(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
+  }, [displaySeconds]);
 
   const isRunning = timerInfo.state === 'running';
   const isStopped = timerInfo.state === 'stopped';
@@ -107,9 +150,12 @@ export function Dashboard() {
 
           {/* Take Break Button - Only show during work phase */}
           {isWorkPhase && (
-            <button className="btn-take-break" onClick={handleTakeBreak}>
+            <button
+              className="btn-take-break"
+              onClick={handleTakeBreak}
+              aria-label={t('dashboard.takeBreak')}
+            >
               <span className="btn-icon">☕</span>
-              <span>{t('dashboard.takeBreak')}</span>
             </button>
           )}
 

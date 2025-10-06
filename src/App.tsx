@@ -12,11 +12,17 @@ import * as api from './utils/api';
 import './App.css';
 import './i18n';
 
+/**
+ * 根应用组件：负责初始化设置、监听 Tauri 后端事件，并配置全局路由/主题。
+ */
 function App() {
   const { i18n } = useTranslation();
   const { settings } = useAppStore();
 
   useEffect(() => {
+    /**
+     * 根据当前阶段控制提醒窗口（全屏或浮窗）。
+     */
     // Helper to open/close reminder window based on phase
     const handleReminderForPhase = (phase: string, settingsOverride?: AppSettings) => {
       const activeSettings = settingsOverride ?? useAppStore.getState().settings;
@@ -31,7 +37,7 @@ function App() {
       }
     };
 
-    // Load initial settings
+    // 初始化加载持久化设置，并同步语言环境
     api.loadSettings().then((loaded) => {
       useAppStore.getState().setSettings(loaded);
       // Apply language
@@ -69,7 +75,7 @@ function App() {
       })
     );
 
-    // Cleanup
+    // 清理事件监听，避免内存泄漏
     return () => {
       unsubscribers.forEach((p) => p.then((unsub) => unsub()));
     };

@@ -4,7 +4,7 @@ use crate::utils::{AppError, AppResult};
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 
-/// Application state shared across commands
+/// Command 层共享的应用状态，封装计时服务与数据库服务句柄。
 pub struct AppState {
     pub timer_service: Arc<TimerService>,
     pub database_service: Arc<tokio::sync::Mutex<DatabaseService>>,
@@ -166,7 +166,7 @@ pub fn close_reminder_window(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Validate settings
+/// 校验设置合法性，防止写入异常值。
 fn validate_settings(settings: &Settings) -> Result<(), String> {
     if settings.work_duration == 0 || settings.work_duration > 120 {
         return Err(AppError::InvalidDuration.to_string());

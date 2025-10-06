@@ -9,6 +9,7 @@ use std::sync::Arc;
 use tauri::{Listener, Manager, WebviewUrl, WebviewWindowBuilder};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// 构建并运行 Tauri 应用，初始化数据库、计时服务与事件监听。
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -104,7 +105,7 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-/// Show break reminder window (fullscreen or floating)
+/// 根据配置显示休息提醒窗口（全屏或浮窗）。
 pub fn show_break_reminder_window(app: &tauri::AppHandle, is_fullscreen: bool) -> Result<(), Box<dyn std::error::Error>> {
     // Check if window already exists
     if let Some(window) = app.get_webview_window("break-reminder") {

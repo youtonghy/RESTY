@@ -7,6 +7,9 @@ interface LayoutProps {
   showNavigation?: boolean;
 }
 
+/**
+ * 应用外壳，负责组合导航与主内容区域。
+ */
 export function Layout({ children, showNavigation = true }: LayoutProps) {
   return (
     <div className="layout">

@@ -5,6 +5,9 @@ import * as api from '../utils/api';
 import type { Settings as SettingsType } from '../types';
 import './Settings.css';
 
+/**
+ * 设置页面：负责从后端加载配置、提供表单编辑与导入导出能力。
+ */
 export function Settings() {
   const { t } = useTranslation();
   const { settings, setSettings } = useAppStore();
@@ -16,6 +19,7 @@ export function Settings() {
     loadSettings();
   }, []);
 
+  /** 从后端加载配置并同步全局 store。 */
   const loadSettings = async () => {
     try {
       const loaded = await api.loadSettings();
@@ -26,6 +30,7 @@ export function Settings() {
     }
   };
 
+  /** 保存表单内容到后端，同时刷新全局状态。 */
   const handleSave = async () => {
     setIsSaving(true);
     setMessage('');
@@ -42,12 +47,14 @@ export function Settings() {
     }
   };
 
+  /** 恢复为上次保存的设置。 */
   const handleReset = () => {
     if (confirm(t('settings.actions.reset'))) {
       setLocalSettings(settings);
     }
   };
 
+  /** 导出当前配置为 JSON 文件。 */
   const handleExport = async () => {
     try {
       const jsonStr = await api.exportConfig();
@@ -64,6 +71,7 @@ export function Settings() {
     }
   };
 
+  /** 触发文件选择并导入 JSON 配置。 */
   const handleImport = () => {
     const input = document.createElement('input');
     input.type = 'file';

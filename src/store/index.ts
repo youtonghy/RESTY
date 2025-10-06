@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { Settings, DEFAULT_SETTINGS, TimerInfo, TimerPhase, TimerState } from '../types';
 
+/**
+ * 全局应用状态定义：封装设置与计时器信息，供各 React 组件共享。
+ */
 interface AppStore {
   // Settings
   settings: Settings;
@@ -9,7 +12,6 @@ interface AppStore {
   // Timer
   timerInfo: TimerInfo;
   setTimerInfo: (info: Partial<TimerInfo>) => void;
-
 }
 
 export const useAppStore = create<AppStore>((set) => ({

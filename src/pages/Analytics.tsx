@@ -6,6 +6,9 @@ import './Analytics.css';
 
 type TimeRange = 'today' | 'week' | 'month' | 'custom';
 
+/**
+ * 数据统计页面：按日期区间加载会话数据，展示工作/休息统计与时间轴。
+ */
 export function Analytics() {
   const { t } = useTranslation();
   const [range, setRange] = useState<TimeRange>('today');
@@ -16,6 +19,7 @@ export function Analytics() {
     loadAnalytics();
   }, [range]);
 
+  /** 根据当前选择的时间范围获取统计数据。 */
   const loadAnalytics = async () => {
     setLoading(true);
     try {
@@ -29,6 +33,7 @@ export function Analytics() {
     }
   };
 
+  /** 将时间范围转换为后端需要的查询参数。 */
   const getQueryForRange = (range: TimeRange): AnalyticsQuery => {
     const now = new Date();
     const endDate = now.toISOString();
@@ -57,6 +62,7 @@ export function Analytics() {
     return { startDate, endDate };
   };
 
+  /** 将秒数格式化为“小时+分钟”文案。 */
   const formatDuration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -67,6 +73,7 @@ export function Analytics() {
     return `${minutes}${t('common.minutes')}`;
   };
 
+  /** 计算休息完成率（已完成/总次数）。 */
   const getCompletionRate = (): number => {
     if (!data || data.breakCount === 0) return 0;
     return Math.round((data.completedBreaks / data.breakCount) * 100);
