@@ -20,13 +20,14 @@ pub fn run() {
                 DatabaseService::new(app_handle.clone())
             ));
 
-            // Initialize database schema
+            // Initialize database schema before starting timer service
             let db_clone = Arc::clone(&db_service);
-            tauri::async_runtime::spawn(async move {
-                if let Err(e) = db_clone.lock().await.initialize().await {
-                    eprintln!("Failed to initialize database: {}", e);
-                }
-            });
+            if let Err(e) = tauri::async_runtime::block_on(async {
+                let db = db_clone.lock().await;
+                db.initialize().await
+            }) {
+                eprintln!("Failed to initialize database: {}", e);
+            }
 
             // Load settings and create timer service
             let db_clone = Arc::clone(&db_service);
