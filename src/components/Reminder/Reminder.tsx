@@ -30,25 +30,29 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
   const extendLabel = t('reminder.actions.extendShort');
   const timerLabel = t('reminder.simpleLabel');
 
+  const phaseClass = `phase-${timerInfo.phase ?? 'break'}`;
+
   return (
-    <div className={`reminder ${isFullscreen ? 'reminder-fullscreen' : 'reminder-floating'}`}>
-      <div className="reminder-content">
-        <div className="reminder-simple-label">{timerLabel}</div>
-        <div className="reminder-simple-timer" aria-live="polite">{formattedTime}</div>
+    <div className={`reminder ${isFullscreen ? 'reminder-fullscreen' : 'reminder-floating'} ${phaseClass}`}>
+      <div className="reminder-panel" role="dialog" aria-label={t('reminder.simpleLabel')}>
+        <div className="reminder-content">
+          <div className="reminder-simple-label">{timerLabel}</div>
+          <div className="reminder-simple-timer" aria-live="polite">{formattedTime}</div>
 
-        <div className="reminder-actions">
-          <button
-            className="btn btn-secondary btn-lg"
-            onClick={handleSkip}
-            disabled={!canSkip}
-            title={!canSkip && isBreak ? t('reminder.forceBreakTooltip') : undefined}
-          >
-            {skipLabel}
-          </button>
+          <div className="reminder-actions">
+            <button
+              className="btn btn-secondary btn-lg"
+              onClick={handleSkip}
+              disabled={!canSkip}
+              title={!canSkip && isBreak ? t('reminder.forceBreakTooltip') : undefined}
+            >
+              {skipLabel}
+            </button>
 
-          <button className="btn btn-primary btn-lg" onClick={handleExtend}>
-            {extendLabel}
-          </button>
+            <button className="btn btn-primary btn-lg" onClick={handleExtend}>
+              {extendLabel}
+            </button>
+          </div>
         </div>
       </div>
     </div>

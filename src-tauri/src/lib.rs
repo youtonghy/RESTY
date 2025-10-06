@@ -140,7 +140,7 @@ pub fn show_break_reminder_window(
             WebviewUrl::App("index.html#reminder".into()),
         )
         .title("Break Time - RESTY")
-        .inner_size(400.0, 600.0)
+        .inner_size(360.0, 420.0)
         .resizable(false)
         .maximized(false)
         .decorations(false)
