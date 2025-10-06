@@ -153,15 +153,16 @@ pub fn get_system_status() -> Result<SystemStatus, String> {
 
 /// Open reminder window
 #[tauri::command]
-pub fn open_reminder_window(_app: AppHandle, _fullscreen: bool) -> Result<(), String> {
-    // Implementation will be in main.rs
-    Ok(())
+pub fn open_reminder_window(app: AppHandle, fullscreen: bool) -> Result<(), String> {
+    crate::show_break_reminder_window(&app, fullscreen).map_err(|e| e.to_string())
 }
 
 /// Close reminder window
 #[tauri::command]
-pub fn close_reminder_window(_app: AppHandle) -> Result<(), String> {
-    // Implementation will be in main.rs
+pub fn close_reminder_window(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("break-reminder") {
+        window.close().map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 

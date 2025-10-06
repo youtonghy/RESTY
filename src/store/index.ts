@@ -10,12 +10,6 @@ interface AppStore {
   timerInfo: TimerInfo;
   setTimerInfo: (info: Partial<TimerInfo>) => void;
 
-  // UI state
-  isReminderWindowOpen: boolean;
-  setReminderWindowOpen: (open: boolean) => void;
-
-  isMainWindowVisible: boolean;
-  setMainWindowVisible: (visible: boolean) => void;
 }
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -37,11 +31,4 @@ export const useAppStore = create<AppStore>((set) => ({
     set((state) => ({
       timerInfo: { ...state.timerInfo, ...info },
     })),
-
-  // UI state
-  isReminderWindowOpen: false,
-  setReminderWindowOpen: (open) => set({ isReminderWindowOpen: open }),
-
-  isMainWindowVisible: true,
-  setMainWindowVisible: (visible) => set({ isMainWindowVisible: visible }),
 }));

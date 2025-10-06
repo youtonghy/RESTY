@@ -104,7 +104,7 @@ pub fn run() {
 }
 
 /// Show break reminder window (fullscreen or floating)
-fn show_break_reminder_window(app: &tauri::AppHandle, is_fullscreen: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub fn show_break_reminder_window(app: &tauri::AppHandle, is_fullscreen: bool) -> Result<(), Box<dyn std::error::Error>> {
     // Check if window already exists
     if let Some(window) = app.get_webview_window("break-reminder") {
         window.set_focus()?;
@@ -138,10 +138,9 @@ fn show_break_reminder_window(app: &tauri::AppHandle, is_fullscreen: bool) -> Re
         .inner_size(400.0, 600.0)
         .resizable(false)
         .maximized(false)
-        .decorations(true)
+        .decorations(false)
         .always_on_top(true)
-        .skip_taskbar(false)
-        .center()
+        .skip_taskbar(true)
         .build()?;
 
         // Position at top-right corner

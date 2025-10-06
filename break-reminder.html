@@ -198,6 +198,18 @@
 
         let remainingSeconds = 300; // 5 minutes default
 
+        async function loadInitialTimer() {
+            try {
+                const info = await invoke('get_timer_info');
+                if (info && typeof info.remainingSeconds === 'number') {
+                    remainingSeconds = info.remainingSeconds;
+                    updateTimer();
+                }
+            } catch (error) {
+                console.error('Failed to load timer info:', error);
+            }
+        }
+
         // Update timer display
         function updateTimer() {
             const minutes = Math.floor(remainingSeconds / 60);
@@ -210,7 +222,7 @@
         listen('timer-update', (event) => {
             const info = event.payload;
             if (info.phase === 'break' && info.state === 'running') {
-                remainingSeconds = info.remaining_seconds;
+                remainingSeconds = info.remainingSeconds;
                 updateTimer();
             }
         });
@@ -240,6 +252,7 @@
         }
 
         // Initialize
+        loadInitialTimer();
         updateTimer();
     </script>
 </body>

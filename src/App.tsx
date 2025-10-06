@@ -6,7 +6,6 @@ import { Layout } from './components/Common/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Settings } from './pages/Settings';
 import { Analytics } from './pages/Analytics';
-import { Reminder } from './components/Reminder/Reminder';
 import { useAppStore } from './store';
 import * as api from './utils/api';
 import './App.css';
@@ -14,7 +13,7 @@ import './i18n';
 
 function App() {
   const { i18n } = useTranslation();
-  const { settings, setTimerInfo, isReminderWindowOpen } = useAppStore();
+  const { settings, setTimerInfo } = useAppStore();
 
   useEffect(() => {
     // Load initial settings
@@ -45,7 +44,10 @@ function App() {
     unsubscribers.push(
       api.onTimerFinished(() => {
         console.log('Timer finished');
-        useAppStore.getState().setReminderWindowOpen(true);
+        const currentSettings = useAppStore.getState().settings;
+        api.openReminderWindow(currentSettings.reminderMode === 'fullscreen').catch((error) => {
+          console.error('Failed to open reminder window:', error);
+        });
       })
     );
 
@@ -66,10 +68,7 @@ function App() {
   return (
     <ThemeProvider>
       <BrowserRouter>
-        {isReminderWindowOpen && (
-          <Reminder isFullscreen={settings.reminderMode === 'fullscreen'} />
-        )}
-        <Layout showNavigation={!isReminderWindowOpen}>
+        <Layout>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/settings" element={<Settings />} />
