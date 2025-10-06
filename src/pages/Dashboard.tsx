@@ -14,6 +14,8 @@ export function Dashboard() {
   const [timeDisplay, setTimeDisplay] = useState('00:00');
   const latestRemainingRef = useRef(timerInfo.remainingSeconds);
   const lastSyncRef = useRef(Date.now());
+  const lastPhaseRef = useRef(timerInfo.phase);
+  const lastTotalRef = useRef(timerInfo.totalSeconds);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -22,10 +24,32 @@ export function Dashboard() {
   }, [setTimerInfo]);
 
   useEffect(() => {
-    latestRemainingRef.current = timerInfo.remainingSeconds;
-    lastSyncRef.current = Date.now();
-    setDisplaySeconds(timerInfo.remainingSeconds);
-  }, [timerInfo.remainingSeconds]);
+    const phaseChanged = lastPhaseRef.current !== timerInfo.phase;
+    if (phaseChanged) {
+      lastPhaseRef.current = timerInfo.phase;
+    }
+
+    const totalChanged = lastTotalRef.current !== timerInfo.totalSeconds;
+    if (totalChanged) {
+      lastTotalRef.current = timerInfo.totalSeconds;
+    }
+
+    setDisplaySeconds((prev) => {
+      const shouldSyncFromBackend =
+        phaseChanged ||
+        totalChanged ||
+        timerInfo.state !== 'running' ||
+        timerInfo.remainingSeconds <= prev;
+
+      if (shouldSyncFromBackend) {
+        latestRemainingRef.current = timerInfo.remainingSeconds;
+        lastSyncRef.current = Date.now();
+        return timerInfo.remainingSeconds;
+      }
+
+      return prev;
+    });
+  }, [timerInfo.remainingSeconds, timerInfo.totalSeconds, timerInfo.phase, timerInfo.state]);
 
   useEffect(() => {
     if (intervalRef.current) {
@@ -123,7 +147,8 @@ export function Dashboard() {
                   strokeLinecap="round"
                   strokeDasharray={`${2 * Math.PI * 180}`}
                   strokeDashoffset={`${
-                    2 * Math.PI * 180 * (1 - timerInfo.remainingSeconds / timerInfo.totalSeconds)
+                    2 * Math.PI * 180 *
+                    (1 - (timerInfo.totalSeconds > 0 ? displaySeconds / timerInfo.totalSeconds : 0))
                   }`}
                   transform="rotate(-90 200 200)"
                   style={{ transition: 'stroke-dashoffset 1s linear' }}
