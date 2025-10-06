@@ -29,5 +29,14 @@ async function loadLanguageResources(lang: string) {
 // Load default language
 loadLanguageResources(DEFAULT_LANGUAGE);
 
+// Change language with resource loading
+export async function changeLanguage(lang: string) {
+  // Load language resources if not already loaded
+  if (!i18n.hasResourceBundle(lang, 'translation')) {
+    await loadLanguageResources(lang);
+  }
+  return i18n.changeLanguage(lang);
+}
+
 export { i18n, loadLanguageResources };
 export default i18n;

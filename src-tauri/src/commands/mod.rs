@@ -1,4 +1,6 @@
-use crate::models::{Settings, TimerInfo, AnalyticsData, AnalyticsQuery, MonitorInfo, SystemStatus};
+use crate::models::{
+    AnalyticsData, AnalyticsQuery, MonitorInfo, Settings, SystemStatus, TimerInfo,
+};
 use crate::services::{DatabaseService, TimerService};
 use crate::utils::{AppError, AppResult};
 use std::sync::Arc;
@@ -12,27 +14,21 @@ pub struct AppState {
 
 /// Load application settings
 #[tauri::command]
-pub async fn load_settings(
-    state: State<'_, AppState>,
-) -> Result<Settings, String> {
+pub async fn load_settings(state: State<'_, AppState>) -> Result<Settings, String> {
     let db = state.database_service.lock().await;
     db.load_settings().await.map_err(|e| e.to_string())
 }
 
 /// Save application settings
 #[tauri::command]
-pub async fn save_settings(
-    settings: Settings,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub async fn save_settings(settings: Settings, state: State<'_, AppState>) -> Result<(), String> {
     // Validate settings
     validate_settings(&settings)?;
 
     // Update timer durations
-    state.timer_service.update_durations(
-        settings.work_duration,
-        settings.break_duration,
-    );
+    state
+        .timer_service
+        .update_durations(settings.work_duration, settings.break_duration);
 
     // Save to database
     let db = state.database_service.lock().await;
@@ -78,7 +74,7 @@ pub async fn skip_phase(state: State<'_, AppState>) -> Result<(), String> {
 /// Extend current phase by 5 minutes
 #[tauri::command]
 pub fn extend_phase(state: State<'_, AppState>) -> Result<(), String> {
-    state.timer_service.extend(5 * 60).map_err(|e| e.to_string())
+    state.timer_service.extend(5).map_err(|e| e.to_string())
 }
 
 /// Get current timer info
@@ -109,16 +105,16 @@ pub async fn import_config(
     validate_settings(&settings)?;
 
     let db = state.database_service.lock().await;
-    db.save_settings(&settings).await.map_err(|e| e.to_string())?;
+    db.save_settings(&settings)
+        .await
+        .map_err(|e| e.to_string())?;
 
     Ok(settings)
 }
 
 /// Export configuration to JSON
 #[tauri::command]
-pub async fn export_config(
-    state: State<'_, AppState>,
-) -> Result<String, String> {
+pub async fn export_config(state: State<'_, AppState>) -> Result<String, String> {
     let db = state.database_service.lock().await;
     let settings = db.load_settings().await.map_err(|e| e.to_string())?;
 

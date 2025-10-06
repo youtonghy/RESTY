@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../../store';
 import * as api from '../../utils/api';
@@ -11,21 +11,19 @@ interface ReminderProps {
 export function Reminder({ isFullscreen = true }: ReminderProps) {
   const { t } = useTranslation();
   const { timerInfo, settings } = useAppStore();
-  const [timeDisplay, setTimeDisplay] = useState('00:00');
 
-  const safeRemainingSeconds = Math.max(0, timerInfo.remainingSeconds);
+  const safeRemainingMinutes = Math.max(0, timerInfo.remainingMinutes);
   const progress = useMemo(() => {
-    if (timerInfo.totalSeconds <= 0) {
+    if (timerInfo.totalMinutes <= 0) {
       return 0;
     }
-    return Math.min(safeRemainingSeconds / timerInfo.totalSeconds, 1);
-  }, [safeRemainingSeconds, timerInfo.totalSeconds]);
+    return Math.min(safeRemainingMinutes / timerInfo.totalMinutes, 1);
+  }, [safeRemainingMinutes, timerInfo.totalMinutes]);
 
-  useEffect(() => {
-    const minutes = Math.floor(safeRemainingSeconds / 60);
-    const seconds = safeRemainingSeconds % 60;
-    setTimeDisplay(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
-  }, [safeRemainingSeconds]);
+  const timeDisplay = `${String(safeRemainingMinutes).padStart(2, '0')}`;
+  const countdownLabel = t('reminder.countdown', {
+    time: `${safeRemainingMinutes} ${t('common.minutes')}`.trim(),
+  });
 
   const isBreak = timerInfo.phase === 'break';
   const canSkip = !settings.enableForceBreak || !isBreak;
@@ -93,7 +91,7 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
             </svg>
             <div className="timer-text">
               <div className="timer-time">{timeDisplay}</div>
-              <div className="timer-label">{t('reminder.countdown', { time: '' }).trim()}</div>
+              <div className="timer-label">{countdownLabel}</div>
             </div>
           </div>
         </div>

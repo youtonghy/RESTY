@@ -17,9 +17,9 @@ pub fn run() {
             let app_handle = app.handle().clone();
 
             // Initialize database service
-            let db_service = Arc::new(tokio::sync::Mutex::new(
-                DatabaseService::new(app_handle.clone())
-            ));
+            let db_service = Arc::new(tokio::sync::Mutex::new(DatabaseService::new(
+                app_handle.clone(),
+            )));
 
             // Initialize database schema before starting timer service
             let db_clone = Arc::clone(&db_service);
@@ -35,11 +35,8 @@ pub fn run() {
             let timer_service = tauri::async_runtime::block_on(async move {
                 let db = db_clone.lock().await;
                 let settings = db.load_settings().await.unwrap_or_default();
-                let timer = TimerService::new(
-                    app_handle,
-                    settings.work_duration,
-                    settings.break_duration,
-                );
+                let timer =
+                    TimerService::new(app_handle, settings.work_duration, settings.break_duration);
 
                 // Start the ticker
                 timer.clone().start_ticker();
@@ -73,7 +70,10 @@ pub fn run() {
                         }
                     };
 
-                    let is_fullscreen = matches!(settings.reminder_mode, crate::models::ReminderMode::Fullscreen);
+                    let is_fullscreen = matches!(
+                        settings.reminder_mode,
+                        crate::models::ReminderMode::Fullscreen
+                    );
 
                     if let Err(e) = show_break_reminder_window(&app, is_fullscreen) {
                         eprintln!("Failed to show break reminder: {}", e);
@@ -106,7 +106,10 @@ pub fn run() {
 }
 
 /// 根据配置显示休息提醒窗口（全屏或浮窗）。
-pub fn show_break_reminder_window(app: &tauri::AppHandle, is_fullscreen: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub fn show_break_reminder_window(
+    app: &tauri::AppHandle,
+    is_fullscreen: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Check if window already exists
     if let Some(window) = app.get_webview_window("break-reminder") {
         window.set_focus()?;
@@ -118,7 +121,7 @@ pub fn show_break_reminder_window(app: &tauri::AppHandle, is_fullscreen: bool) -
         let window = WebviewWindowBuilder::new(
             app,
             "break-reminder",
-            WebviewUrl::App("break-reminder.html".into())
+            WebviewUrl::App("break-reminder.html".into()),
         )
         .title("Break Time - RESTY")
         .fullscreen(true)
@@ -134,7 +137,7 @@ pub fn show_break_reminder_window(app: &tauri::AppHandle, is_fullscreen: bool) -
         let window = WebviewWindowBuilder::new(
             app,
             "break-reminder",
-            WebviewUrl::App("break-reminder.html".into())
+            WebviewUrl::App("break-reminder.html".into()),
         )
         .title("Break Time - RESTY")
         .inner_size(400.0, 600.0)

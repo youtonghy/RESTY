@@ -33,24 +33,40 @@ export function Dashboard() {
     };
   }, [setTimerInfo]);
 
-  const safeRemainingSeconds = Math.max(0, timerInfo.remainingSeconds);
-  const timeDisplay = useMemo(() => {
-    const minutes = Math.floor(safeRemainingSeconds / 60);
-    const seconds = safeRemainingSeconds % 60;
-    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  }, [safeRemainingSeconds]);
-
-  const progress = useMemo(() => {
-    if (timerInfo.totalSeconds <= 0) {
-      return 0;
-    }
-    return Math.min(safeRemainingSeconds / timerInfo.totalSeconds, 1);
-  }, [safeRemainingSeconds, timerInfo.totalSeconds]);
-
-  const isRunning = timerInfo.state === 'running';
   const isStopped = timerInfo.state === 'stopped';
   const isWorkPhase = timerInfo.phase === 'work';
   const isBreakPhase = timerInfo.phase === 'break';
+
+  const progress = useMemo(() => {
+    if (timerInfo.totalMinutes <= 0) {
+      return 0;
+    }
+    return Math.min(timerInfo.remainingMinutes / timerInfo.totalMinutes, 1);
+  }, [timerInfo.remainingMinutes, timerInfo.totalMinutes]);
+
+  const nextTransitionDisplay = useMemo(() => {
+    if (!timerInfo.nextTransitionTime) {
+      return '--:--';
+    }
+    const time = new Date(timerInfo.nextTransitionTime);
+    if (Number.isNaN(time.getTime())) {
+      return '--:--';
+    }
+    return time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }, [timerInfo.nextTransitionTime]);
+
+  const nextTransitionLabel = useMemo(() => {
+    if (!timerInfo.nextTransitionTime) {
+      return t('dashboard.nextEventUnavailable');
+    }
+    if (isWorkPhase) {
+      return t('dashboard.nextBreakAt', { time: nextTransitionDisplay });
+    }
+    if (isBreakPhase) {
+      return t('dashboard.nextWorkAt', { time: nextTransitionDisplay });
+    }
+    return t('dashboard.nextEventUnavailable');
+  }, [isWorkPhase, isBreakPhase, nextTransitionDisplay, t, timerInfo.nextTransitionTime]);
 
   const getPhaseIcon = () => {
     if (isWorkPhase) return '💼';
@@ -115,10 +131,8 @@ export function Dashboard() {
 
             {/* Time Display */}
             <div className="timer-content">
-              <div className="timer-time">{timeDisplay}</div>
-              <div className="timer-subtitle">
-                {isRunning ? t('common.running') : t('common.stopped')}
-              </div>
+              <div className="timer-time">{nextTransitionDisplay}</div>
+              <div className="timer-subtitle">{nextTransitionLabel}</div>
             </div>
           </div>
           {/* Simple Info */}

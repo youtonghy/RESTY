@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Theme preference
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -60,7 +60,7 @@ pub enum TimerState {
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
     // Timer settings
-    pub work_duration: u32, // in minutes
+    pub work_duration: u32,  // in minutes
     pub break_duration: u32, // in minutes
     pub enable_force_break: bool,
 
@@ -116,7 +116,7 @@ pub struct Session {
     pub session_type: SessionType,
     pub start_time: DateTime<Utc>,
     pub end_time: DateTime<Utc>,
-    pub duration: i64, // actual duration in seconds
+    pub duration: i64,         // actual duration in seconds
     pub planned_duration: i64, // planned duration in seconds
     pub is_skipped: bool,
     pub extended_seconds: i64,
@@ -136,8 +136,9 @@ pub enum SessionType {
 pub struct TimerInfo {
     pub phase: TimerPhase,
     pub state: TimerState,
-    pub remaining_seconds: u32,
-    pub total_seconds: u32,
+    pub remaining_minutes: u32,
+    pub total_minutes: u32,
+    pub next_transition_time: Option<DateTime<Utc>>,
 }
 
 /// Analytics data

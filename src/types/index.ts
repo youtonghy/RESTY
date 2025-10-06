@@ -61,8 +61,9 @@ export interface Session {
 export interface TimerInfo {
   phase: TimerPhase;
   state: TimerState;
-  remainingSeconds: number;
-  totalSeconds: number;
+  remainingMinutes: number;
+  totalMinutes: number;
+  nextTransitionTime: string | null;
 }
 
 /**

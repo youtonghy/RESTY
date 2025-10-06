@@ -9,6 +9,7 @@ import { Analytics } from './pages/Analytics';
 import { useAppStore } from './store';
 import type { Settings as AppSettings } from './types';
 import * as api from './utils/api';
+import { changeLanguage } from './i18n';
 import './App.css';
 import './i18n';
 
@@ -38,10 +39,13 @@ function App() {
     };
 
     // 初始化加载持久化设置，并同步语言环境
-    api.loadSettings().then((loaded) => {
+    api.loadSettings().then(async (loaded) => {
       useAppStore.getState().setSettings(loaded);
-      // Apply language
-      i18n.changeLanguage(loaded.language === 'en' ? 'en' : 'zh-CN');
+      // Apply language with proper resource loading
+      const lang = loaded.language === 'en' ? 'en' : 'zh-CN';
+      await changeLanguage(lang);
+    }).catch((error) => {
+      console.error('Failed to load settings:', error);
     });
 
     // Set up event listeners
@@ -85,7 +89,9 @@ function App() {
   useEffect(() => {
     const lang = settings.language === 'en' ? 'en' : 'zh-CN';
     if (i18n.language !== lang) {
-      i18n.changeLanguage(lang);
+      changeLanguage(lang).catch((error) => {
+        console.error('Failed to change language:', error);
+      });
     }
   }, [settings.language, i18n]);
 

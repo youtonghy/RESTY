@@ -131,6 +131,9 @@
     "workMessage": "专注工作，注意保护眼睛！",
     "breakMessage": "放松一下，让眼睛休息片刻。",
     "idleMessage": "准备好了吗？点击下方开始。",
-    "takeBreak": "立即休息"
+    "takeBreak": "立即休息",
+    "nextBreakAt": "下次休息时间 {{time}}",
+    "nextWorkAt": "下次开始工作 {{time}}",
+    "nextEventUnavailable": "暂无排程信息"
   }
 }

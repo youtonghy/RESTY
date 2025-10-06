@@ -131,6 +131,9 @@
     "workMessage": "Focus on your work. Take care of your eyes!",
     "breakMessage": "Relax and rest your eyes for a moment.",
     "idleMessage": "Ready to start? Click below to begin.",
-    "takeBreak": "Take a Break Now"
+    "takeBreak": "Take a Break Now",
+    "nextBreakAt": "Next break at {{time}}",
+    "nextWorkAt": "Next work at {{time}}",
+    "nextEventUnavailable": "Schedule pending"
   }
 }

@@ -26,8 +26,9 @@ export const useAppStore = create<AppStore>((set) => ({
   timerInfo: {
     phase: 'idle' as TimerPhase,
     state: 'stopped' as TimerState,
-    remainingSeconds: 0,
-    totalSeconds: 0,
+    remainingMinutes: 0,
+    totalMinutes: 0,
+    nextTransitionTime: null,
   },
   setTimerInfo: (info) =>
     set((state) => ({

@@ -1,8 +1,8 @@
-use crate::models::{Session, Settings, AnalyticsQuery, AnalyticsData};
+use crate::models::{AnalyticsData, AnalyticsQuery, Session, Settings};
 use crate::utils::{AppError, AppResult};
 use chrono::{DateTime, Utc};
-use std::sync::Mutex;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 
 /// Database service for managing persistent data.
@@ -19,7 +19,8 @@ impl DatabaseService {
     /// 计算数据目录并初始化内存缓存。
     pub fn new(app: AppHandle) -> Self {
         // Get app data directory
-        let data_dir = app.path()
+        let data_dir = app
+            .path()
             .app_data_dir()
             .unwrap_or_else(|_| PathBuf::from("."));
 
@@ -36,8 +37,9 @@ impl DatabaseService {
     pub async fn initialize(&self) -> AppResult<()> {
         // Create data directory if it doesn't exist
         if !self.data_dir.exists() {
-            std::fs::create_dir_all(&self.data_dir)
-                .map_err(|e| AppError::DatabaseError(format!("Failed to create data directory: {}", e)))?;
+            std::fs::create_dir_all(&self.data_dir).map_err(|e| {
+                AppError::DatabaseError(format!("Failed to create data directory: {}", e))
+            })?;
         }
 
         // Load settings from file
@@ -64,13 +66,16 @@ impl DatabaseService {
         let file_path = self.settings_file();
 
         if file_path.exists() {
-            let content = std::fs::read_to_string(&file_path)
-                .map_err(|e| AppError::DatabaseError(format!("Failed to read settings file: {}", e)))?;
+            let content = std::fs::read_to_string(&file_path).map_err(|e| {
+                AppError::DatabaseError(format!("Failed to read settings file: {}", e))
+            })?;
 
             let loaded_settings: Settings = serde_json::from_str(&content)
                 .map_err(|e| AppError::DatabaseError(format!("Failed to parse settings: {}", e)))?;
 
-            let mut settings = self.settings.lock()
+            let mut settings = self
+                .settings
+                .lock()
                 .map_err(|e| AppError::DatabaseError(format!("Failed to lock settings: {}", e)))?;
             *settings = loaded_settings;
         }
@@ -83,13 +88,16 @@ impl DatabaseService {
         let file_path = self.sessions_file();
 
         if file_path.exists() {
-            let content = std::fs::read_to_string(&file_path)
-                .map_err(|e| AppError::DatabaseError(format!("Failed to read sessions file: {}", e)))?;
+            let content = std::fs::read_to_string(&file_path).map_err(|e| {
+                AppError::DatabaseError(format!("Failed to read sessions file: {}", e))
+            })?;
 
             let loaded_sessions: Vec<Session> = serde_json::from_str(&content)
                 .map_err(|e| AppError::DatabaseError(format!("Failed to parse sessions: {}", e)))?;
 
-            let mut sessions = self.sessions.lock()
+            let mut sessions = self
+                .sessions
+                .lock()
                 .map_err(|e| AppError::DatabaseError(format!("Failed to lock sessions: {}", e)))?;
             *sessions = loaded_sessions;
         }
@@ -101,7 +109,9 @@ impl DatabaseService {
     /// 同步写入内存缓存与 `settings.json`。
     pub async fn save_settings(&self, settings: &Settings) -> AppResult<()> {
         // Update in-memory settings
-        let mut stored_settings = self.settings.lock()
+        let mut stored_settings = self
+            .settings
+            .lock()
             .map_err(|e| AppError::DatabaseError(format!("Failed to lock settings: {}", e)))?;
         *stored_settings = settings.clone();
         drop(stored_settings);
@@ -110,8 +120,9 @@ impl DatabaseService {
         let json = serde_json::to_string_pretty(settings)
             .map_err(|e| AppError::DatabaseError(format!("Failed to serialize settings: {}", e)))?;
 
-        std::fs::write(self.settings_file(), json)
-            .map_err(|e| AppError::DatabaseError(format!("Failed to write settings file: {}", e)))?;
+        std::fs::write(self.settings_file(), json).map_err(|e| {
+            AppError::DatabaseError(format!("Failed to write settings file: {}", e))
+        })?;
 
         Ok(())
     }
@@ -119,7 +130,9 @@ impl DatabaseService {
     /// Load settings from database
     /// 返回内存中的设置快照。
     pub async fn load_settings(&self) -> AppResult<Settings> {
-        let settings = self.settings.lock()
+        let settings = self
+            .settings
+            .lock()
             .map_err(|e| AppError::DatabaseError(format!("Failed to lock settings: {}", e)))?;
         Ok(settings.clone())
     }
@@ -128,7 +141,9 @@ impl DatabaseService {
     /// 追加会话记录并写入 `sessions.json`。
     pub async fn save_session(&self, session: &Session) -> AppResult<()> {
         // Add to in-memory sessions
-        let mut sessions = self.sessions.lock()
+        let mut sessions = self
+            .sessions
+            .lock()
             .map_err(|e| AppError::DatabaseError(format!("Failed to lock sessions: {}", e)))?;
         sessions.push(session.clone());
 
@@ -136,8 +151,9 @@ impl DatabaseService {
         let json = serde_json::to_string_pretty(&*sessions)
             .map_err(|e| AppError::DatabaseError(format!("Failed to serialize sessions: {}", e)))?;
 
-        std::fs::write(self.sessions_file(), json)
-            .map_err(|e| AppError::DatabaseError(format!("Failed to write sessions file: {}", e)))?;
+        std::fs::write(self.sessions_file(), json).map_err(|e| {
+            AppError::DatabaseError(format!("Failed to write sessions file: {}", e))
+        })?;
 
         Ok(())
     }
@@ -145,15 +161,15 @@ impl DatabaseService {
     /// Get analytics data for a date range
     /// 按时间区间筛选会话，计算统计指标。
     pub async fn get_analytics(&self, query: &AnalyticsQuery) -> AppResult<AnalyticsData> {
-        let sessions = self.sessions.lock()
+        let sessions = self
+            .sessions
+            .lock()
             .map_err(|e| AppError::DatabaseError(format!("Failed to lock sessions: {}", e)))?;
 
         // Filter sessions by date range
         let filtered: Vec<&Session> = sessions
             .iter()
-            .filter(|s| {
-                s.start_time >= query.start_date && s.start_time <= query.end_date
-            })
+            .filter(|s| s.start_time >= query.start_date && s.start_time <= query.end_date)
             .collect();
 
         // Calculate statistics
@@ -176,7 +192,9 @@ impl DatabaseService {
 
         let completed_breaks = filtered
             .iter()
-            .filter(|s| matches!(s.session_type, crate::models::SessionType::Break) && !s.is_skipped)
+            .filter(|s| {
+                matches!(s.session_type, crate::models::SessionType::Break) && !s.is_skipped
+            })
             .count();
 
         let skipped_breaks = filtered
