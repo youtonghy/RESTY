@@ -10,10 +10,10 @@ interface ReminderProps {
 export function Reminder({ isFullscreen = true }: ReminderProps) {
   const { t } = useTranslation();
   const { timerInfo, settings } = useAppStore();
-
   const safeRemainingMinutes = Math.max(0, timerInfo.remainingMinutes);
   const isBreak = timerInfo.phase === 'break';
   const canSkip = !settings.enableForceBreak || !isBreak;
+  const formattedTime = `${String(safeRemainingMinutes).padStart(2, '0')}:00`;
 
   const handleSkip = async () => {
     if (canSkip) {
@@ -26,22 +26,28 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
     await api.extendPhase();
   };
 
+  const skipLabel = t('reminder.actions.skip');
+  const extendLabel = t('reminder.actions.extendShort');
+  const timerLabel = t('reminder.simpleLabel');
+
   return (
     <div className={`reminder ${isFullscreen ? 'reminder-fullscreen' : 'reminder-floating'}`}>
       <div className="reminder-content">
-        <p className="reminder-simple-timer">
-          {t('reminder.simpleBreakTime', { minutes: safeRemainingMinutes })}
-        </p>
+        <div className="reminder-simple-label">{timerLabel}</div>
+        <div className="reminder-simple-timer" aria-live="polite">{formattedTime}</div>
 
         <div className="reminder-actions">
-          {canSkip && (
-            <button className="btn btn-secondary btn-lg" onClick={handleSkip}>
-              {t('reminder.actions.skip')}
-            </button>
-          )}
+          <button
+            className="btn btn-secondary btn-lg"
+            onClick={handleSkip}
+            disabled={!canSkip}
+            title={!canSkip && isBreak ? t('reminder.forceBreakTooltip') : undefined}
+          >
+            {skipLabel}
+          </button>
 
           <button className="btn btn-primary btn-lg" onClick={handleExtend}>
-            {t('reminder.actions.extend5min')}
+            {extendLabel}
           </button>
         </div>
       </div>

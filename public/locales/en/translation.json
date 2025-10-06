@@ -56,10 +56,13 @@
     },
     "countdown": "Remaining: {{time}}",
     "simpleBreakTime": "Break for {{minutes}} minutes",
+    "simpleLabel": "Break Duration",
+    "forceBreakTooltip": "Force break is enabled in settings",
     "actions": {
       "skip": "Skip",
       "extend": "Extend 5 min",
       "extend5min": "Add 5 min break",
+      "extendShort": "+5 Minutes",
       "startBreak": "Start Break Now"
     }
   },

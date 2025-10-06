@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ThemeProvider } from './components/Common/ThemeProvider';
+import { Reminder } from './components/Reminder/Reminder';
 import { Layout } from './components/Common/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Settings } from './pages/Settings';
@@ -18,7 +19,13 @@ import './i18n';
  */
 function App() {
   const { i18n } = useTranslation();
-  const { settings } = useAppStore();
+  const { settings, setTimerInfo } = useAppStore();
+
+  const isReminderWindow = (() => {
+    if (typeof window === 'undefined') return false;
+    const hash = window.location.hash.replace(/^#\/?/, '');
+    return hash.startsWith('reminder');
+  })();
 
   useEffect(() => {
     /**
@@ -28,10 +35,14 @@ function App() {
     const handleReminderForPhase = (phase: string, settingsOverride?: AppSettings) => {
       const activeSettings = settingsOverride ?? useAppStore.getState().settings;
       if (phase === 'break') {
-        api.openReminderWindow(activeSettings.reminderMode === 'fullscreen').catch((error) => {
-          console.error('Failed to open reminder window:', error);
-        });
+        // In reminder window, don't attempt to open itself; focusing is fine but unnecessary
+        if (!isReminderWindow) {
+          api.openReminderWindow(activeSettings.reminderMode === 'fullscreen').catch((error) => {
+            console.error('Failed to open reminder window:', error);
+          });
+        }
       } else {
+        // Always allow closing from any window
         api.closeReminderWindow().catch((error) => {
           console.error('Failed to close reminder window:', error);
         });
@@ -79,6 +90,13 @@ function App() {
       })
     );
 
+    // For reminder window, proactively fetch timer info once for immediate render
+    if (isReminderWindow) {
+      api.getTimerInfo().then(setTimerInfo).catch((error) => {
+        console.error('Failed to load timer info:', error);
+      });
+    }
+
     // 清理事件监听，避免内存泄漏
     return () => {
       unsubscribers.forEach((p) => p.then((unsub) => unsub()));
@@ -97,16 +115,20 @@ function App() {
 
   return (
     <ThemeProvider>
-      <BrowserRouter>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Layout>
-      </BrowserRouter>
+      {isReminderWindow ? (
+        <Reminder isFullscreen={settings.reminderMode === 'fullscreen'} />
+      ) : (
+        <BrowserRouter>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Layout>
+        </BrowserRouter>
+      )}
     </ThemeProvider>
   );
 }

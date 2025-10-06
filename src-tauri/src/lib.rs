@@ -121,7 +121,7 @@ pub fn show_break_reminder_window(
         let window = WebviewWindowBuilder::new(
             app,
             "break-reminder",
-            WebviewUrl::App("break-reminder.html".into()),
+            WebviewUrl::App("index.html#reminder".into()),
         )
         .title("Break Time - RESTY")
         .fullscreen(true)
@@ -137,7 +137,7 @@ pub fn show_break_reminder_window(
         let window = WebviewWindowBuilder::new(
             app,
             "break-reminder",
-            WebviewUrl::App("break-reminder.html".into()),
+            WebviewUrl::App("index.html#reminder".into()),
         )
         .title("Break Time - RESTY")
         .inner_size(400.0, 600.0)

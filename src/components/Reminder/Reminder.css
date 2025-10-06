@@ -30,6 +30,22 @@
   margin: 0 auto;
 }
 
+/* Minimal label + timer for simple break UI */
+.reminder-simple-label {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.5px;
+}
+
+.reminder-simple-timer {
+  font-size: 4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 2px;
+  color: var(--color-text-primary);
+  margin: var(--spacing-md) 0 var(--spacing-xl);
+}
+
 .reminder-icon {
   font-size: 4rem;
   margin-bottom: var(--spacing-lg);
@@ -182,6 +198,10 @@
 
   .timer-time {
     font-size: 2.5rem;
+  }
+
+  .reminder-simple-timer {
+    font-size: 3rem;
   }
 
   .btn-lg {

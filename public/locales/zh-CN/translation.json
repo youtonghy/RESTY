@@ -56,10 +56,13 @@
     },
     "countdown": "剩余时间: {{time}}",
     "simpleBreakTime": "休息 {{minutes}} 分钟",
+    "simpleLabel": "本次休息时长",
+    "forceBreakTooltip": "已开启强制休息",
     "actions": {
       "skip": "跳过",
       "extend": "延长5分钟",
       "extend5min": "添加5分钟休息",
+      "extendShort": "+5分钟",
       "startBreak": "立即休息"
     }
   },
