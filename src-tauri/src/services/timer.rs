@@ -172,7 +172,6 @@ impl TimerService {
 
         let now = Instant::now();
         let elapsed = now.duration_since(state.last_tick).as_secs() as u32;
-        state.last_tick = now;
 
         if state.remaining_seconds > 0 {
             state.remaining_seconds = state.remaining_seconds.saturating_sub(elapsed);
@@ -188,6 +187,9 @@ impl TimerService {
         // Check if auto-cycle is enabled and timer finished
         let should_auto_cycle = timer_finished && state.auto_cycle;
         let next_phase = state.phase.clone();
+
+        // Update last_tick AFTER all calculations are done
+        state.last_tick = now;
 
         drop(state);
         self.emit_timer_update()?;
