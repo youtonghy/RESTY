@@ -132,16 +132,19 @@ export function Settings() {
             />
           </div>
 
-          <div className="form-group checkbox-group">
-            <label>
-              <input
-                type="checkbox"
-                checked={localSettings.enableForceBreak}
-                onChange={(e) =>
-                  setLocalSettings({ ...localSettings, enableForceBreak: e.target.checked })
-                }
-              />
-              <span>{t('settings.timer.enableForceBreak')}</span>
+          <div className="form-group toggle-group">
+            <label className="toggle-row">
+              <span className="toggle-text">{t('settings.timer.enableForceBreak')}</span>
+              <span className="switch">
+                <input
+                  type="checkbox"
+                  checked={localSettings.enableForceBreak}
+                  onChange={(e) =>
+                    setLocalSettings({ ...localSettings, enableForceBreak: e.target.checked })
+                  }
+                />
+                <span className="slider" />
+              </span>
             </label>
             <p className="helper-text">{t('settings.timer.forceBreakDescription')}</p>
           </div>
@@ -185,16 +188,19 @@ export function Settings() {
             <span className="opacity-value">{localSettings.opacity}%</span>
           </div>
 
-          <div className="form-group checkbox-group">
-            <label>
-              <input
-                type="checkbox"
-                checked={localSettings.playSound}
-                onChange={(e) =>
-                  setLocalSettings({ ...localSettings, playSound: e.target.checked })
-                }
-              />
-              <span>{t('settings.reminder.playSound')}</span>
+          <div className="form-group toggle-group">
+            <label className="toggle-row">
+              <span className="toggle-text">{t('settings.reminder.playSound')}</span>
+              <span className="switch">
+                <input
+                  type="checkbox"
+                  checked={localSettings.playSound}
+                  onChange={(e) =>
+                    setLocalSettings({ ...localSettings, playSound: e.target.checked })
+                  }
+                />
+                <span className="slider" />
+              </span>
             </label>
           </div>
         </section>
@@ -227,42 +233,51 @@ export function Settings() {
         <section className="card settings-section">
           <h2 className="card-header">{t('settings.system.title')}</h2>
 
-          <div className="form-group checkbox-group">
-            <label>
-              <input
-                type="checkbox"
-                checked={localSettings.autostart}
-                onChange={(e) =>
-                  setLocalSettings({ ...localSettings, autostart: e.target.checked })
-                }
-              />
-              <span>{t('settings.system.autostart')}</span>
+          <div className="form-group toggle-group">
+            <label className="toggle-row">
+              <span className="toggle-text">{t('settings.system.autostart')}</span>
+              <span className="switch">
+                <input
+                  type="checkbox"
+                  checked={localSettings.autostart}
+                  onChange={(e) =>
+                    setLocalSettings({ ...localSettings, autostart: e.target.checked })
+                  }
+                />
+                <span className="slider" />
+              </span>
             </label>
           </div>
 
-          <div className="form-group checkbox-group">
-            <label>
-              <input
-                type="checkbox"
-                checked={localSettings.minimizeToTray}
-                onChange={(e) =>
-                  setLocalSettings({ ...localSettings, minimizeToTray: e.target.checked })
-                }
-              />
-              <span>{t('settings.system.minimizeToTray')}</span>
+          <div className="form-group toggle-group">
+            <label className="toggle-row">
+              <span className="toggle-text">{t('settings.system.minimizeToTray')}</span>
+              <span className="switch">
+                <input
+                  type="checkbox"
+                  checked={localSettings.minimizeToTray}
+                  onChange={(e) =>
+                    setLocalSettings({ ...localSettings, minimizeToTray: e.target.checked })
+                  }
+                />
+                <span className="slider" />
+              </span>
             </label>
           </div>
 
-          <div className="form-group checkbox-group">
-            <label>
-              <input
-                type="checkbox"
-                checked={localSettings.closeToTray}
-                onChange={(e) =>
-                  setLocalSettings({ ...localSettings, closeToTray: e.target.checked })
-                }
-              />
-              <span>{t('settings.system.closeToTray')}</span>
+          <div className="form-group toggle-group">
+            <label className="toggle-row">
+              <span className="toggle-text">{t('settings.system.closeToTray')}</span>
+              <span className="switch">
+                <input
+                  type="checkbox"
+                  checked={localSettings.closeToTray}
+                  onChange={(e) =>
+                    setLocalSettings({ ...localSettings, closeToTray: e.target.checked })
+                  }
+                />
+                <span className="slider" />
+              </span>
             </label>
           </div>
         </section>
