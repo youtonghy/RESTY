@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../../store';
 import * as api from '../../utils/api';
@@ -10,21 +11,46 @@ interface ReminderProps {
 export function Reminder({ isFullscreen = true }: ReminderProps) {
   const { t } = useTranslation();
   const { timerInfo, settings } = useAppStore();
+  const [optimisticMinutes, setOptimisticMinutes] = useState<number | null>(null);
   const safeRemainingMinutes = Math.max(0, timerInfo.remainingMinutes);
   const isBreak = timerInfo.phase === 'break';
   const canSkip = !settings.enableForceBreak || !isBreak;
-  const formattedTime = `${String(safeRemainingMinutes).padStart(2, '0')}:00`;
+  const displayMinutes = optimisticMinutes ?? safeRemainingMinutes;
+  const formattedTime = `${String(displayMinutes).padStart(2, '0')}:00`;
 
   const handleSkip = async () => {
     if (canSkip) {
+      setOptimisticMinutes(null);
       await api.skipPhase();
       await api.closeReminderWindow();
     }
   };
 
   const handleExtend = async () => {
-    await api.extendPhase();
+    // Optimistically bump by 5 minutes for immediate UI feedback
+    setOptimisticMinutes((prev) => {
+      const base = prev ?? safeRemainingMinutes;
+      return base + 5;
+    });
+    try {
+      await api.extendPhase();
+    } catch (err) {
+      // Revert optimistic update on failure
+      setOptimisticMinutes(null);
+      console.error('Failed to extend phase:', err);
+    }
   };
+
+  // Reconcile optimistic state when real timer info catches up
+  useEffect(() => {
+    if (optimisticMinutes != null && safeRemainingMinutes >= optimisticMinutes) {
+      setOptimisticMinutes(null);
+    }
+    // Also clear if phase changes away from break
+    if (timerInfo.phase !== 'break' && optimisticMinutes != null) {
+      setOptimisticMinutes(null);
+    }
+  }, [safeRemainingMinutes, timerInfo.phase, optimisticMinutes]);
 
   const skipLabel = t('reminder.actions.skip');
   const extendLabel = t('reminder.actions.extendShort');
