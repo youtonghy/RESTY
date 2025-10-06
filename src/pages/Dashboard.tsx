@@ -114,32 +114,7 @@ const generateTips = (language: string): string[] => {
   return pool.slice(0, count);
 };
 
-const formatRelativeTime = (target: Date, base: Date, locale: string) => {
-  const diff = target.getTime() - base.getTime();
-  const abs = Math.abs(diff);
-  if (abs < 1000) {
-    return locale.startsWith('zh') ? '就在现在' : 'now';
-  }
-  const table: Array<{ limit: number; divisor: number; unit: Intl.RelativeTimeFormatUnit }>
-    = [
-      { limit: 60_000, divisor: 1_000, unit: 'second' },
-      { limit: 3_600_000, divisor: 60_000, unit: 'minute' },
-      { limit: 86_400_000, divisor: 3_600_000, unit: 'hour' },
-      { limit: 604_800_000, divisor: 86_400_000, unit: 'day' },
-      { limit: Infinity, divisor: 604_800_000, unit: 'week' },
-    ];
-
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
-  const sign = diff < 0 ? -1 : 1;
-
-  for (const entry of table) {
-    if (abs < entry.limit) {
-      const value = Math.round((abs / entry.divisor)) * sign;
-      return rtf.format(value, entry.unit);
-    }
-  }
-  return rtf.format(Math.round((abs / 604_800_000)) * (diff < 0 ? -1 : 1), 'week');
-};
+// Relative time display not used in simplified next-slot card
 
 function useFadeInOnScroll<T extends HTMLElement>(delay: number) {
   const ref = useRef<T | null>(null);
@@ -171,9 +146,7 @@ function useFadeInOnScroll<T extends HTMLElement>(delay: number) {
   return ref;
 }
 
-function GradientTitle({ children }: { children: ReactNode }) {
-  return <h1 className="dashboard-gradient-title">{children}</h1>;
-}
+// Title component removed per simplification
 
 function ThemeToggle({ theme, onChange }: { theme: Theme; onChange: (value: Theme) => void }) {
   const { t, i18n } = useTranslation();
@@ -444,13 +417,13 @@ export function Dashboard() {
     [i18n.language]
   );
 
-  const dateTimeFormatter = useMemo(
+  // For next break/work display, only show HH:MM (no date)
+  const hourMinuteFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(i18n.language, {
-        month: 'short',
-        day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
+        hour12: false,
       }),
     [i18n.language]
   );
@@ -523,26 +496,17 @@ export function Dashboard() {
 
   const timezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, []);
 
-  const nextPrimary = nextSlot ? dateTimeFormatter.format(nextSlot.start) : '—';
+  // Next time display: hour only
+  const nextPrimary = nextSlot ? hourMinuteFormatter.format(nextSlot.start) : '—';
   const slotTypeLabel = nextSlot
     ? nextSlot.type === 'work'
       ? t('dashboard.next.work', { defaultValue: isZh ? '下次工作' : 'Next work' })
       : t('dashboard.next.break', { defaultValue: isZh ? '下次休息' : 'Next break' })
     : t('dashboard.next.none', { defaultValue: isZh ? '未计划' : 'No schedule' });
-  const slotSourceLabel = nextSlot
-    ? nextSlot.source === 'timer'
-      ? t('dashboard.next.source.timer', { defaultValue: isZh ? '计时器' : 'Timer' })
-      : t('dashboard.next.source.schedule', { defaultValue: isZh ? '预设' : 'Plan' })
-    : null;
-  const slotRelative = nextSlot ? formatRelativeTime(nextSlot.start, now, i18n.language) : null;
-  const nextSecondary = joinParts([slotTypeLabel, slotSourceLabel, slotRelative, timezone]);
+  // Only show the label (e.g., Next break), hide source/relative/timezone
+  const nextSecondary = slotTypeLabel;
 
-  const headerTitle = t('dashboard.hero.title', {
-    defaultValue: isZh ? '节奏控制中心' : 'Rhythm Control Center',
-  });
-  const headerSubtitle = t('dashboard.hero.subtitle', {
-    defaultValue: isZh ? '沉浸式掌控专注、休息与健康' : 'Orchestrate focus, rest, and clarity',
-  });
+  // Title/subtitle removed per optimization request
   const heroClock = heroClockFormatter.format(now);
   const heroDate = heroDateFormatter.format(now);
 
@@ -584,10 +548,7 @@ export function Dashboard() {
                 <span className="hero-tz">{timezone}</span>
               </div>
             </div>
-            <div className="hero-text">
-              <GradientTitle>{headerTitle}</GradientTitle>
-              <p className="header-subtitle">{headerSubtitle}</p>
-            </div>
+            {/* Title/subtitle intentionally removed */}
           </div>
           <ThemeToggle theme={theme} onChange={setTheme} />
         </header>
