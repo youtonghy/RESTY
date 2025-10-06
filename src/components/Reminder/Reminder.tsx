@@ -26,21 +26,9 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
     await api.extendPhase();
   };
 
-  const handleClose = async () => {
-    await api.closeReminderWindow();
-  };
-
   return (
     <div className={`reminder ${isFullscreen ? 'reminder-fullscreen' : 'reminder-floating'}`}>
       <div className="reminder-content">
-        <div className="reminder-icon">
-          ☕
-        </div>
-
-        <h1 className="reminder-title">
-          {t('reminder.title.break')}
-        </h1>
-
         <p className="reminder-simple-timer">
           {t('reminder.simpleBreakTime', { minutes: safeRemainingMinutes })}
         </p>
@@ -55,12 +43,6 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
           <button className="btn btn-primary btn-lg" onClick={handleExtend}>
             {t('reminder.actions.extend5min')}
           </button>
-
-          {!isFullscreen && (
-            <button className="btn btn-ghost btn-sm reminder-close" onClick={handleClose}>
-              ✕
-            </button>
-          )}
         </div>
       </div>
     </div>

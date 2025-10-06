@@ -439,6 +439,7 @@ export function Dashboard() {
       new Intl.DateTimeFormat(i18n.language, {
         hour: '2-digit',
         minute: '2-digit',
+        hour12: false,
       }),
     [i18n.language]
   );
@@ -454,14 +455,22 @@ export function Dashboard() {
     [i18n.language]
   );
 
-  const heroFormatter = useMemo(
+  const heroClockFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(i18n.language, {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
+        hour12: false,
+      }),
+    [i18n.language]
+  );
+
+  const heroDateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(i18n.language, {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
       }),
     [i18n.language]
   );
@@ -534,7 +543,8 @@ export function Dashboard() {
   const headerSubtitle = t('dashboard.hero.subtitle', {
     defaultValue: isZh ? '沉浸式掌控专注、休息与健康' : 'Orchestrate focus, rest, and clarity',
   });
-  const headerTime = heroFormatter.format(now);
+  const heroClock = heroClockFormatter.format(now);
+  const heroDate = heroDateFormatter.format(now);
 
   const dayLabel = t('dashboard.progress.day.label', {
     defaultValue: isZh ? '今天进度' : 'Today progress',
@@ -549,10 +559,7 @@ export function Dashboard() {
     defaultValue: isZh ? '今年进度' : 'Year progress',
   });
 
-  const dayInfo = `${timeFormatter.format(now)}`;
-  const weekInfo = isZh ? '周一 00:00 起算' : 'Starts Monday 00:00';
-  const monthInfo = isZh ? '月初 00:00 起算' : 'Month begins at 00:00';
-  const yearInfo = isZh ? '元旦 00:00 起算' : 'Year begins at 00:00';
+  const dayInfo = timeFormatter.format(now);
 
   const tipsButtonLabel = t('dashboard.tips.shuffle', {
     defaultValue: isZh ? '换一批' : 'Refresh tips',
@@ -569,13 +576,18 @@ export function Dashboard() {
       <div className="dashboard-atmosphere" aria-hidden="true" />
       <div className="dashboard-content">
         <header className="dashboard-header">
-          <div className="header-text">
-            <GradientTitle>{headerTitle}</GradientTitle>
-            <p className="header-subtitle">{headerSubtitle}</p>
-          </div>
-          <div className="header-meta">
-            <span className="header-clock">{headerTime}</span>
-            <span className="header-tz">{timezone}</span>
+          <div className="header-main">
+            <div className="hero-meta">
+              <span className="hero-clock">{heroClock}</span>
+              <div className="hero-meta-row">
+                <span className="hero-date">{heroDate}</span>
+                <span className="hero-tz">{timezone}</span>
+              </div>
+            </div>
+            <div className="hero-text">
+              <GradientTitle>{headerTitle}</GradientTitle>
+              <p className="header-subtitle">{headerSubtitle}</p>
+            </div>
           </div>
           <ThemeToggle theme={theme} onChange={setTheme} />
         </header>
@@ -602,7 +614,6 @@ export function Dashboard() {
             value={weekProgress}
             formatted={percentFormatter.format(weekProgress)}
             label={weekLabel}
-            info={weekInfo}
             delay={180}
           />
 
@@ -610,7 +621,6 @@ export function Dashboard() {
             value={monthProgress}
             formatted={percentFormatter.format(monthProgress)}
             label={monthLabel}
-            info={monthInfo}
             delay={240}
           />
 
@@ -618,7 +628,6 @@ export function Dashboard() {
             value={yearProgress}
             formatted={percentFormatter.format(yearProgress)}
             label={yearLabel}
-            info={yearInfo}
             delay={300}
           />
 
