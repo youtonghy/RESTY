@@ -14,6 +14,23 @@ export function Dashboard() {
   useEffect(() => {
     // Load initial timer info
     api.getTimerInfo().then(setTimerInfo);
+
+    // Listen for timer updates to keep display synchronized
+    let unsubscribe: (() => void) | undefined;
+
+    const setupTimerListener = async () => {
+      unsubscribe = await api.onTimerUpdate((info) => {
+        setTimerInfo(info);
+      });
+    };
+
+    setupTimerListener();
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [setTimerInfo]);
 
   const safeRemainingSeconds = Math.max(0, timerInfo.remainingSeconds);
