@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../../store';
 import * as api from '../../utils/api';
@@ -13,11 +13,19 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
   const { timerInfo, settings } = useAppStore();
   const [timeDisplay, setTimeDisplay] = useState('00:00');
 
+  const safeRemainingSeconds = Math.max(0, timerInfo.remainingSeconds);
+  const progress = useMemo(() => {
+    if (timerInfo.totalSeconds <= 0) {
+      return 0;
+    }
+    return Math.min(safeRemainingSeconds / timerInfo.totalSeconds, 1);
+  }, [safeRemainingSeconds, timerInfo.totalSeconds]);
+
   useEffect(() => {
-    const minutes = Math.floor(timerInfo.remainingSeconds / 60);
-    const seconds = timerInfo.remainingSeconds % 60;
+    const minutes = Math.floor(safeRemainingSeconds / 60);
+    const seconds = safeRemainingSeconds % 60;
     setTimeDisplay(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
-  }, [timerInfo.remainingSeconds]);
+  }, [safeRemainingSeconds]);
 
   const isBreak = timerInfo.phase === 'break';
   const canSkip = !settings.enableForceBreak || !isBreak;
@@ -79,9 +87,7 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
                 strokeWidth="8"
                 strokeLinecap="round"
                 strokeDasharray={`${2 * Math.PI * 90}`}
-                strokeDashoffset={`${
-                  2 * Math.PI * 90 * (1 - timerInfo.remainingSeconds / timerInfo.totalSeconds)
-                }`}
+                strokeDashoffset={`${2 * Math.PI * 90 * (1 - progress)}`}
                 transform="rotate(-90 100 100)"
               />
             </svg>

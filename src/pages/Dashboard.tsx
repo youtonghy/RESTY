@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
 import * as api from '../utils/api';
@@ -10,82 +10,25 @@ import './Dashboard.css';
 export function Dashboard() {
   const { t } = useTranslation();
   const { timerInfo, setTimerInfo } = useAppStore();
-  const [displaySeconds, setDisplaySeconds] = useState(timerInfo.remainingSeconds);
-  const [timeDisplay, setTimeDisplay] = useState('00:00');
-  const latestRemainingRef = useRef(timerInfo.remainingSeconds);
-  const lastSyncRef = useRef(Date.now());
-  const lastPhaseRef = useRef(timerInfo.phase);
-  const lastTotalRef = useRef(timerInfo.totalSeconds);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     // Load initial timer info
     api.getTimerInfo().then(setTimerInfo);
   }, [setTimerInfo]);
 
-  useEffect(() => {
-    const phaseChanged = lastPhaseRef.current !== timerInfo.phase;
-    if (phaseChanged) {
-      lastPhaseRef.current = timerInfo.phase;
+  const safeRemainingSeconds = Math.max(0, timerInfo.remainingSeconds);
+  const timeDisplay = useMemo(() => {
+    const minutes = Math.floor(safeRemainingSeconds / 60);
+    const seconds = safeRemainingSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }, [safeRemainingSeconds]);
+
+  const progress = useMemo(() => {
+    if (timerInfo.totalSeconds <= 0) {
+      return 0;
     }
-
-    const totalChanged = lastTotalRef.current !== timerInfo.totalSeconds;
-    if (totalChanged) {
-      lastTotalRef.current = timerInfo.totalSeconds;
-    }
-
-    setDisplaySeconds((prev) => {
-      const shouldSyncFromBackend =
-        phaseChanged ||
-        totalChanged ||
-        timerInfo.state !== 'running' ||
-        timerInfo.remainingSeconds <= prev;
-
-      if (shouldSyncFromBackend) {
-        latestRemainingRef.current = timerInfo.remainingSeconds;
-        lastSyncRef.current = Date.now();
-        return timerInfo.remainingSeconds;
-      }
-
-      return prev;
-    });
-  }, [timerInfo.remainingSeconds, timerInfo.totalSeconds, timerInfo.phase, timerInfo.state]);
-
-  useEffect(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
-    if (timerInfo.state !== 'running') {
-      return;
-    }
-
-    const startRemaining = timerInfo.remainingSeconds;
-    latestRemainingRef.current = startRemaining;
-    lastSyncRef.current = Date.now();
-    setDisplaySeconds(startRemaining);
-
-    intervalRef.current = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - lastSyncRef.current) / 1000);
-      const baseSeconds = latestRemainingRef.current;
-      const nextValue = Math.max(baseSeconds - elapsed, 0);
-      setDisplaySeconds((prev) => (prev === nextValue ? prev : nextValue));
-    }, 1000);
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [timerInfo.state]);
-
-  useEffect(() => {
-    const minutes = Math.floor(displaySeconds / 60);
-    const seconds = displaySeconds % 60;
-    setTimeDisplay(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
-  }, [displaySeconds]);
+    return Math.min(safeRemainingSeconds / timerInfo.totalSeconds, 1);
+  }, [safeRemainingSeconds, timerInfo.totalSeconds]);
 
   const isRunning = timerInfo.state === 'running';
   const isStopped = timerInfo.state === 'stopped';
@@ -146,10 +89,7 @@ export function Dashboard() {
                   strokeWidth="16"
                   strokeLinecap="round"
                   strokeDasharray={`${2 * Math.PI * 180}`}
-                  strokeDashoffset={`${
-                    2 * Math.PI * 180 *
-                    (1 - (timerInfo.totalSeconds > 0 ? displaySeconds / timerInfo.totalSeconds : 0))
-                  }`}
+                  strokeDashoffset={`${2 * Math.PI * 180 * (1 - progress)}`}
                   transform="rotate(-90 200 200)"
                   style={{ transition: 'stroke-dashoffset 1s linear' }}
                 />

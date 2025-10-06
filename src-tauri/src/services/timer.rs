@@ -113,10 +113,25 @@ impl TimerService {
     /// 终止当前阶段并生成会话记录，返回给上层持久化。
     pub fn skip(&self) -> AppResult<Session> {
         let state = self.state.lock().unwrap();
+        let previous_phase = state.phase.clone();
         let session = self.create_session_record(&state, true);
         drop(state);
 
         self.stop()?;
+
+        match previous_phase {
+            TimerPhase::Work => {
+                // Skipping work should immediately begin the break phase
+                self.start_break()?;
+                self.show_break_reminder()?;
+            }
+            TimerPhase::Break => {
+                // Skipping break returns to the next work session
+                self.start_work()?;
+            }
+            TimerPhase::Idle => {}
+        }
+
         Ok(session)
     }
 
