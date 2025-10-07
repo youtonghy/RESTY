@@ -139,8 +139,62 @@ export function Analytics() {
     const sessionEnd = new Date(session.endTime).getTime();
     const sessionDuration = sessionEnd - sessionStart;
 
-    // 最小宽度为2%，确保即使很短的会话也能看到
-    return Math.max((sessionDuration / totalDuration) * 100, 2);
+    // 最小宽度为1.5%，确保即使很短的会话也能看到
+    return Math.max((sessionDuration / totalDuration) * 100, 1.5);
+  };
+
+  /** 计算会话间隙并填充 */
+  const calculateGaps = (sessions: Session[]) => {
+    if (sessions.length === 0) return [];
+
+    const { start, end } = getTimeRange();
+    const totalDuration = end - start;
+    const gaps = [];
+
+    // 按开始时间排序
+    const sortedSessions = [...sessions].sort((a, b) =>
+      new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+    );
+
+    // 检查开始间隙
+    const firstSessionStart = new Date(sortedSessions[0].startTime).getTime();
+    if (firstSessionStart > start) {
+      gaps.push({
+        start: 0,
+        width: ((firstSessionStart - start) / totalDuration) * 100,
+        type: 'idle'
+      });
+    }
+
+    // 检查会话之间的间隙
+    for (let i = 0; i < sortedSessions.length - 1; i++) {
+      const currentEnd = new Date(sortedSessions[i].endTime).getTime();
+      const nextStart = new Date(sortedSessions[i + 1].startTime).getTime();
+
+      if (nextStart > currentEnd) {
+        const gapStart = ((currentEnd - start) / totalDuration) * 100;
+        const gapWidth = ((nextStart - currentEnd) / totalDuration) * 100;
+        gaps.push({
+          start: gapStart,
+          width: gapWidth,
+          type: 'idle'
+        });
+      }
+    }
+
+    // 检查结束间隙
+    const lastSessionEnd = new Date(sortedSessions[sortedSessions.length - 1].endTime).getTime();
+    if (lastSessionEnd < end) {
+      const gapStart = ((lastSessionEnd - start) / totalDuration) * 100;
+      const gapWidth = ((end - lastSessionEnd) / totalDuration) * 100;
+      gaps.push({
+        start: gapStart,
+        width: gapWidth,
+        type: 'idle'
+      });
+    }
+
+    return gaps;
   };
 
   if (loading) {
@@ -222,16 +276,35 @@ export function Analytics() {
                       {generateTimeScale(data.sessions)}
                     </div>
                   </div>
-                  <div className="horizontal-timeline">
-                    {data.sessions.map((session: Session, index: number) => (
+                  <div className="horizontal-timeline enhanced">
+                    {/* 渲染间隙（空闲时间） */}
+                    {calculateGaps(data.sessions).map((gap, index) => (
+                      <div
+                        key={`gap-${index}`}
+                        className="timeline-block idle"
+                        style={{
+                          left: `${gap.start}%`,
+                          width: `${gap.width}%`,
+                        }}
+                        title="空闲时间"
+                      >
+                        <div className="timeline-block-content">
+                          <div className="timeline-block-type">⏸️</div>
+                        </div>
+                      </div>
+                    ))}
+                    {/* 渲染工作/休息会话 */}
+                    {data.sessions
+                      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+                      .map((session: Session, index: number) => (
                       <div
                         key={session.id}
-                        className={`timeline-block ${session.type}`}
+                        className={`timeline-block ${session.type} ${session.isSkipped ? 'skipped' : ''}`}
                         style={{
                           left: `${calculateTimelinePosition(data.sessions, session.startTime, index)}%`,
                           width: `${calculateBlockWidth(data.sessions, session, index)}%`,
                         }}
-                        title={`${session.type === 'work' ? t('reminder.title.work') : t('reminder.title.break')} - ${formatDuration(session.duration)}`}
+                        title={`${session.type === 'work' ? t('reminder.title.work') : t('reminder.title.break')} - ${formatDuration(session.duration)}${session.isSkipped ? ' (已跳过)' : ''}`}
                       >
                         <div className="timeline-block-content">
                           <div className="timeline-block-type">
@@ -243,6 +316,9 @@ export function Analytics() {
                               minute: '2-digit',
                             })}
                           </div>
+                          <div className="timeline-block-duration">
+                            {formatDuration(session.duration)}
+                          </div>
                           {session.isSkipped && (
                             <div className="timeline-block-skipped">
                               {t('reminder.actions.skip')}
@@ -252,7 +328,7 @@ export function Analytics() {
                       </div>
                     ))}
                   </div>
-                  <div className="timeline-legend">
+                  <div className="timeline-legend enhanced">
                     <div className="legend-item">
                       <div className="legend-color work"></div>
                       <span>{t('reminder.title.work')}</span>
@@ -260,6 +336,10 @@ export function Analytics() {
                     <div className="legend-item">
                       <div className="legend-color break"></div>
                       <span>{t('reminder.title.break')}</span>
+                    </div>
+                    <div className="legend-item">
+                      <div className="legend-color idle"></div>
+                      <span>空闲时间</span>
                     </div>
                   </div>
                 </div>
