@@ -80,7 +80,12 @@
       "custom": "自定义"
     },
     "timeline": "时间轴",
-    "noData": "所选时段暂无数据"
+    "noData": "所选时段暂无数据",
+    "fragments": "片段统计",
+    "totalFragmentsWeek": "本周总片段",
+    "totalFragmentsMonth": "本月总片段",
+    "skippedBreaks": "已跳过的休息",
+    "averageSession": "平均片段时长"
   },
   "tray": {
     "show": "显示窗口",
@@ -130,7 +135,8 @@
     "seconds": "秒",
     "hours": "小时",
     "running": "运行中",
-    "stopped": "已停止"
+    "stopped": "已停止",
+    "loading": "加载中..."
   },
   "dashboard": {
     "workMessage": "专注工作，注意保护眼睛！",

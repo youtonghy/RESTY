@@ -80,7 +80,12 @@
       "custom": "Custom Range"
     },
     "timeline": "Timeline",
-    "noData": "No data available for selected period"
+    "noData": "No data available for selected period",
+    "fragments": "Fragments",
+    "totalFragmentsWeek": "Total Fragments (Week)",
+    "totalFragmentsMonth": "Total Fragments (Month)",
+    "skippedBreaks": "Skipped Breaks",
+    "averageSession": "Average Session"
   },
   "tray": {
     "show": "Show Window",
@@ -130,7 +135,8 @@
     "seconds": "seconds",
     "hours": "hours",
     "running": "Running",
-    "stopped": "Stopped"
+    "stopped": "Stopped",
+    "loading": "Loading..."
   },
   "dashboard": {
     "workMessage": "Focus on your work. Take care of your eyes!",
