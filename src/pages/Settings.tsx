@@ -172,22 +172,7 @@ export function Settings() {
             </select>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="opacity">{t('settings.reminder.opacity')}</label>
-            <input
-              id="opacity"
-              type="range"
-              className="input"
-              value={localSettings.opacity}
-              onChange={(e) =>
-                setLocalSettings({ ...localSettings, opacity: parseInt(e.target.value) })
-              }
-              min={50}
-              max={100}
-            />
-            <span className="opacity-value">{localSettings.opacity}%</span>
-          </div>
-
+  
           <div className="form-group toggle-group">
             <label className="toggle-row">
               <span className="toggle-text">{t('settings.reminder.playSound')}</span>
