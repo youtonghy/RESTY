@@ -21,7 +21,8 @@ pub fn run() {
                 // Only affect the main window
                 if window.label() == "main" {
                     api.prevent_close();
-                    let _ = window.hide();
+                    // Minimize to taskbar instead of hiding
+                    let _ = window.minimize();
                 }
             }
         })
@@ -112,6 +113,7 @@ pub fn run() {
                                 if let Some(win) = app.get_webview_window("main") {
                                     let _ = win.show();
                                     let _ = win.set_focus();
+                                    let _ = win.unminimize();
                                 }
                             }
                             "quit" => {
@@ -126,16 +128,24 @@ pub fn run() {
                                 let app = tray.app_handle();
                                 if let Some(win) = app.get_webview_window("main") {
                                     // Toggle show/hide on click
-                                    if let Ok(visible) = win.is_visible() {
-                                        if visible {
+                                    match win.is_visible() {
+                                        Ok(true) => {
+                                            // Window is visible, hide it
                                             let _ = win.hide();
-                                        } else {
+                                        }
+                                        Ok(false) => {
+                                            // Window is hidden, show it and bring to front
                                             let _ = win.show();
                                             let _ = win.set_focus();
+                                            // Ensure window is brought to front
+                                            let _ = win.unminimize();
                                         }
-                                    } else {
-                                        let _ = win.show();
-                                        let _ = win.set_focus();
+                                        Err(_) => {
+                                            // If we can't determine visibility, just show it
+                                            let _ = win.show();
+                                            let _ = win.set_focus();
+                                            let _ = win.unminimize();
+                                        }
                                     }
                                 }
                             }
