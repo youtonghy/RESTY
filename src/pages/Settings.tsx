@@ -30,16 +30,17 @@ export function Settings() {
     }
   };
 
-  /** 保存表单内容到后端，同时刷新全局状态。 */
-  const handleSave = async () => {
+  /** 自动保存：将传入的新设置保存到后端并同步全局状态。 */
+  const saveSettingsAuto = async (next: SettingsType) => {
     setIsSaving(true);
     setMessage('');
     try {
-      await api.saveSettings(localSettings);
-      setSettings(localSettings);
+      await api.saveSettings(next);
+      setSettings(next);
+      setLocalSettings(next);
 
-      // Sync OS autostart according to saved settings
-      api.setAutostart(localSettings.autostart).catch((err) => {
+      // 同步系统开机自启状态
+      api.setAutostart(next.autostart).catch((err) => {
         console.error('Failed to sync autostart:', err);
       });
 
@@ -59,48 +60,7 @@ export function Settings() {
     }
   };
 
-  /** 导出当前配置为 JSON 文件。 */
-  const handleExport = async () => {
-    try {
-      const jsonStr = await api.exportConfig();
-      const blob = new Blob([jsonStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `resty-config-${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      setMessage(t('notifications.configExported'));
-    } catch (error) {
-      setMessage(t('errors.exportFailed'));
-    }
-  };
-
-  /** 触发文件选择并导入 JSON 配置。 */
-  const handleImport = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json';
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        try {
-          const text = await file.text();
-          const imported = await api.importConfig(text);
-          setSettings(imported);
-          setLocalSettings(imported);
-          // Sync OS autostart based on imported setting
-          api.setAutostart(imported.autostart).catch((err) => {
-            console.error('Failed to sync autostart after import:', err);
-          });
-          setMessage(t('notifications.configImported'));
-        } catch (error) {
-          setMessage(t('errors.importFailed'));
-        }
-      }
-    };
-    input.click();
-  };
+  // 已移除导入/导出：改为实时自动保存
 
   return (
     <div className="page">
@@ -118,9 +78,18 @@ export function Settings() {
               type="number"
               className="input"
               value={localSettings.workDuration}
-              onChange={(e) =>
-                setLocalSettings({ ...localSettings, workDuration: parseInt(e.target.value) })
-              }
+              onChange={(e) => {
+                const value = parseInt(e.target.value);
+                setLocalSettings({ ...localSettings, workDuration: value });
+              }}
+              onBlur={(e) => {
+                let value = parseInt(e.target.value);
+                if (Number.isNaN(value)) value = localSettings.workDuration;
+                value = Math.max(1, Math.min(120, value));
+                const next = { ...localSettings, workDuration: value };
+                setLocalSettings(next);
+                saveSettingsAuto(next);
+              }}
               min={1}
               max={120}
             />
@@ -133,9 +102,18 @@ export function Settings() {
               type="number"
               className="input"
               value={localSettings.breakDuration}
-              onChange={(e) =>
-                setLocalSettings({ ...localSettings, breakDuration: parseInt(e.target.value) })
-              }
+              onChange={(e) => {
+                const value = parseInt(e.target.value);
+                setLocalSettings({ ...localSettings, breakDuration: value });
+              }}
+              onBlur={(e) => {
+                let value = parseInt(e.target.value);
+                if (Number.isNaN(value)) value = localSettings.breakDuration;
+                value = Math.max(1, Math.min(120, value));
+                const next = { ...localSettings, breakDuration: value };
+                setLocalSettings(next);
+                saveSettingsAuto(next);
+              }}
               min={1}
               max={120}
             />
@@ -148,9 +126,11 @@ export function Settings() {
                 <input
                   type="checkbox"
                   checked={localSettings.enableForceBreak}
-                  onChange={(e) =>
-                    setLocalSettings({ ...localSettings, enableForceBreak: e.target.checked })
-                  }
+                  onChange={(e) => {
+                    const next = { ...localSettings, enableForceBreak: e.target.checked };
+                    setLocalSettings(next);
+                    saveSettingsAuto(next);
+                  }}
                 />
                 <span className="slider" />
               </span>
@@ -169,12 +149,14 @@ export function Settings() {
               id="reminderMode"
               className="input"
               value={localSettings.reminderMode}
-              onChange={(e) =>
-                setLocalSettings({
+              onChange={(e) => {
+                const next = {
                   ...localSettings,
                   reminderMode: e.target.value as 'fullscreen' | 'floating',
-                })
-              }
+                } as SettingsType;
+                setLocalSettings(next);
+                saveSettingsAuto(next);
+              }}
             >
               <option value="fullscreen">{t('settings.reminder.fullscreen')}</option>
               <option value="floating">{t('settings.reminder.floating')}</option>
@@ -189,9 +171,11 @@ export function Settings() {
                 <input
                   type="checkbox"
                   checked={localSettings.playSound}
-                  onChange={(e) =>
-                    setLocalSettings({ ...localSettings, playSound: e.target.checked })
-                  }
+                  onChange={(e) => {
+                    const next = { ...localSettings, playSound: e.target.checked };
+                    setLocalSettings(next);
+                    saveSettingsAuto(next);
+                  }}
                 />
                 <span className="slider" />
               </span>
@@ -209,12 +193,14 @@ export function Settings() {
               id="theme"
               className="input"
               value={localSettings.theme}
-              onChange={(e) =>
-                setLocalSettings({
+              onChange={(e) => {
+                const next = {
                   ...localSettings,
                   theme: e.target.value as 'light' | 'dark' | 'auto',
-                })
-              }
+                } as SettingsType;
+                setLocalSettings(next);
+                saveSettingsAuto(next);
+              }}
             >
               <option value="light">{t('settings.appearance.light')}</option>
               <option value="dark">{t('settings.appearance.dark')}</option>
@@ -234,9 +220,11 @@ export function Settings() {
                 <input
                   type="checkbox"
                   checked={localSettings.autostart}
-                  onChange={(e) =>
-                    setLocalSettings({ ...localSettings, autostart: e.target.checked })
-                  }
+                  onChange={(e) => {
+                    const next = { ...localSettings, autostart: e.target.checked };
+                    setLocalSettings(next);
+                    saveSettingsAuto(next);
+                  }}
                 />
                 <span className="slider" />
               </span>
@@ -250,9 +238,11 @@ export function Settings() {
                 <input
                   type="checkbox"
                   checked={localSettings.minimizeToTray}
-                  onChange={(e) =>
-                    setLocalSettings({ ...localSettings, minimizeToTray: e.target.checked })
-                  }
+                  onChange={(e) => {
+                    const next = { ...localSettings, minimizeToTray: e.target.checked };
+                    setLocalSettings(next);
+                    saveSettingsAuto(next);
+                  }}
                 />
                 <span className="slider" />
               </span>
@@ -266,9 +256,11 @@ export function Settings() {
                 <input
                   type="checkbox"
                   checked={localSettings.closeToTray}
-                  onChange={(e) =>
-                    setLocalSettings({ ...localSettings, closeToTray: e.target.checked })
-                  }
+                  onChange={(e) => {
+                    const next = { ...localSettings, closeToTray: e.target.checked };
+                    setLocalSettings(next);
+                    saveSettingsAuto(next);
+                  }}
                 />
                 <span className="slider" />
               </span>
@@ -288,7 +280,9 @@ export function Settings() {
               value={localSettings.language}
               onChange={(e) => {
                 const newLang = e.target.value as 'en' | 'zh-CN';
-                setLocalSettings({ ...localSettings, language: newLang });
+                const next = { ...localSettings, language: newLang } as SettingsType;
+                setLocalSettings(next);
+                saveSettingsAuto(next);
               }}
             >
               <option value="en">English</option>
@@ -297,19 +291,10 @@ export function Settings() {
           </div>
         </section>
 
-        {/* Actions */}
+        {/* Actions: 仅保留重置，移除手动保存/导出/导入 */}
         <div className="settings-actions">
-          <button className="btn btn-primary" onClick={handleSave} disabled={isSaving}>
-            {isSaving ? 'Saving...' : t('settings.actions.save')}
-          </button>
           <button className="btn btn-secondary" onClick={handleReset}>
             {t('settings.actions.reset')}
-          </button>
-          <button className="btn btn-secondary" onClick={handleExport}>
-            {t('settings.actions.export')}
-          </button>
-          <button className="btn btn-secondary" onClick={handleImport}>
-            {t('settings.actions.import')}
           </button>
         </div>
 
