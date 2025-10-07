@@ -121,3 +121,8 @@ export async function onTimerFinished(callback: () => void) {
 export async function onSettingsChange(callback: (settings: Settings) => void) {
   return await listen<Settings>('settings-change', (event) => callback(event.payload));
 }
+
+/** 订阅从托盘触发的“打开设置”事件，用于路由跳转。 */
+export async function onOpenSettings(callback: () => void) {
+  return await listen('open-settings', () => callback());
+}

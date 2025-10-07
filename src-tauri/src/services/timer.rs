@@ -24,6 +24,8 @@ struct TimerServiceState {
     current_session_id: Option<String>,
     current_session_start: Option<chrono::DateTime<Utc>>,
     auto_cycle: bool, // Auto cycle between work and break
+    // When set, automatically skip breaks until this time
+    suppress_breaks_until: Option<chrono::DateTime<Utc>>,
 }
 
 impl TimerService {
@@ -42,6 +44,7 @@ impl TimerService {
                 current_session_id: None,
                 current_session_start: None,
                 auto_cycle: true, // Enable auto cycle by default
+                suppress_breaks_until: None,
             })),
             app,
         })
@@ -205,6 +208,18 @@ impl TimerService {
         }
 
         let should_auto_cycle = timer_finished && state.auto_cycle;
+        // Evaluate whether break suppression is active; clear if expired
+        let suppress_breaks_active = if let Some(until) = state.suppress_breaks_until {
+            if Utc::now() < until {
+                true
+            } else {
+                // Clear expired suppression
+                state.suppress_breaks_until = None;
+                false
+            }
+        } else {
+            false
+        };
         drop(state);
         self.emit_timer_update()?;
 
@@ -215,9 +230,15 @@ impl TimerService {
             if should_auto_cycle {
                 match next_phase {
                     TimerPhase::Work => {
-                        // Work finished, start break and show reminder
-                        self.start_break()?;
-                        self.show_break_reminder()?;
+                        // Work finished
+                        if suppress_breaks_active {
+                            // Skip break: immediately start another work session
+                            self.start_work()?;
+                        } else {
+                            // Start break and show reminder
+                            self.start_break()?;
+                            self.show_break_reminder()?;
+                        }
                     }
                     TimerPhase::Break => {
                         // Break finished, start work
@@ -248,6 +269,26 @@ impl TimerService {
         let mut state = self.state.lock().unwrap();
         state.work_duration = work_duration;
         state.break_duration = break_duration;
+    }
+
+    /// Do not take breaks for the specified number of hours from now.
+    pub fn suppress_breaks_for_hours(&self, hours: i64) {
+        let mut state = self.state.lock().unwrap();
+        let until = Utc::now() + ChronoDuration::hours(hours.max(1));
+        state.suppress_breaks_until = Some(until);
+    }
+
+    /// Do not take breaks until tomorrow morning (08:00 local time).
+    pub fn suppress_breaks_until_tomorrow_morning(&self) {
+        // Compute tomorrow 08:00 in local time, convert to UTC
+        let now_local = chrono::Local::now();
+        let tomorrow_date = now_local.date_naive() + ChronoDuration::days(1);
+        let morning = chrono::NaiveTime::from_hms_opt(8, 0, 0).unwrap_or_else(|| chrono::NaiveTime::from_hms_opt(8, 0, 0).unwrap());
+        let naive_dt = chrono::NaiveDateTime::new(tomorrow_date, morning);
+        let local_dt = chrono::Local.from_local_datetime(&naive_dt).single().unwrap_or_else(|| chrono::Local.timestamp_opt(naive_dt.and_utc().timestamp(), 0).unwrap());
+        let until_utc = local_dt.with_timezone(&Utc);
+        let mut state = self.state.lock().unwrap();
+        state.suppress_breaks_until = Some(until_utc);
     }
 
     /// Create session record from current state

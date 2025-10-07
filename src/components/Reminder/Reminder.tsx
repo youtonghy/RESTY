@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../../store';
 import * as api from '../../utils/api';
@@ -15,8 +15,40 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
   const safeRemainingMinutes = Math.max(0, timerInfo.remainingMinutes);
   const isBreak = timerInfo.phase === 'break';
   const canSkip = !settings.enableForceBreak || !isBreak;
-  const displayMinutes = optimisticMinutes ?? safeRemainingMinutes;
-  const formattedTime = `${String(displayMinutes).padStart(2, '0')}:00`;
+  // Compute base remaining seconds using nextTransitionTime for higher precision
+  const computeBaseSeconds = useMemo(() => {
+    return () => {
+      let baseSeconds = safeRemainingMinutes * 60;
+      if (timerInfo.nextTransitionTime) {
+        const endTs = Date.parse(timerInfo.nextTransitionTime);
+        if (!Number.isNaN(endTs)) {
+          const nowTs = Date.now();
+          baseSeconds = Math.max(0, Math.floor((endTs - nowTs) / 1000));
+        }
+      }
+      // Apply optimistic extension (if any)
+      if (optimisticMinutes != null) {
+        const deltaMin = Math.max(0, optimisticMinutes - safeRemainingMinutes);
+        baseSeconds += deltaMin * 60;
+      }
+      return baseSeconds;
+    };
+  }, [timerInfo.nextTransitionTime, safeRemainingMinutes, optimisticMinutes]);
+
+  const [displaySeconds, setDisplaySeconds] = useState<number>(() => computeBaseSeconds());
+
+  // Keep local seconds ticking smoothly
+  useEffect(() => {
+    setDisplaySeconds(computeBaseSeconds());
+    const id = setInterval(() => {
+      setDisplaySeconds((s) => (s > 0 ? s - 1 : 0));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [computeBaseSeconds]);
+
+  const mm = Math.floor(displaySeconds / 60);
+  const ss = displaySeconds % 60;
+  const formattedTime = `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
 
   const handleSkip = async () => {
     if (canSkip) {

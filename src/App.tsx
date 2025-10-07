@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ThemeProvider } from './components/Common/ThemeProvider';
 import { Reminder } from './components/Reminder/Reminder';
@@ -119,6 +119,8 @@ function App() {
         <Reminder isFullscreen={settings.reminderMode === 'fullscreen'} />
       ) : (
         <BrowserRouter>
+          {/* Bridge: listen to backend events and navigate */}
+          <RouteEventBridge />
           <Layout>
             <Routes>
               <Route path="/" element={<Dashboard />} />
@@ -134,3 +136,22 @@ function App() {
 }
 
 export default App;
+
+/**
+ * A tiny component that subscribes to backend events and performs router navigation.
+ */
+function RouteEventBridge() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const unsubs: Array<Promise<() => void>> = [];
+    unsubs.push(
+      api.onOpenSettings(() => {
+        navigate('/settings');
+      })
+    );
+    return () => {
+      unsubs.forEach((p) => p.then((unsub) => unsub()));
+    };
+  }, [navigate]);
+  return null;
+}

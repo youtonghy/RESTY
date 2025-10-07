@@ -56,7 +56,7 @@
     },
     "countdown": "Remaining: {{time}}",
     "simpleBreakTime": "Break for {{minutes}} minutes",
-    "simpleLabel": "Break Duration",
+    "simpleLabel": "Break Time Remaining",
     "forceBreakTooltip": "Force break is enabled in settings",
     "actions": {
       "skip": "Skip",

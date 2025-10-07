@@ -7,7 +7,7 @@ use commands::AppState;
 use services::{DatabaseService, TimerService};
 use std::sync::Arc;
 use tauri::{Listener, Manager, WebviewUrl, WebviewWindowBuilder};
-use tauri::menu::{MenuBuilder, MenuItemBuilder};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::tray::TrayIconBuilder;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -97,10 +97,19 @@ pub fn run() {
             // Create system tray with menu
             {
                 // Build tray menu
-                let show_item = MenuItemBuilder::new("显示主窗口").id("show").build(app)?;
-                let quit_item = MenuItemBuilder::new("退出").id("quit").build(app)?;
+                let skip_item = MenuItemBuilder::new("跳到下一次休息/工作").id("skip").build(app)?;
+                // No-break submenu options
+                let nb_1h = MenuItemBuilder::new("1 小时不休息").id("no_break_1h").build(app)?;
+                let nb_2h = MenuItemBuilder::new("2 小时不休息").id("no_break_2h").build(app)?;
+                let nb_5h = MenuItemBuilder::new("5 小时不休息").id("no_break_5h").build(app)?;
+                let nb_tomorrow = MenuItemBuilder::new("直到明天早晨不休息").id("no_break_tomorrow").build(app)?;
+                let no_break_submenu = SubmenuBuilder::new(app, "X 小时不休息")
+                    .items(&[&nb_1h, &nb_2h, &nb_5h, &nb_tomorrow])
+                    .build()?;
+                let settings_item = MenuItemBuilder::new("设置").id("settings").build(app)?;
+                let close_item = MenuItemBuilder::new("关闭").id("quit").build(app)?;
                 let menu = MenuBuilder::new(app)
-                    .items(&[&show_item, &quit_item])
+                    .items(&[&skip_item, &no_break_submenu, &settings_item, &close_item])
                     .build()?;
 
                 // Build tray icon
@@ -109,12 +118,51 @@ pub fn run() {
                     .on_menu_event(|app, event| {
                         let id = event.id().as_ref();
                         match id {
-                            "show" => {
+                            "skip" => {
+                                // Skip current phase and persist session
+                                let state = app.state::<crate::commands::AppState>();
+                                let timer = state.timer_service.clone();
+                                let db = state.database_service.clone();
+                                tauri::async_runtime::spawn(async move {
+                                    match timer.skip() {
+                                        Ok(session) => {
+                                            if let Ok(mut guard) = db.try_lock() {
+                                                let _ = guard.save_session(&session).await;
+                                            } else {
+                                                let db2 = db.lock().await;
+                                                let _ = db2.save_session(&session).await;
+                                            }
+                                        }
+                                        Err(e) => {
+                                            eprintln!("Failed to skip phase from tray: {}", e);
+                                        }
+                                    }
+                                });
+                            }
+                            "no_break_1h" => {
+                                let state = app.state::<crate::commands::AppState>();
+                                state.timer_service.suppress_breaks_for_hours(1);
+                            }
+                            "no_break_2h" => {
+                                let state = app.state::<crate::commands::AppState>();
+                                state.timer_service.suppress_breaks_for_hours(2);
+                            }
+                            "no_break_5h" => {
+                                let state = app.state::<crate::commands::AppState>();
+                                state.timer_service.suppress_breaks_for_hours(5);
+                            }
+                            "no_break_tomorrow" => {
+                                let state = app.state::<crate::commands::AppState>();
+                                state.timer_service.suppress_breaks_until_tomorrow_morning();
+                            }
+                            "settings" => {
                                 if let Some(win) = app.get_webview_window("main") {
                                     let _ = win.show();
                                     let _ = win.set_focus();
                                     let _ = win.unminimize();
                                 }
+                                // Notify front-end to navigate to settings
+                                let _ = app.emit("open-settings", ());
                             }
                             "quit" => {
                                 std::process::exit(0);
