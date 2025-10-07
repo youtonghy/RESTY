@@ -1,6 +1,6 @@
 use crate::models::{Session, SessionType, TimerInfo, TimerPhase, TimerState};
 use crate::utils::AppResult;
-use chrono::{Duration as ChronoDuration, Timelike, Utc};
+use chrono::{Duration as ChronoDuration, Timelike, Utc, Local, TimeZone};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
 use tokio::time::{self, Duration as TokioDuration};
@@ -281,11 +281,17 @@ impl TimerService {
     /// Do not take breaks until tomorrow morning (08:00 local time).
     pub fn suppress_breaks_until_tomorrow_morning(&self) {
         // Compute tomorrow 08:00 in local time, convert to UTC
-        let now_local = chrono::Local::now();
+        let now_local = Local::now();
         let tomorrow_date = now_local.date_naive() + ChronoDuration::days(1);
-        let morning = chrono::NaiveTime::from_hms_opt(8, 0, 0).unwrap_or_else(|| chrono::NaiveTime::from_hms_opt(8, 0, 0).unwrap());
+        let morning = chrono::NaiveTime::from_hms_opt(8, 0, 0).unwrap();
         let naive_dt = chrono::NaiveDateTime::new(tomorrow_date, morning);
-        let local_dt = chrono::Local.from_local_datetime(&naive_dt).single().unwrap_or_else(|| chrono::Local.timestamp_opt(naive_dt.and_utc().timestamp(), 0).unwrap());
+        let local_result = Local.from_local_datetime(&naive_dt);
+        // Resolve ambiguous/invalid times by picking a valid candidate
+        let local_dt = local_result
+            .single()
+            .or_else(|| local_result.earliest())
+            .or_else(|| local_result.latest())
+            .expect("failed to resolve local datetime for tomorrow morning 08:00");
         let until_utc = local_dt.with_timezone(&Utc);
         let mut state = self.state.lock().unwrap();
         state.suppress_breaks_until = Some(until_utc);

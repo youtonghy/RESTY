@@ -6,7 +6,7 @@ mod utils;
 use commands::AppState;
 use services::{DatabaseService, TimerService};
 use std::sync::Arc;
-use tauri::{Listener, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Emitter, Listener, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::tray::TrayIconBuilder;
 
