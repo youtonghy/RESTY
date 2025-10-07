@@ -79,6 +79,70 @@ export function Analytics() {
     return Math.round((data.completedBreaks / data.breakCount) * 100);
   };
 
+  /** 获取时间范围内的开始和结束时间 */
+  const getTimeRange = () => {
+    if (!data || data.sessions.length === 0) return { start: 0, end: 0 };
+
+    const timestamps = data.sessions.flatMap(s => [
+      new Date(s.startTime).getTime(),
+      new Date(s.endTime).getTime()
+    ]);
+
+    return {
+      start: Math.min(...timestamps),
+      end: Math.max(...timestamps)
+    };
+  };
+
+  /** 生成时间刻度 */
+  const generateTimeScale = (sessions: Session[]) => {
+    if (sessions.length === 0) return [];
+
+    const { start, end } = getTimeRange();
+    const totalDuration = end - start;
+    const hours = Math.ceil(totalDuration / (1000 * 60 * 60));
+
+    const scale = [];
+    for (let i = 0; i <= hours; i++) {
+      const time = new Date(start + i * 1000 * 60 * 60);
+      scale.push(
+        <div key={i} className="time-scale-mark" style={{ left: `${(i / hours) * 100}%` }}>
+          <div className="time-scale-line"></div>
+          <div className="time-scale-label">
+            {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </div>
+        </div>
+      );
+    }
+
+    return scale;
+  };
+
+  /** 计算时间轴上的位置 */
+  const calculateTimelinePosition = (sessions: Session[], startTime: string, index: number) => {
+    if (sessions.length === 0) return 0;
+
+    const { start, end } = getTimeRange();
+    const totalDuration = end - start;
+    const sessionStart = new Date(startTime).getTime();
+
+    return ((sessionStart - start) / totalDuration) * 100;
+  };
+
+  /** 计算时间块的宽度 */
+  const calculateBlockWidth = (sessions: Session[], session: Session, index: number) => {
+    if (sessions.length === 0) return 0;
+
+    const { start, end } = getTimeRange();
+    const totalDuration = end - start;
+    const sessionStart = new Date(session.startTime).getTime();
+    const sessionEnd = new Date(session.endTime).getTime();
+    const sessionDuration = sessionEnd - sessionStart;
+
+    // 最小宽度为2%，确保即使很短的会话也能看到
+    return Math.max((sessionDuration / totalDuration) * 100, 2);
+  };
+
   if (loading) {
     return (
       <div className="page">
@@ -145,43 +209,59 @@ export function Analytics() {
               </div>
             </section>
 
-            {/* Session Timeline */}
+            {/* Session Timeline - Horizontal */}
             <section className="card timeline-section">
               <h2 className="card-header">{t('analytics.timeline')}</h2>
 
               {data.sessions.length === 0 ? (
                 <div className="no-data">{t('analytics.noData')}</div>
               ) : (
-                <div className="timeline">
-                  {data.sessions.map((session: Session) => (
-                    <div
-                      key={session.id}
-                      className={`timeline-item ${session.type}`}
-                    >
-                      <div className="timeline-marker"></div>
-                      <div className="timeline-content">
-                        <div className="timeline-time">
-                          {new Date(session.startTime).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </div>
-                        <div className="timeline-type">
-                          {session.type === 'work'
-                            ? t('reminder.title.work')
-                            : t('reminder.title.break')}
-                        </div>
-                        <div className="timeline-duration">
-                          {formatDuration(session.duration)}
-                        </div>
-                        {session.isSkipped && (
-                          <span className="timeline-badge">
-                            {t('reminder.actions.skip')}
-                          </span>
-                        )}
-                      </div>
+                <div className="horizontal-timeline-container">
+                  <div className="timeline-header">
+                    <div className="timeline-time-scale">
+                      {generateTimeScale(data.sessions)}
                     </div>
-                  ))}
+                  </div>
+                  <div className="horizontal-timeline">
+                    {data.sessions.map((session: Session, index: number) => (
+                      <div
+                        key={session.id}
+                        className={`timeline-block ${session.type}`}
+                        style={{
+                          left: `${calculateTimelinePosition(data.sessions, session.startTime, index)}%`,
+                          width: `${calculateBlockWidth(data.sessions, session, index)}%`,
+                        }}
+                        title={`${session.type === 'work' ? t('reminder.title.work') : t('reminder.title.break')} - ${formatDuration(session.duration)}`}
+                      >
+                        <div className="timeline-block-content">
+                          <div className="timeline-block-type">
+                            {session.type === 'work' ? '💼' : '☕'}
+                          </div>
+                          <div className="timeline-block-time">
+                            {new Date(session.startTime).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </div>
+                          {session.isSkipped && (
+                            <div className="timeline-block-skipped">
+                              {t('reminder.actions.skip')}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="timeline-legend">
+                    <div className="legend-item">
+                      <div className="legend-color work"></div>
+                      <span>{t('reminder.title.work')}</span>
+                    </div>
+                    <div className="legend-item">
+                      <div className="legend-color break"></div>
+                      <span>{t('reminder.title.break')}</span>
+                    </div>
+                  </div>
                 </div>
               )}
             </section>
