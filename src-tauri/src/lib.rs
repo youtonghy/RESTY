@@ -172,29 +172,21 @@ pub fn run() {
                     })
                     .on_tray_icon_event(|tray, event| {
                         match event {
-                            tauri::tray::TrayIconEvent::Click { .. } => {
+                            tauri::tray::TrayIconEvent::Click { button, .. } => {
                                 let app = tray.app_handle();
-                                if let Some(win) = app.get_webview_window("main") {
-                                    // Toggle show/hide on click
-                                    match win.is_visible() {
-                                        Ok(true) => {
-                                            // Window is visible, hide it
-                                            let _ = win.hide();
-                                        }
-                                        Ok(false) => {
-                                            // Window is hidden, show it and bring to front
+                                match button {
+                                    tauri::tray::MouseButton::Left => {
+                                        if let Some(win) = app.get_webview_window("main") {
+                                            // Always show and focus (no toggle) to avoid flicker
                                             let _ = win.show();
-                                            let _ = win.set_focus();
-                                            // Ensure window is brought to front
                                             let _ = win.unminimize();
-                                        }
-                                        Err(_) => {
-                                            // If we can't determine visibility, just show it
-                                            let _ = win.show();
                                             let _ = win.set_focus();
-                                            let _ = win.unminimize();
                                         }
                                     }
+                                    tauri::tray::MouseButton::Right => {
+                                        // No-op: let the OS show the attached menu.
+                                    }
+                                    _ => {}
                                 }
                             }
                             _ => {}
