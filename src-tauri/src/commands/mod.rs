@@ -156,10 +156,12 @@ pub fn open_reminder_window(app: AppHandle, fullscreen: bool) -> Result<(), Stri
 /// Show reminder window once frontend is ready
 #[tauri::command]
 pub fn show_reminder_window(app: AppHandle) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("break-reminder") {
-        window.show().map_err(|e| e.to_string())?;
-        // Best-effort focus
-        let _ = window.set_focus();
+    // Show all reminder windows (across monitors)
+    for (label, window) in app.webview_windows() {
+        if label.starts_with("break-reminder") {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
     }
     Ok(())
 }
@@ -167,8 +169,14 @@ pub fn show_reminder_window(app: AppHandle) -> Result<(), String> {
 /// Close reminder window
 #[tauri::command]
 pub fn close_reminder_window(app: AppHandle) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("break-reminder") {
-        window.close().map_err(|e| e.to_string())?;
+    let mut to_close = vec![];
+    for (label, window) in app.webview_windows() {
+        if label.starts_with("break-reminder") {
+            to_close.push(window);
+        }
+    }
+    for w in to_close {
+        let _ = w.close();
     }
     Ok(())
 }

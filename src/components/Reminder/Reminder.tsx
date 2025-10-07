@@ -12,6 +12,7 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
   const { t } = useTranslation();
   const { timerInfo, settings } = useAppStore();
   const [optimisticMinutes, setOptimisticMinutes] = useState<number | null>(null);
+  const [isReady, setIsReady] = useState(false);
   const safeRemainingMinutes = Math.max(0, timerInfo.remainingMinutes);
   const isBreak = timerInfo.phase === 'break';
   const canSkip = !settings.enableForceBreak || !isBreak;
@@ -90,15 +91,17 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
 
   const phaseClass = `phase-${timerInfo.phase ?? 'break'}`;
 
-  // Reveal the Tauri window only after first paints are done to avoid white flash
+  // Reveal the window, then mark ready to trigger panel fade-in
   useEffect(() => {
     let raf1 = 0;
     let raf2 = 0;
-    // wait for two RAFs to ensure CSS/layout applied
     raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => {
-        api.showReminderWindow().catch((err) => console.error('Failed to show reminder window:', err));
-      });
+      // Show the hidden window as soon as we have a frame
+      api
+        .showReminderWindow()
+        .catch((err) => console.error('Failed to show reminder window:', err));
+      // Next frame, enable fade-in for panel
+      raf2 = requestAnimationFrame(() => setIsReady(true));
     });
     return () => {
       if (raf1) cancelAnimationFrame(raf1);
@@ -107,7 +110,7 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
   }, []);
 
   return (
-    <div className={`reminder ${isFullscreen ? 'reminder-fullscreen' : 'reminder-floating'} ${phaseClass}`}>
+    <div className={`reminder ${isFullscreen ? 'reminder-fullscreen' : 'reminder-floating'} ${phaseClass} ${isReady ? 'is-ready' : ''}`}>
       <div className="reminder-panel" role="dialog" aria-label={t('reminder.simpleLabel')}>
         <div className="reminder-content">
           <div className="reminder-simple-label">{timerLabel}</div>

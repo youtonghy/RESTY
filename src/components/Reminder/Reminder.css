@@ -53,11 +53,20 @@
   -webkit-backdrop-filter: blur(18px);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #fff;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 220ms ease, transform 220ms ease;
 }
 
 .reminder-content {
   text-align: center;
   margin: 0 auto;
+}
+
+/* Fade-in after content is ready */
+.reminder.is-ready .reminder-panel {
+  opacity: 1;
+  transform: none;
 }
 
 /* Minimal label + timer for simple break UI */
@@ -215,9 +224,8 @@
 }
 
 /* Animations */
-.reminder {
-  animation: fadeIn 0.3s ease-out;
-}
+/* Optional subtle container fade (kept minimal to avoid double flashing) */
+.reminder { animation: fadeIn 0.15s ease-out; }
 
 @keyframes fadeIn {
   from {

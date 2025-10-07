@@ -237,53 +237,100 @@ pub fn show_break_reminder_window(
     app: &tauri::AppHandle,
     is_fullscreen: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // Check if window already exists
-    if let Some(window) = app.get_webview_window("break-reminder") {
-        window.set_focus()?;
+    // If any reminder windows already exist, bring them to front
+    let existing: Vec<_> = app
+        .webview_windows()
+        .iter()
+        .filter_map(|(label, w)| if label.starts_with("break-reminder") { Some(w.clone()) } else { None })
+        .collect();
+    if !existing.is_empty() {
+        for w in existing {
+            let _ = w.show();
+            let _ = w.set_focus();
+        }
         return Ok(());
     }
 
-    if is_fullscreen {
-        // Create fullscreen reminder window
-        let window = WebviewWindowBuilder::new(
-            app,
-            "break-reminder",
-            WebviewUrl::App("index.html#reminder".into()),
-        )
-        .title("Break Time - RESTY")
-        .visible(false)
-        .fullscreen(true)
-        .resizable(false)
-        .decorations(false)
-        .always_on_top(true)
-        .skip_taskbar(true)
-        .build()?;
-    } else {
-        // Create floating window at top-right corner
-        let window = WebviewWindowBuilder::new(
-            app,
-            "break-reminder",
-            WebviewUrl::App("index.html#reminder".into()),
-        )
-        .title("Break Time - RESTY")
-        .visible(false)
-        .inner_size(340.0, 300.0)
-        .resizable(false)
-        .maximized(false)
-        .decorations(false)
-        .always_on_top(true)
-        .skip_taskbar(true)
-        .build()?;
+    // Try multi-monitor setup
+    let monitors = app.available_monitors().unwrap_or_default();
+    if monitors.is_empty() {
+        // Fallback to single-window behavior (current monitor)
+        if is_fullscreen {
+            let _window = WebviewWindowBuilder::new(
+                app,
+                "break-reminder",
+                WebviewUrl::App("index.html#reminder".into()),
+            )
+            .title("Break Time - RESTY")
+            .visible(false)
+            .fullscreen(true)
+            .resizable(false)
+            .decorations(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .build()?;
+        } else {
+            let window = WebviewWindowBuilder::new(
+                app,
+                "break-reminder",
+                WebviewUrl::App("index.html#reminder".into()),
+            )
+            .title("Break Time - RESTY")
+            .visible(false)
+            .inner_size(340.0, 300.0)
+            .resizable(false)
+            .maximized(false)
+            .decorations(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .build()?;
 
-        // Position at top-right corner
-        if let Ok(monitor) = window.current_monitor() {
-            if let Some(monitor) = monitor {
-                let screen = monitor.size();
-                let window_size = window.outer_size()?;
-                let x = screen.width as i32 - window_size.width as i32 - 20;
-                let y = 96; // move downward to avoid top-right system/UI controls
-                window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }))?;
+            if let Ok(monitor) = window.current_monitor() {
+                if let Some(monitor) = monitor {
+                    let screen = monitor.size();
+                    let window_size = window.outer_size()?;
+                    let x = screen.width as i32 - window_size.width as i32 - 20;
+                    let y = 96;
+                    window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }))?;
+                }
             }
+        }
+        return Ok(());
+    }
+
+    // Create a window on each monitor
+    for (idx, monitor) in monitors.iter().enumerate() {
+        let label = format!("break-reminder-{}", idx);
+        let mut builder = WebviewWindowBuilder::new(
+            app,
+            &label,
+            WebviewUrl::App("index.html#reminder".into()),
+        )
+        .title("Break Time - RESTY")
+        .visible(false)
+        .resizable(false)
+        .decorations(false)
+        .always_on_top(true)
+        .skip_taskbar(true);
+
+        if !is_fullscreen {
+            builder = builder.inner_size(340.0, 300.0).maximized(false);
+        }
+
+        let window = builder.build()?;
+
+        let origin = *monitor.position();
+        if is_fullscreen {
+            // Place on target monitor and then make fullscreen
+            let _ = window.set_position(tauri::Position::Physical(origin));
+            let _ = window.set_fullscreen(true);
+        } else {
+            // Top-right of the monitor
+            let screen = monitor.size();
+            let win_size = window.outer_size()?;
+            let x = origin.x + (screen.width as i32 - win_size.width as i32 - 20);
+            let y = origin.y + 96;
+            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
         }
     }
 
