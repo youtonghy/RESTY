@@ -299,8 +299,13 @@ impl TimerService {
 
     /// Create session record from current state
     fn create_session_record(&self, state: &TimerServiceState, is_skipped: bool) -> Session {
-        let end_time = Utc::now();
-        let start_time = state.current_session_start.unwrap_or(end_time);
+        // Align both start and end to the start of a minute (00 seconds)
+        let raw_end = Utc::now();
+        let end_time = Self::truncate_to_minute(raw_end);
+        let start_time = state
+            .current_session_start
+            .map(Self::truncate_to_minute)
+            .unwrap_or(end_time);
         let actual_duration = (end_time - start_time).num_seconds();
 
         Session {
@@ -365,7 +370,8 @@ impl TimerService {
     pub fn start_ticker(self: Arc<Self>) {
         let service = Arc::clone(&self);
         tokio::spawn(async move {
-            let mut interval = time::interval(TokioDuration::from_secs(30));
+            // Tick every second to ensure phase transitions happen on-time (00 seconds)
+            let mut interval = time::interval(TokioDuration::from_secs(1));
             loop {
                 interval.tick().await;
                 if let Ok(session) = service.tick() {

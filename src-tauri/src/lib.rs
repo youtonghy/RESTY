@@ -115,6 +115,8 @@ pub fn run() {
                 // Build tray icon
                 let mut tray_builder = TrayIconBuilder::new()
                     .menu(&menu)
+                    // Prevent showing context menu on left click to avoid flicker
+                    .menu_on_left_click(false)
                     .on_menu_event(|app, event| {
                         let id = event.id().as_ref();
                         match id {
