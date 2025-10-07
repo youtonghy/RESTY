@@ -106,11 +106,11 @@ const shuffle = <T,>(items: T[]): T[] => {
   return copy;
 };
 
-const generateTips = (language: string): string[] => {
+const generateTip = (language: string): string => {
   const key: 'zh' | 'en' = language.startsWith('zh') ? 'zh' : 'en';
-  const pool = shuffle(TIP_LIBRARY[key]);
-  const count = Math.min(pool.length, Math.floor(Math.random() * 4) + 3); // 3-6
-  return pool.slice(0, count);
+  const pool = TIP_LIBRARY[key];
+  const randomIndex = Math.floor(Math.random() * pool.length);
+  return pool[randomIndex];
 };
 
 // Relative time display not used in simplified next-slot card
@@ -212,41 +212,25 @@ function NextSlotCard({ primary, secondary, delay = 0 }: NextSlotCardProps) {
 }
 
 interface TipsCardProps {
-  tips: string[];
+  tip: string;
   title: string;
-  subtitle: string;
-  buttonLabel: string;
-  onShuffle: () => void;
   delay?: number;
 }
 
-function TipsCard({ tips, title, subtitle, buttonLabel, onShuffle, delay = 0 }: TipsCardProps) {
+function TipsCard({ tip, title, delay = 0 }: TipsCardProps) {
   const ref = useFadeInOnScroll<HTMLElement>(delay);
 
   return (
     <section ref={ref} className="tile-card tile-span-12 tips-card" tabIndex={0} role="listitem">
-      <div className="tips-header">
-        <div className="tile-primary-row">
-          <span className="tile-icon" aria-hidden="true">
-            👀
-          </span>
-          <span className="tile-primary">{title}</span>
-        </div>
-        <button type="button" className="tips-shuffle" onClick={onShuffle}>
-          {buttonLabel}
-        </button>
+      <div className="tile-primary-row">
+        <span className="tile-icon" aria-hidden="true">
+          👀
+        </span>
+        <span className="tile-primary">{title}</span>
       </div>
-      <div className="tile-label tips-subtitle">{subtitle}</div>
-      <ul className="tips-list">
-        {tips.map((tip, index) => (
-          <li key={`${tip}-${index}`} className="tips-item">
-            <span className="tips-index" aria-hidden="true">
-              {String(index + 1).padStart(2, '0')}
-            </span>
-            <span className="tips-text">{tip}</span>
-          </li>
-        ))}
-      </ul>
+      <div className="tips-content">
+        <span className="tips-text">{tip}</span>
+      </div>
     </section>
   );
 }
@@ -259,7 +243,7 @@ export function Dashboard() {
   const isZh = i18n.language.startsWith('zh');
     const { timerInfo, setTimerInfo } = useAppStore();
   const [now, setNow] = useState(() => new Date());
-  const [tips, setTips] = useState(() => generateTips(i18n.language));
+  const [tip, setTip] = useState(() => generateTip(i18n.language));
 
   useEffect(() => {
     api.getTimerInfo().then(setTimerInfo).catch((error) => {
@@ -290,14 +274,7 @@ export function Dashboard() {
     return () => window.clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    setTips(generateTips(i18n.language));
-  }, [i18n.language]);
-
-  const handleShuffleTips = useCallback(() => {
-    setTips(generateTips(i18n.language));
-  }, [i18n.language]);
-
+  
   const dateKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
 
   const placeholderSlots = useMemo(() => generatePlaceholderSlots(now), [dateKey]);
@@ -480,15 +457,9 @@ export function Dashboard() {
 
   const dayInfo = timeFormatter.format(now);
 
-  const tipsButtonLabel = t('dashboard.tips.shuffle', {
-    defaultValue: isZh ? '换一批' : 'Refresh tips',
-  });
   const tipsTitle = t('dashboard.tips.title', {
     defaultValue: isZh ? '护眼技巧' : 'Eye-care tips',
   });
-  const tipsSubtitle = isZh
-    ? `AI 生成 · ${tips.length} 条`
-    : `AI generated · ${tips.length} tips`;
 
   return (
     <div className="dashboard-page">
@@ -547,11 +518,8 @@ export function Dashboard() {
           />
 
           <TipsCard
-            tips={tips}
+            tip={tip}
             title={tipsTitle}
-            subtitle={tipsSubtitle}
-            buttonLabel={tipsButtonLabel}
-            onShuffle={handleShuffleTips}
             delay={360}
           />
         </div>
