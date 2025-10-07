@@ -1,6 +1,5 @@
 use crate::models::{AnalyticsData, AnalyticsQuery, Session, Settings};
 use crate::utils::{AppError, AppResult};
-use chrono::{DateTime, Utc};
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};

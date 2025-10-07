@@ -2,7 +2,7 @@ use crate::models::{
     AnalyticsData, AnalyticsQuery, MonitorInfo, Settings, SystemStatus, TimerInfo,
 };
 use crate::services::{DatabaseService, TimerService};
-use crate::utils::{AppError, AppResult};
+use crate::utils::AppError;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 
