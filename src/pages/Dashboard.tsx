@@ -1,8 +1,7 @@
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
-import { useTheme } from '../components/Common/ThemeProvider';
-import type { Theme, TimerPhase } from '../types';
+import type { TimerPhase } from '../types';
 import * as api from '../utils/api';
 import './Dashboard.css';
 
@@ -148,49 +147,6 @@ function useFadeInOnScroll<T extends HTMLElement>(delay: number) {
 
 // Title component removed per simplification
 
-function ThemeToggle({ theme, onChange }: { theme: Theme; onChange: (value: Theme) => void }) {
-  const { t, i18n } = useTranslation();
-  const isZh = i18n.language.startsWith('zh');
-  const options: Array<{ value: Theme; label: string; icon: string }> = [
-    {
-      value: 'auto',
-      icon: '🧭',
-      label: t('dashboard.theme.auto', { defaultValue: isZh ? '系统' : 'System' }),
-    },
-    {
-      value: 'light',
-      icon: '🌞',
-      label: t('dashboard.theme.light', { defaultValue: isZh ? '浅色' : 'Light' }),
-    },
-    {
-      value: 'dark',
-      icon: '🌙',
-      label: t('dashboard.theme.dark', { defaultValue: isZh ? '深色' : 'Dark' }),
-    },
-  ];
-
-  return (
-    <div
-      className="theme-toggle"
-      role="radiogroup"
-      aria-label={t('dashboard.theme.toggle', { defaultValue: isZh ? '主题模式' : 'Theme mode' })}
-    >
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          role="radio"
-          aria-checked={theme === option.value}
-          className={`theme-toggle-option${theme === option.value ? ' is-active' : ''}`}
-          onClick={() => onChange(option.value)}
-        >
-          <span aria-hidden="true">{option.icon}</span>
-          <span>{option.label}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
 
 interface FeatureCardProps {
   primary: string;
@@ -301,8 +257,7 @@ function TipsCard({ tips, title, subtitle, buttonLabel, onShuffle, delay = 0 }: 
 export function Dashboard() {
   const { t, i18n } = useTranslation();
   const isZh = i18n.language.startsWith('zh');
-  const { theme, setTheme, effectiveTheme } = useTheme();
-  const { timerInfo, setTimerInfo } = useAppStore();
+    const { timerInfo, setTimerInfo } = useAppStore();
   const [now, setNow] = useState(() => new Date());
   const [tips, setTips] = useState(() => generateTips(i18n.language));
 
@@ -536,7 +491,7 @@ export function Dashboard() {
     : `AI generated · ${tips.length} tips`;
 
   return (
-    <div className={`dashboard-page theme-${effectiveTheme}`}>
+    <div className="dashboard-page">
       <div className="dashboard-atmosphere" aria-hidden="true" />
       <div className="dashboard-content">
         <header className="dashboard-header">
@@ -550,8 +505,7 @@ export function Dashboard() {
             </div>
             {/* Title/subtitle intentionally removed */}
           </div>
-          <ThemeToggle theme={theme} onChange={setTheme} />
-        </header>
+          </header>
 
         <div className="dashboard-grid" role="list">
           <FeatureCard
