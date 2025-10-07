@@ -33,6 +33,16 @@
   position: relative;
 }
 
+.reminder-fullscreen {
+  /* Scale factor for fullscreen reminder; responsive with safe bounds */
+  --reminder-scale: clamp(1.4, calc(min(100vw, 100vh) / 540), 2.4);
+}
+
+.reminder-fullscreen .reminder-panel {
+  transform: scale(var(--reminder-scale));
+  transform-origin: center center;
+}
+
 .reminder-panel {
   width: min(92vw, 340px);
   padding: var(--spacing-lg);

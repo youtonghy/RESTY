@@ -56,7 +56,7 @@
     },
     "countdown": "剩余时间: {{time}}",
     "simpleBreakTime": "休息 {{minutes}} 分钟",
-    "simpleLabel": "本次休息还剩的时间倒计时",
+    "simpleLabel": "本次休息还剩",
     "forceBreakTooltip": "已开启强制休息",
     "actions": {
       "skip": "跳过",
