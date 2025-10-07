@@ -38,6 +38,11 @@ export function Settings() {
       await api.saveSettings(localSettings);
       setSettings(localSettings);
 
+      // Sync OS autostart according to saved settings
+      api.setAutostart(localSettings.autostart).catch((err) => {
+        console.error('Failed to sync autostart:', err);
+      });
+
       setMessage(t('notifications.settingsSaved'));
     } catch (error) {
       setMessage(t('errors.saveFailed'));
@@ -84,6 +89,10 @@ export function Settings() {
           const imported = await api.importConfig(text);
           setSettings(imported);
           setLocalSettings(imported);
+          // Sync OS autostart based on imported setting
+          api.setAutostart(imported.autostart).catch((err) => {
+            console.error('Failed to sync autostart after import:', err);
+          });
           setMessage(t('notifications.configImported'));
         } catch (error) {
           setMessage(t('errors.importFailed'));

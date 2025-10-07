@@ -55,6 +55,11 @@ function App() {
       // Apply language with proper resource loading
       const lang = loaded.language === 'en' ? 'en' : 'zh-CN';
       await changeLanguage(lang);
+
+      // Sync autostart with persisted setting
+      api.setAutostart(loaded.autostart).catch((error) => {
+        console.error('Failed to sync autostart on init:', error);
+      });
     }).catch((error) => {
       console.error('Failed to load settings:', error);
     });

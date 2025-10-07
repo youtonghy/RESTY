@@ -90,6 +90,62 @@ export async function getSystemStatus(): Promise<SystemStatus> {
   return await invoke('get_system_status');
 }
 
+// Autostart plugin commands (via Tauri v2 plugin)
+/** 检查是否已启用开机自启（兼容不同命令命名）。 */
+export async function isAutostartEnabled(): Promise<boolean> {
+  try {
+    return await invoke<boolean>('plugin:autostart|isEnabled');
+  } catch (_) {
+    try {
+      // v1 风格命名回退
+      return await invoke<boolean>('plugin:autostart|is_enabled');
+    } catch (err) {
+      console.warn('isAutostartEnabled failed:', err);
+      return false;
+    }
+  }
+}
+
+/** 启用开机自启（兼容不同命令命名）。 */
+export async function enableAutostart(): Promise<void> {
+  try {
+    await invoke('plugin:autostart|enable');
+  } catch (_) {
+    try {
+      await invoke('plugin:autostart|enable');
+    } catch (err) {
+      console.error('enableAutostart failed:', err);
+    }
+  }
+}
+
+/** 禁用开机自启（兼容不同命令命名）。 */
+export async function disableAutostart(): Promise<void> {
+  try {
+    await invoke('plugin:autostart|disable');
+  } catch (_) {
+    try {
+      await invoke('plugin:autostart|disable');
+    } catch (err) {
+      console.error('disableAutostart failed:', err);
+    }
+  }
+}
+
+/** 根据布尔值同步开机自启状态。 */
+export async function setAutostart(enabled: boolean): Promise<void> {
+  try {
+    const current = await isAutostartEnabled();
+    if (enabled && !current) {
+      await enableAutostart();
+    } else if (!enabled && current) {
+      await disableAutostart();
+    }
+  } catch (err) {
+    console.error('setAutostart failed:', err);
+  }
+}
+
 // Window commands
 /** 打开提醒窗口，支持全屏或浮窗模式。 */
 export async function openReminderWindow(fullscreen: boolean): Promise<void> {
