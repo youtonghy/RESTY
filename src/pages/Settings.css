@@ -22,13 +22,19 @@
 
 .toggle-group {}
 
-.toggle-row {
+.form-group label.toggle-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: var(--spacing-md);
   cursor: pointer;
   user-select: none;
+  width: 100%;
+}
+
+/* Ensure the switch aligns to the far right with spacing from text */
+.form-group label.toggle-row .switch {
+  margin-left: auto;
 }
 
 .toggle-text {
