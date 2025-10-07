@@ -90,6 +90,22 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
 
   const phaseClass = `phase-${timerInfo.phase ?? 'break'}`;
 
+  // Reveal the Tauri window only after first paints are done to avoid white flash
+  useEffect(() => {
+    let raf1 = 0;
+    let raf2 = 0;
+    // wait for two RAFs to ensure CSS/layout applied
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        api.showReminderWindow().catch((err) => console.error('Failed to show reminder window:', err));
+      });
+    });
+    return () => {
+      if (raf1) cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
+  }, []);
+
   return (
     <div className={`reminder ${isFullscreen ? 'reminder-fullscreen' : 'reminder-floating'} ${phaseClass}`}>
       <div className="reminder-panel" role="dialog" aria-label={t('reminder.simpleLabel')}>

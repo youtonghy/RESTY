@@ -135,12 +135,21 @@ export function Analytics() {
     return marks;
   };
 
-  /** 计算某会话在“今天时间轴”上的 left% */
-  const calculateTimelinePosition = (startTime: string) => {
+  /** 显示块的开始时间标签（与裁剪后的 left 对齐） */
+  const formatBlockStartLabel = (session: Session) => {
+    const { start } = getTodayBounds();
+    const clamped = Math.max(new Date(session.startTime).getTime(), start);
+    return new Date(clamped).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  /** 计算某会话在“今天时间轴”上的 left%，使用裁剪后的开始时间并做 0-100 限定 */
+  const calculateTimelinePosition = (session: Session) => {
     const { start, end } = getTodayBounds();
     const total = end - start;
-    const s = Math.max(new Date(startTime).getTime(), start);
-    return ((s - start) / total) * 100;
+    const sessionStart = new Date(session.startTime).getTime();
+    const clampedStart = Math.max(sessionStart, start);
+    const raw = ((clampedStart - start) / total) * 100;
+    return Math.max(0, Math.min(100, raw));
   };
 
   /** 计算会话宽度（相对全天 24h），并做边界裁剪 */
@@ -154,21 +163,52 @@ export function Analytics() {
     const dur = Math.max(0, clampedEnd - clampedStart);
     return Math.max((dur / total) * 100, 1.5);
   };
-  // 仅用于时间轴的“今日片段”，过滤掉跳过的休息
+
+  /** 计算当前展示片段（与今天重叠部分）的秒数，用于 tooltip */
+  const getDisplayedDurationSeconds = (session: Session) => {
+    const { start, end } = getTodayBounds();
+    const s0 = new Date(session.startTime).getTime();
+    const s1 = new Date(session.endTime).getTime();
+    const overlap = Math.max(0, Math.min(s1, end) - Math.max(s0, start));
+    return Math.floor(overlap / 1000);
+  };
+  // 仅用于时间轴的“今日片段”，包含与今天有重叠的会话，并过滤掉跳过的休息
   const daySessions = useMemo(() => {
     const sessions = data?.sessions ?? [];
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth();
-    const d = now.getDate();
+    const { start, end } = getTodayBounds();
     return sessions
       .filter((s) => {
-        const ds = new Date(s.startTime);
-        return ds.getFullYear() === y && ds.getMonth() === m && ds.getDate() === d;
+        const sStart = new Date(s.startTime).getTime();
+        const sEnd = new Date(s.endTime).getTime();
+        return sEnd >= start && sStart <= end; // 与今天有重叠
       })
       .filter((s) => !(s.type === 'break' && s.isSkipped))
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   }, [data]);
+
+  /**
+   * 以前端为准计算当前区间的总工作/休息时长：
+   * - 仅统计与区间有重叠的片段
+   * - 休息忽略被跳过的片段
+   */
+  const computedTotals = useMemo(() => {
+    if (!data) return { work: 0, rest: 0 };
+    const { startDate, endDate } = getQueryForRange(range);
+    const R0 = new Date(startDate).getTime();
+    const R1 = new Date(endDate).getTime();
+    let work = 0;
+    let rest = 0;
+    for (const s of data.sessions) {
+      const s0 = new Date(s.startTime).getTime();
+      const s1 = new Date(s.endTime).getTime();
+      const overlap = Math.max(0, Math.min(s1, R1) - Math.max(s0, R0));
+      if (overlap <= 0) continue;
+      const seconds = Math.floor(overlap / 1000);
+      if (s.type === 'work') work += seconds;
+      else if (s.type === 'break' && !s.isSkipped) rest += seconds;
+    }
+    return { work, rest };
+  }, [data, range]);
 
   if (loading) {
     return (
@@ -213,13 +253,13 @@ export function Analytics() {
             <section className="stats-overview">
               <div className="stat-card">
                 <div className="stat-icon work">💼</div>
-                <div className="stat-value">{formatDuration(data.totalWorkSeconds)}</div>
+                <div className="stat-value">{formatDuration(computedTotals.work)}</div>
                 <div className="stat-label">{t('analytics.totalWork')}</div>
               </div>
 
               <div className="stat-card">
                 <div className="stat-icon break">☕</div>
-                <div className="stat-value">{formatDuration(data.totalBreakSeconds)}</div>
+                <div className="stat-value">{formatDuration(computedTotals.rest)}</div>
                 <div className="stat-label">{t('analytics.totalBreak')}</div>
               </div>
 
@@ -255,24 +295,17 @@ export function Analytics() {
                         key={session.id}
                         className={`timeline-block ${session.type}`}
                         style={{
-                          left: `${calculateTimelinePosition(session.startTime)}%`,
+                          left: `${calculateTimelinePosition(session)}%`,
                           width: `${calculateBlockWidth(session)}%`,
                         }}
-                        title={`${session.type === 'work' ? t('reminder.title.work') : t('reminder.title.break')} - ${formatDuration(session.duration)}`}
+                        title={`${session.type === 'work' ? t('reminder.title.work') : t('reminder.title.break')} - ${formatDuration(getDisplayedDurationSeconds(session))}`}
                       >
                         <div className="timeline-block-content">
                           <div className="timeline-block-type">
                             {session.type === 'work' ? '💼' : '☕'}
                           </div>
-                          <div className="timeline-block-time">
-                            {new Date(session.startTime).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </div>
-                          <div className="timeline-block-duration">
-                            {formatDuration(session.duration)}
-                          </div>
+                          <div className="timeline-block-time">{formatBlockStartLabel(session)}</div>
+                          <div className="timeline-block-duration">{formatDuration(getDisplayedDurationSeconds(session))}</div>
                         </div>
                       </div>
                     ))}

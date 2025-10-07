@@ -5,6 +5,21 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tauri + React + Typescript</title>
+    <script>
+      // Avoid white flash in reminder window before React mounts
+      (function () {
+        try {
+          var hash = (location.hash || '').replace(/^#\/?/, '');
+          if (hash.indexOf('reminder') === 0) {
+            document.documentElement.style.background = '#0f172a';
+            document.documentElement.style.colorScheme = 'dark';
+            document.addEventListener('DOMContentLoaded', function () {
+              document.body && (document.body.style.background = '#0f172a');
+            });
+          }
+        } catch (_) {}
+      })();
+    </script>
   </head>
 
   <body>

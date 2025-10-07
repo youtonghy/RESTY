@@ -157,6 +157,11 @@ export async function closeReminderWindow(): Promise<void> {
   return await invoke('close_reminder_window');
 }
 
+/** 前端准备好后显示提醒窗口（避免白屏闪烁）。 */
+export async function showReminderWindow(): Promise<void> {
+  return await invoke('show_reminder_window');
+}
+
 // Event listeners
 /** 订阅计时器状态更新事件。 */
 export async function onTimerUpdate(callback: (info: TimerInfo) => void) {

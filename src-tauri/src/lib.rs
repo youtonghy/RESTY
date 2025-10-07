@@ -225,6 +225,7 @@ pub fn run() {
             commands::get_monitors,
             commands::get_system_status,
             commands::open_reminder_window,
+            commands::show_reminder_window,
             commands::close_reminder_window,
         ])
         .run(tauri::generate_context!())
@@ -250,14 +251,13 @@ pub fn show_break_reminder_window(
             WebviewUrl::App("index.html#reminder".into()),
         )
         .title("Break Time - RESTY")
+        .visible(false)
         .fullscreen(true)
         .resizable(false)
         .decorations(false)
         .always_on_top(true)
         .skip_taskbar(true)
         .build()?;
-
-        window.set_focus()?;
     } else {
         // Create floating window at top-right corner
         let window = WebviewWindowBuilder::new(
@@ -266,6 +266,7 @@ pub fn show_break_reminder_window(
             WebviewUrl::App("index.html#reminder".into()),
         )
         .title("Break Time - RESTY")
+        .visible(false)
         .inner_size(340.0, 300.0)
         .resizable(false)
         .maximized(false)

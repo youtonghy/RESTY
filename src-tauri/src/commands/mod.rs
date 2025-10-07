@@ -153,6 +153,17 @@ pub fn open_reminder_window(app: AppHandle, fullscreen: bool) -> Result<(), Stri
     crate::show_break_reminder_window(&app, fullscreen).map_err(|e| e.to_string())
 }
 
+/// Show reminder window once frontend is ready
+#[tauri::command]
+pub fn show_reminder_window(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("break-reminder") {
+        window.show().map_err(|e| e.to_string())?;
+        // Best-effort focus
+        let _ = window.set_focus();
+    }
+    Ok(())
+}
+
 /// Close reminder window
 #[tauri::command]
 pub fn close_reminder_window(app: AppHandle) -> Result<(), String> {
