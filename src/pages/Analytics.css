@@ -477,3 +477,51 @@
     display: none;
   }
 }
+
+/* --- Simplified Timeline Styles (Color-only, no labels/floating) --- */
+.timeline-header,
+.timeline-time-scale,
+.time-scale-mark,
+.time-scale-line,
+.time-scale-label { display: none !important; }
+
+.horizontal-timeline {
+  position: relative;
+  height: 24px;
+  background: var(--color-surface-hover);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: var(--spacing-md) 0;
+  border: 1px solid var(--color-border);
+}
+
+.timeline-block {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 999px;
+  overflow: hidden;
+  z-index: 1;
+  cursor: default;
+  transition: none;
+}
+
+.timeline-block.work { background: var(--color-primary) !important; box-shadow: none !important; }
+.timeline-block.break { background: var(--color-success) !important; box-shadow: none !important; }
+.timeline-block.idle { background: var(--color-text-secondary) !important; opacity: 0.3; box-shadow: none !important; }
+.timeline-block.skipped { opacity: 0.5; border: none !important; }
+
+.timeline-block:hover { transform: none !important; box-shadow: none !important; }
+
+.timeline-block-content,
+.timeline-block-type,
+.timeline-block-time,
+.timeline-block-duration { display: none !important; }
+
+@media (max-width: 768px) {
+  .horizontal-timeline { height: 28px !important; }
+}
+
+@media (max-width: 480px) {
+  .horizontal-timeline { height: 32px !important; }
+}

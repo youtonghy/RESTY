@@ -162,13 +162,6 @@ export function Analytics() {
     return marks;
   };
 
-  /** 显示块的开始时间标签（与裁剪后的 left 对齐） */
-  const formatBlockStartLabel = (session: Session) => {
-    const { start } = getTodayBounds();
-    const clamped = Math.max(new Date(session.startTime).getTime(), start);
-    return new Date(clamped).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
   /** 计算某会话在“今天时间轴”上的 left%，使用裁剪后的开始时间并做 0-100 限定 */
   const calculateTimelinePosition = (session: Session) => {
     const { start, end } = getTodayBounds();
@@ -303,7 +296,7 @@ export function Analytics() {
               </div>
             </section>
 
-            {/* Session Timeline - Horizontal (Today only) */}
+            {/* Session Timeline - Horizontal (Today only) */
             <section className="card timeline-section">
               <h2 className="card-header">{t('analytics.timeline')}</h2>
 
@@ -311,12 +304,7 @@ export function Analytics() {
                 <div className="no-data">{t('analytics.noData')}</div>
               ) : (
                 <div className="horizontal-timeline-container">
-                  <div className="timeline-header">
-                    <div className="timeline-time-scale">
-                      {generateTimeScale()}
-                    </div>
-                  </div>
-                  <div className="horizontal-timeline enhanced">
+                  <div className="horizontal-timeline">
                     {daySessions.map((session) => (
                       <div
                         key={session.id}
@@ -327,17 +315,10 @@ export function Analytics() {
                         }}
                         title={`${session.type === 'work' ? t('reminder.title.work') : t('reminder.title.break')} - ${formatDuration(getDisplayedDurationSeconds(session))}`}
                       >
-                        <div className="timeline-block-content">
-                          <div className="timeline-block-type">
-                            {session.type === 'work' ? '💼' : '☕'}
-                          </div>
-                          <div className="timeline-block-time">{formatBlockStartLabel(session)}</div>
-                          <div className="timeline-block-duration">{formatDuration(getDisplayedDurationSeconds(session))}</div>
-                        </div>
                       </div>
                     ))}
                   </div>
-                  <div className="timeline-legend enhanced">
+                  <div className="timeline-legend">
                     <div className="legend-item">
                       <div className="legend-color work"></div>
                       <span>{t('reminder.title.work')}</span>
