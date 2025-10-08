@@ -225,40 +225,6 @@ export function Analytics() {
 
   const timelineBackground = useMemo(() => buildTimelineGradient(daySessions), [daySessions]);
 
-  /** 参考时间段（默认 09:00–18:00） */
-  const buildReferenceAxisGradient = (startHour: number, endHour: number) => {
-    const { start: dayStart, end: dayEnd } = getTodayBounds();
-    const dayTotal = dayEnd - dayStart;
-    if (dayTotal <= 0) return 'var(--color-surface-hover)';
-
-    const mkTime = (h: number) => {
-      const d = new Date();
-      d.setHours(h, 0, 0, 0);
-      return d.getTime();
-    };
-
-    const s = mkTime(startHour);
-    const e = mkTime(endHour);
-    const clampedStart = Math.max(s, dayStart);
-    const clampedEnd = Math.min(e, dayEnd);
-    if (clampedEnd <= clampedStart) return 'var(--color-surface-hover)';
-    const left = ((clampedStart - dayStart) / dayTotal) * 100;
-    const right = ((clampedEnd - dayStart) / dayTotal) * 100;
-    const color = 'rgba(136, 136, 136, 0.35)';
-    return `linear-gradient(to right, transparent 0%, transparent ${left}%, ${color} ${left}%, ${color} ${right}%, transparent ${right}%, transparent 100%)`;
-  };
-
-  const referenceAxisBackground = useMemo(() => buildReferenceAxisGradient(9, 18), []);
-
-  // 当前时间位置（百分比）
-  const nowPercent = (() => {
-    const { start, end } = getTodayBounds();
-    const total = end - start;
-    if (total <= 0) return 0;
-    const p = ((Date.now() - start) / total) * 100;
-    return Math.max(0, Math.min(100, p));
-  })();
-
   /**
    * 以前端为准计算当前区间的总工作/休息时长：
    * - 仅统计与区间有重叠的片段
@@ -359,22 +325,13 @@ export function Analytics() {
                   <div className="timeline-time-scale">{generateTimeScale()}</div>
                 </div>
 
-                {/* 参考时间段（细条） */}
-                <div
-                  className="reference-axis"
-                  style={{ background: referenceAxisBackground }}
-                  aria-label={t('analytics.referenceAxis', { defaultValue: 'Reference hours' })}
-                />
-
                 {/* 单条时间轴（用渐变绘制工作/休息片段） */}
                 <div
                   className="horizontal-timeline enhanced"
                   style={{ background: timelineBackground }}
                   aria-label={t('analytics.timeline')}
                   role="img"
-                >
-                  <div className="timeline-now-marker" style={{ left: `${nowPercent}%` }} />
-                </div>
+                />
 
                 <div className="timeline-legend">
                   <div className="legend-item">
