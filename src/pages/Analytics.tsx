@@ -364,7 +364,8 @@ export function Analytics() {
                     {data.sessions.length > 0
                       ? formatDuration(
                           Math.round(
-                            data.sessions.reduce((sum: number, s: Session) => sum + s.duration, 0) /
+                            // Avoid TS param annotations in JSX to keep Babel happy
+                            data.sessions.reduce((sum, s) => sum + s.duration, 0) /
                               data.sessions.length
                           )
                         )
