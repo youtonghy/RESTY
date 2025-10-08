@@ -279,30 +279,23 @@ export function Dashboard() {
 
   const placeholderSlots = useMemo(() => generatePlaceholderSlots(now), [dateKey]);
 
-  const nextSlotFromTimer = useMemo<NextSlot | null>(() => {
-    if (!timerInfo.nextTransitionTime) {
-      return null;
+  // 计算“下次休息”的时间：优先使用后端提供的 nextBreakTime（已考虑抑制逻辑），否则回退到占位日程中的下一段 break
+  const nextBreakSlot = useMemo<NextSlot | null>(() => {
+    const raw = timerInfo.nextBreakTime as unknown as string | null | undefined;
+    if (raw) {
+      const start = new Date(raw);
+      if (!Number.isNaN(start.getTime())) {
+        return { type: 'break', start, source: 'timer' };
+      }
     }
-    const start = new Date(timerInfo.nextTransitionTime);
-    if (Number.isNaN(start.getTime())) {
-      return null;
-    }
-    let type: SlotType = 'work';
-    if (timerInfo.phase === 'work') {
-      type = 'break';
-    } else if (timerInfo.phase === 'break') {
-      type = 'work';
-    }
-    return { type, start, source: 'timer' };
-  }, [timerInfo.nextTransitionTime, timerInfo.phase]);
-
-  const nextSlot = useMemo<NextSlot | null>(() => {
-    if (nextSlotFromTimer) {
-      return nextSlotFromTimer;
-    }
-    const upcoming = placeholderSlots.find((slot) => slot.start.getTime() > now.getTime());
-    return upcoming ? { type: upcoming.type, start: upcoming.start, source: 'schedule' } : null;
-  }, [nextSlotFromTimer, placeholderSlots, now]);
+    // fallback: use the next placeholder break slot after now
+    const upcomingBreak = placeholderSlots.find(
+      (slot) => slot.type === 'break' && slot.start.getTime() > now.getTime()
+    );
+    return upcomingBreak
+      ? { type: 'break', start: upcomingBreak.start, source: 'schedule' }
+      : null;
+  }, [timerInfo, placeholderSlots, now]);
 
   const dayProgress = useMemo(() => {
     const start = new Date(now);
@@ -429,11 +422,9 @@ export function Dashboard() {
   const timezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, []);
 
   // Next time display: hour only
-  const nextPrimary = nextSlot ? hourMinuteFormatter.format(nextSlot.start) : '—';
-  const slotTypeLabel = nextSlot
-    ? nextSlot.type === 'work'
-      ? t('dashboard.next.work', { defaultValue: isZh ? '下次工作' : 'Next work' })
-      : t('dashboard.next.break', { defaultValue: isZh ? '下次休息' : 'Next break' })
+  const nextPrimary = nextBreakSlot ? hourMinuteFormatter.format(nextBreakSlot.start) : '—';
+  const slotTypeLabel = nextBreakSlot
+    ? t('dashboard.next.break', { defaultValue: isZh ? '下次休息' : 'Next break' })
     : t('dashboard.next.none', { defaultValue: isZh ? '未计划' : 'No schedule' });
   // Only show the label (e.g., Next break), hide source/relative/timezone
   const nextSecondary = slotTypeLabel;

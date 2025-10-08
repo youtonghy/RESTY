@@ -268,12 +268,14 @@ impl TimerService {
     /// Get current timer info
     pub fn get_info(&self) -> TimerInfo {
         let state = self.state.lock().unwrap();
+        let next_break_time = Self::compute_next_break_time_from_state(&state);
         TimerInfo {
             phase: state.phase.clone(),
             state: state.state.clone(),
             remaining_minutes: state.remaining_minutes,
             total_minutes: state.total_minutes,
             next_transition_time: state.phase_end_time,
+            next_break_time,
         }
     }
 
@@ -289,6 +291,9 @@ impl TimerService {
         let mut state = self.state.lock().unwrap();
         let until = Utc::now() + ChronoDuration::hours(hours.max(1));
         state.suppress_breaks_until = Some(until);
+        drop(state);
+        // 立即推送一次状态，确保前端的“下次休息时间”实时更新
+        let _ = self.emit_timer_update();
     }
 
     /// Do not take breaks until tomorrow morning (08:00 local time).
@@ -308,6 +313,9 @@ impl TimerService {
         let until_utc = local_dt.with_timezone(&Utc);
         let mut state = self.state.lock().unwrap();
         state.suppress_breaks_until = Some(until_utc);
+        drop(state);
+        // 立即推送一次状态，确保前端的“下次休息时间”实时更新
+        let _ = self.emit_timer_update();
     }
 
     /// Create session record from current state
@@ -472,5 +480,57 @@ impl TimerService {
                 state.remaining_minutes = diff.max(0) as u32;
             }
         }
+    }
+
+    /// 根据当前状态与“抑制休息”设置，计算下一次真正开始休息的时间。
+    fn compute_next_break_time_from_state(state: &TimerServiceState) -> Option<chrono::DateTime<Utc>> {
+        // Idle 阶段无法预测下一次休息时间
+        if state.phase == TimerPhase::Idle {
+            return None;
+        }
+
+        let now = Utc::now();
+        // 休息抑制截止时间（若存在且在未来，则以它为界）
+        let allow_break_from = match state.suppress_breaks_until {
+            Some(t) if t > now => t,
+            _ => now,
+        };
+
+        // 计算第一个候选“开始休息”的时间点：
+        // - 若当前正处于工作阶段，则候选即为这段工作的结束时间（或暂停时的“现在 + 剩余分钟”）。
+        // - 若当前正处于休息阶段，则需要先完成休息，再工作一段工作时长，候选为：休息结束 + 工作时长。
+        let mut candidate = match state.phase {
+            TimerPhase::Work => {
+                if let Some(end) = state.phase_end_time {
+                    end
+                } else {
+                    // 暂停时没有结束时间，根据剩余分钟估算
+                    now + ChronoDuration::minutes(state.remaining_minutes as i64)
+                }
+            }
+            TimerPhase::Break => {
+                let break_end = if let Some(end) = state.phase_end_time {
+                    end
+                } else {
+                    now + ChronoDuration::minutes(state.remaining_minutes as i64)
+                };
+                break_end + ChronoDuration::minutes(state.work_duration as i64)
+            }
+            TimerPhase::Idle => unreachable!(),
+        };
+
+        // 如果候选时间早于“允许休息”的时间点，则需要按工作时长向后推若干个周期
+        if candidate < allow_break_from {
+            let diff_minutes = (allow_break_from - candidate).num_minutes();
+            let w = state.work_duration.max(1) as i64;
+            // 向上取整 diff_minutes / w
+            let mut cycles = diff_minutes / w;
+            if diff_minutes % w != 0 {
+                cycles += 1;
+            }
+            candidate += ChronoDuration::minutes(cycles * w);
+        }
+
+        Some(Self::truncate_to_minute(candidate))
     }
 }
