@@ -296,7 +296,7 @@ export function Analytics() {
               </div>
             </section>
 
-            {/* Session Timeline - Horizontal (Today only) */
+            {/* Session Timeline - Horizontal (Today only) */}
             <section className="card timeline-section">
               <h2 className="card-header">{t('analytics.timeline')}</h2>
 
