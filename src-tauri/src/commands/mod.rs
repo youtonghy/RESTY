@@ -66,7 +66,9 @@ pub async fn skip_phase(state: State<'_, AppState>) -> Result<(), String> {
 
     // Save session to database
     let db = state.database_service.lock().await;
-    db.save_session(&session).await.map_err(|e| e.to_string())?;
+    db.save_or_update_session(&session)
+        .await
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }

@@ -1,4 +1,5 @@
 use crate::models::{Session, SessionType, TimerInfo, TimerPhase, TimerState};
+use crate::services::DatabaseService;
 use crate::utils::AppResult;
 use chrono::{Duration as ChronoDuration, Timelike, Utc, Local, TimeZone};
 use std::sync::{Arc, Mutex};
@@ -11,6 +12,7 @@ use uuid::Uuid;
 pub struct TimerService {
     state: Arc<Mutex<TimerServiceState>>,
     app: AppHandle,
+    db: Arc<tokio::sync::Mutex<DatabaseService>>, // database handle for persisting sessions
 }
 
 struct TimerServiceState {
@@ -31,7 +33,12 @@ struct TimerServiceState {
 impl TimerService {
     /// Create a new timer service
     /// 初始化服务，记录工作/休息时长并保留 AppHandle。
-    pub fn new(app: AppHandle, work_duration: u32, break_duration: u32) -> Arc<Self> {
+    pub fn new(
+        app: AppHandle,
+        db: Arc<tokio::sync::Mutex<DatabaseService>>,
+        work_duration: u32,
+        break_duration: u32,
+    ) -> Arc<Self> {
         Arc::new(Self {
             state: Arc::new(Mutex::new(TimerServiceState {
                 phase: TimerPhase::Idle,
@@ -47,6 +54,7 @@ impl TimerService {
                 suppress_breaks_until: None,
             })),
             app,
+            db,
         })
     }
 
@@ -67,6 +75,7 @@ impl TimerService {
 
         self.emit_timer_update()?;
         self.emit_phase_change("work")?;
+        self.persist_session_start();
         Ok(())
     }
 
@@ -87,6 +96,7 @@ impl TimerService {
 
         self.emit_timer_update()?;
         self.emit_phase_change("break")?;
+        self.persist_session_start();
         Ok(())
     }
 
@@ -225,6 +235,9 @@ impl TimerService {
 
         if timer_finished {
             self.emit_timer_finished()?;
+            if let Some(s) = session.clone() {
+                self.persist_session_finish(s);
+            }
 
             // Auto-cycle to next phase
             if should_auto_cycle {
@@ -326,6 +339,64 @@ impl TimerService {
             extended_seconds: 0,
             notes: None,
         }
+    }
+
+    /// Persist a zero-duration session record at phase start (for later updates).
+    fn persist_session_start(&self) {
+        let (id, session_type, start_time, planned_secs) = {
+            let state = self.state.lock().unwrap();
+            (
+                state
+                    .current_session_id
+                    .clone()
+                    .unwrap_or_else(|| Uuid::new_v4().to_string()),
+                state.phase.clone(),
+                state
+                    .current_session_start
+                    .unwrap_or_else(|| Self::truncate_to_minute(Utc::now())),
+                (state.total_minutes as i64) * 60,
+            )
+        };
+
+        // Build a placeholder session with zero duration; will be updated on finish/skip
+        let session = Session {
+            id,
+            session_type: match session_type {
+                TimerPhase::Work => SessionType::Work,
+                TimerPhase::Break => SessionType::Break,
+                TimerPhase::Idle => SessionType::Work,
+            },
+            start_time,
+            end_time: start_time,
+            duration: 0,
+            planned_duration: planned_secs,
+            is_skipped: false,
+            extended_seconds: 0,
+            notes: None,
+        };
+
+        let db = self.db.clone();
+        tauri::async_runtime::spawn(async move {
+            if let Ok(mut guard) = db.try_lock() {
+                let _ = guard.save_or_update_session(&session).await;
+            } else {
+                let db2 = db.lock().await;
+                let _ = db2.save_or_update_session(&session).await;
+            }
+        });
+    }
+
+    /// Persist finished session (auto or skipped) updating the previously created record.
+    fn persist_session_finish(&self, session: Session) {
+        let db = self.db.clone();
+        tauri::async_runtime::spawn(async move {
+            if let Ok(mut guard) = db.try_lock() {
+                let _ = guard.save_or_update_session(&session).await;
+            } else {
+                let db2 = db.lock().await;
+                let _ = db2.save_or_update_session(&session).await;
+            }
+        });
     }
 
     /// Emit timer update event

@@ -52,8 +52,12 @@ pub fn run() {
             let timer_service = tauri::async_runtime::block_on(async move {
                 let db = db_clone.lock().await;
                 let settings = db.load_settings().await.unwrap_or_default();
-                let timer =
-                    TimerService::new(app_handle, settings.work_duration, settings.break_duration);
+                let timer = TimerService::new(
+                    app_handle,
+                    Arc::clone(&db_clone),
+                    settings.work_duration,
+                    settings.break_duration,
+                );
 
                 // Start the ticker
                 timer.clone().start_ticker();
@@ -133,10 +137,10 @@ pub fn run() {
                                     match timer.skip() {
                                         Ok(session) => {
                                             if let Ok(mut guard) = db.try_lock() {
-                                                let _ = guard.save_session(&session).await;
+                                                let _ = guard.save_or_update_session(&session).await;
                                             } else {
                                                 let db2 = db.lock().await;
-                                                let _ = db2.save_session(&session).await;
+                                                let _ = db2.save_or_update_session(&session).await;
                                             }
                                         }
                                         Err(e) => {

@@ -12,7 +12,6 @@ export function Settings() {
   const { t } = useTranslation();
   const { settings, setSettings } = useAppStore();
   const [localSettings, setLocalSettings] = useState<SettingsType>(settings);
-  const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -32,7 +31,6 @@ export function Settings() {
 
   /** 自动保存：将传入的新设置保存到后端并同步全局状态。 */
   const saveSettingsAuto = async (next: SettingsType) => {
-    setIsSaving(true);
     setMessage('');
     try {
       await api.saveSettings(next);
@@ -48,8 +46,6 @@ export function Settings() {
     } catch (error) {
       setMessage(t('errors.saveFailed'));
       console.error('Failed to save settings:', error);
-    } finally {
-      setIsSaving(false);
     }
   };
 

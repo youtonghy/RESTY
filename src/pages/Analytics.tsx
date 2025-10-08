@@ -40,6 +40,33 @@ export function Analytics() {
     })();
   }, []);
 
+  // Real-time: refresh analytics when sessions are upserted (start/finish/skip)
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    (async () => {
+      unlisten = await api.onSessionUpserted(async () => {
+        // Refresh current range data
+        await loadAnalytics();
+        // Also refresh week/month fragments in background
+        try {
+          const [weekData, monthData] = await Promise.all([
+            api.getAnalytics(getQueryForRange('week')),
+            api.getAnalytics(getQueryForRange('month')),
+          ]);
+          setWeeklyFragments(countFragments(weekData.sessions));
+          setMonthlyFragments(countFragments(monthData.sessions));
+        } catch (e) {
+          console.warn('Failed to refresh fragments after session-upserted:', e);
+        }
+      });
+    })();
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range]);
+
   /** 根据当前选择的时间范围获取统计数据。 */
   const loadAnalytics = async () => {
     setLoading(true);
@@ -121,7 +148,7 @@ export function Analytics() {
 
   /** 生成 0-24 小时的横向时间刻度（每 2 小时一刻度） */
   const generateTimeScale = () => {
-    const marks = [] as JSX.Element[];
+    const marks = [] as React.ReactElement[];
     for (let h = 0; h <= 24; h += 2) {
       const left = (h / 24) * 100;
       const label = `${String(h).padStart(2, '0')}:00`;

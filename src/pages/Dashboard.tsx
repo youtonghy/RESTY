@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
@@ -96,15 +96,6 @@ const generatePlaceholderSlots = (reference: Date): PlaceholderSlot[] => {
     });
   }
   return slots.sort((a, b) => a.start.getTime() - b.start.getTime());
-};
-
-const shuffle = <T,>(items: T[]): T[] => {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
 };
 
 const generateTip = (language: string): string => {
@@ -252,7 +243,7 @@ export function Dashboard() {
   const isZh = i18n.language.startsWith('zh');
     const { timerInfo, setTimerInfo } = useAppStore();
   const [now, setNow] = useState(() => new Date());
-  const [tip, setTip] = useState(() => generateTip(i18n.language));
+  const [tip] = useState(() => generateTip(i18n.language));
 
   useEffect(() => {
     api.getTimerInfo().then(setTimerInfo).catch((error) => {

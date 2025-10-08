@@ -7,6 +7,7 @@ import type {
   AnalyticsQuery,
   MonitorInfo,
   SystemStatus,
+  Session,
 } from '../types';
 
 /**
@@ -186,4 +187,9 @@ export async function onSettingsChange(callback: (settings: Settings) => void) {
 /** 订阅从托盘触发的“打开设置”事件，用于路由跳转。 */
 export async function onOpenSettings(callback: () => void) {
   return await listen('open-settings', () => callback());
+}
+
+/** 订阅会话写入/更新事件（用于统计页面实时刷新）。 */
+export async function onSessionUpserted(callback: (session: Session) => void) {
+  return await listen<Session>('session-upserted', (event) => callback(event.payload));
 }

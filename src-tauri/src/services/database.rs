@@ -2,7 +2,7 @@ use crate::models::{AnalyticsData, AnalyticsQuery, Session, Settings};
 use crate::utils::{AppError, AppResult};
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 /// Database service for managing persistent data.
 /// 使用本地 JSON 文件持久化设置与会话历史。
@@ -154,6 +154,36 @@ impl DatabaseService {
             AppError::DatabaseError(format!("Failed to write sessions file: {}", e))
         })?;
 
+        // Notify frontend listeners for real-time updates
+        let _ = self.app.emit("session-upserted", session.clone());
+
+        Ok(())
+    }
+
+    /// Insert or update a session by `id`.
+    /// 如果已存在相同 `id` 的会话，则更新其字段；否则追加。
+    pub async fn save_or_update_session(&self, session: &Session) -> AppResult<()> {
+        let mut sessions = self
+            .sessions
+            .lock()
+            .map_err(|e| AppError::DatabaseError(format!("Failed to lock sessions: {}", e)))?;
+
+        if let Some(existing) = sessions.iter_mut().find(|s| s.id == session.id) {
+            *existing = session.clone();
+        } else {
+            sessions.push(session.clone());
+        }
+
+        let json = serde_json::to_string_pretty(&*sessions)
+            .map_err(|e| AppError::DatabaseError(format!("Failed to serialize sessions: {}", e)))?;
+
+        std::fs::write(self.sessions_file(), json).map_err(|e| {
+            AppError::DatabaseError(format!("Failed to write sessions file: {}", e))
+        })?;
+
+        // Notify frontend listeners for real-time updates
+        let _ = self.app.emit("session-upserted", session.clone());
+
         Ok(())
     }
 
@@ -165,10 +195,11 @@ impl DatabaseService {
             .lock()
             .map_err(|e| AppError::DatabaseError(format!("Failed to lock sessions: {}", e)))?;
 
-        // Filter sessions by date range
+        // Filter sessions by overlap with date range [start_date, end_date]
+        // 选择与区间有任意重叠的会话（而非仅按开始时间落在区间内）
         let filtered: Vec<&Session> = sessions
             .iter()
-            .filter(|s| s.start_time >= query.start_date && s.start_time <= query.end_date)
+            .filter(|s| s.end_time >= query.start_date && s.start_time <= query.end_date)
             .collect();
 
         // Calculate statistics
