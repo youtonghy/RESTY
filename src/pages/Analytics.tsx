@@ -162,36 +162,11 @@ export function Analytics() {
     return marks;
   };
 
-  /** 计算某会话在“今天时间轴”上的 left%，使用裁剪后的开始时间并做 0-100 限定 */
-  const calculateTimelinePosition = (session: Session) => {
-    const { start, end } = getTodayBounds();
-    const total = end - start;
-    const sessionStart = new Date(session.startTime).getTime();
-    const clampedStart = Math.max(sessionStart, start);
-    const raw = ((clampedStart - start) / total) * 100;
-    return Math.max(0, Math.min(100, raw));
-  };
-
-  /** 计算会话宽度（相对全天 24h），并做边界裁剪 */
-  const calculateBlockWidth = (session: Session) => {
-    const { start, end } = getTodayBounds();
-    const total = end - start;
-    const sessionStart = new Date(session.startTime).getTime();
-    const sessionEnd = new Date(session.endTime).getTime();
-    const clampedStart = Math.max(sessionStart, start);
-    const clampedEnd = Math.min(sessionEnd, end);
-    const dur = Math.max(0, clampedEnd - clampedStart);
-    return Math.max((dur / total) * 100, 1.5);
-  };
-
-  /** 计算当前展示片段（与今天重叠部分）的秒数，用于 tooltip */
-  const getDisplayedDurationSeconds = (session: Session) => {
-    const { start, end } = getTodayBounds();
-    const s0 = new Date(session.startTime).getTime();
-    const s1 = new Date(session.endTime).getTime();
-    const overlap = Math.max(0, Math.min(s1, end) - Math.max(s0, start));
-    return Math.floor(overlap / 1000);
-  };
+  // 旧时间轴实现使用的辅助函数已移除：
+  // - calculateTimelinePosition
+  // - calculateBlockWidth
+  // - getDisplayedDurationSeconds
+  // 现改为使用渐变绘制整条时间轴，不再需要逐块布局。
   // 仅用于时间轴的“今日片段”，包含与今天有重叠的会话，并过滤掉跳过的休息
   const daySessions = useMemo(() => {
     const sessions = data?.sessions ?? [];
