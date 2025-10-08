@@ -20,18 +20,19 @@
   --dashboard-icon: rgba(11, 15, 20, 0.75);
   --tips-item-bg: rgba(176, 108, 255, 0.08);
 
-  /* 深色模式 */
-  @media (prefers-color-scheme: dark) {
-    --dashboard-bg: #0b0f14;
-    --dashboard-card: #10151c;
-    --dashboard-border: rgba(255, 255, 255, 0.08);
-    --dashboard-shadow: 0 18px 48px -26px rgba(12, 16, 22, 0.85);
-    --dashboard-glow: rgba(94, 160, 255, 0.24);
-    --dashboard-text: #f1f5ff;
-    --dashboard-subtext: rgba(241, 245, 255, 0.66);
-    --dashboard-icon: rgba(241, 245, 255, 0.72);
-    --tips-item-bg: rgba(36, 225, 198, 0.12);
-  }
+}
+
+/* 深色模式（跟随全局 data-theme，而非系统偏好） */
+[data-theme='dark'] .dashboard-page {
+  --dashboard-bg: #0b0f14;
+  --dashboard-card: #10151c;
+  --dashboard-border: rgba(255, 255, 255, 0.08);
+  --dashboard-shadow: 0 18px 48px -26px rgba(12, 16, 22, 0.85);
+  --dashboard-glow: rgba(94, 160, 255, 0.24);
+  --dashboard-text: #f1f5ff;
+  --dashboard-subtext: rgba(241, 245, 255, 0.66);
+  --dashboard-icon: rgba(241, 245, 255, 0.72);
+  --tips-item-bg: rgba(36, 225, 198, 0.12);
 }
 
 
