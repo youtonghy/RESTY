@@ -207,6 +207,50 @@ export function Analytics() {
   }, [data]);
 
   /**
+   * 构建单条时间轴的线性渐变：
+   * - 全宽 0-24h；
+   * - 工作片段为蓝色（var(--color-primary)），休息片段为绿色（var(--color-success)）；
+   * - 其他时间透明，底色为浅色轨道；
+   */
+  const buildTimelineGradient = (sessions: Session[]) => {
+    const base = 'var(--color-surface-hover)';
+    if (!sessions || sessions.length === 0) {
+      return base;
+    }
+
+    const stops: string[] = [];
+    // 初始透明到 0%
+    stops.push('transparent 0%');
+
+    // 根据会话生成区段色带
+    const { start: dayStart, end: dayEnd } = getTodayBounds();
+    const dayTotal = dayEnd - dayStart;
+    for (const s of sessions) {
+      // 计算精准百分比（不强制最小宽度）
+      const sStart = new Date(s.startTime).getTime();
+      const sEnd = new Date(s.endTime).getTime();
+      const clampedStart = Math.max(sStart, dayStart);
+      const clampedEnd = Math.min(sEnd, dayEnd);
+      const dur = Math.max(0, clampedEnd - clampedStart);
+      if (dur <= 0 || dayTotal <= 0) continue;
+      const start = ((clampedStart - dayStart) / dayTotal) * 100;
+      const end = Math.min(100, start + (dur / dayTotal) * 100);
+      const color = s.type === 'work' ? 'var(--color-primary)' : 'var(--color-success)';
+      // 透明到 start，然后着色到 end，再恢复透明
+      stops.push(`transparent ${start}%`);
+      stops.push(`${color} ${start}%`);
+      stops.push(`${color} ${end}%`);
+      stops.push(`transparent ${end}%`);
+    }
+
+    const gradient = `linear-gradient(to right, ${stops.join(', ')})`;
+    // 叠加底色，形成单条时间轴
+    return `${gradient}, ${base}`;
+  };
+
+  const timelineBackground = useMemo(() => buildTimelineGradient(daySessions), [daySessions]);
+
+  /**
    * 以前端为准计算当前区间的总工作/休息时长：
    * - 仅统计与区间有重叠的片段
    * - 休息忽略被跳过的片段
@@ -296,40 +340,35 @@ export function Analytics() {
               </div>
             </section>
 
-            {/* Session Timeline - Horizontal (Today only) */}
+            {/* Session Timeline - Single Bar with Scale */}
             <section className="card timeline-section">
               <h2 className="card-header">{t('analytics.timeline')}</h2>
 
-              {daySessions.length === 0 ? (
-                <div className="no-data">{t('analytics.noData')}</div>
-              ) : (
-                <div className="horizontal-timeline-container">
-                  <div className="horizontal-timeline">
-                    {daySessions.map((session) => (
-                      <div
-                        key={session.id}
-                        className={`timeline-block ${session.type}`}
-                        style={{
-                          left: `${calculateTimelinePosition(session)}%`,
-                          width: `${calculateBlockWidth(session)}%`,
-                        }}
-                        title={`${session.type === 'work' ? t('reminder.title.work') : t('reminder.title.break')} - ${formatDuration(getDisplayedDurationSeconds(session))}`}
-                      >
-                      </div>
-                    ))}
+              <div className="horizontal-timeline-container">
+                {/* 刻度 */}
+                <div className="timeline-header">
+                  <div className="timeline-time-scale">{generateTimeScale()}</div>
+                </div>
+
+                {/* 单条时间轴（用渐变绘制工作/休息片段） */}
+                <div
+                  className="horizontal-timeline enhanced"
+                  style={{ background: timelineBackground }}
+                  aria-label={t('analytics.timeline')}
+                  role="img"
+                />
+
+                <div className="timeline-legend">
+                  <div className="legend-item">
+                    <div className="legend-color work"></div>
+                    <span>{t('reminder.title.work')}</span>
                   </div>
-                  <div className="timeline-legend">
-                    <div className="legend-item">
-                      <div className="legend-color work"></div>
-                      <span>{t('reminder.title.work')}</span>
-                    </div>
-                    <div className="legend-item">
-                      <div className="legend-color break"></div>
-                      <span>{t('reminder.title.break')}</span>
-                    </div>
+                  <div className="legend-item">
+                    <div className="legend-color break"></div>
+                    <span>{t('reminder.title.break')}</span>
                   </div>
                 </div>
-              )}
+              </div>
             </section>
 
             {/* Additional Stats */}
