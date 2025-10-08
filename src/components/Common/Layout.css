@@ -3,6 +3,14 @@
   background: var(--color-background);
 }
 
+/* Title bar drag region for borderless window with overlay buttons */
+.app-titlebar {
+  -webkit-app-region: drag;
+  height: 36px; /* safe height for Windows/macOS */
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
 .layout-content {
   max-width: 1400px;
   margin: 0 auto;
