@@ -1,4 +1,5 @@
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
 import type { TimerPhase } from '../types';
@@ -155,14 +156,26 @@ interface FeatureCardProps {
   span?: 4 | 12;
   delay?: number;
   children?: ReactNode;
+  progress?: number; // 0..1 (optional) — when provided, card background fills as progress
 }
 
-function FeatureCard({ primary, label, icon, span = 4, delay = 0, children }: FeatureCardProps) {
+function FeatureCard({ primary, label, icon, span = 4, delay = 0, children, progress }: FeatureCardProps) {
   const ref = useFadeInOnScroll<HTMLElement>(delay);
-  const classes = [`tile-card`, `tile-span-${span}`].join(' ');
+  const classes = [
+    `tile-card`,
+    `tile-span-${span}`,
+    progress !== undefined ? 'has-progress' : undefined,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const style =
+    progress !== undefined
+      ? ({ ['--progress' as any]: String(clamp01(progress)) } as CSSProperties)
+      : undefined;
 
   return (
-    <section ref={ref} className={classes} tabIndex={0} role="listitem">
+    <section ref={ref} className={classes} style={style} tabIndex={0} role="listitem">
       <div className="tile-primary-row">
         {icon && (
           <span className="tile-icon" aria-hidden="true">
@@ -186,18 +199,14 @@ interface PercentCardProps {
 }
 
 function PercentCard({ value, label, info, formatted, delay = 0 }: PercentCardProps) {
-  const barWidth = `${Math.round(clamp01(value) * 100)}%`;
   return (
     <FeatureCard
       primary={formatted}
       label={joinParts([label, info])}
       icon="⏱"
+      progress={clamp01(value)}
       delay={delay}
-    >
-      <div className="tile-progress" role="presentation">
-        <span className="tile-progress-bar" style={{ width: barWidth }} />
-      </div>
-    </FeatureCard>
+    />
   );
 }
 
