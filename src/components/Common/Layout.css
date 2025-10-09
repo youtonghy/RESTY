@@ -9,6 +9,11 @@
   height: 36px; /* safe height for Windows/macOS */
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 8px;
 }
 
 .layout-content {
@@ -20,6 +25,47 @@
 
 .layout-main {
   width: 100%;
+}
+
+/* Window controls for borderless window */
+.window-controls {
+  display: flex;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+}
+
+.window-button {
+  width: 46px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm, 6px);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  -webkit-app-region: no-drag;
+}
+
+.window-button:hover {
+  background: var(--color-surface-hover, rgba(255,255,255,0.06));
+  color: var(--color-text-primary);
+}
+
+.window-button.close:hover {
+  background: #ef444433; /* subtle red */
+  color: #ef4444;
+}
+
+.titlebar-left {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Desktop styles */
