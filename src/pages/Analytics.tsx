@@ -350,67 +350,68 @@ export function Analytics() {
               </div>
             </section>
 
-            {/* Additional Stats */}
-            <section className="card stats-details">
-              <h2 className="card-header">{t('analytics.overview')}</h2>
-              <div className="stats-grid">
-                <div className="stat-item">
-                  <span className="stat-item-label">
-                    {t('analytics.completionRate')}
-                  </span>
-                  <div className="progress-bar">
-                    <div
-                      className="progress-fill"
-                      style={{ width: `${getCompletionRate()}%` }}
-                    ></div>
+            {/* Overview + Fragments side-by-side */}
+            <div className="details-row">
+              <section className="card stats-details">
+                <h2 className="card-header">{t('analytics.overview')}</h2>
+                <div className="stats-grid">
+                  <div className="stat-item">
+                    <span className="stat-item-label">
+                      {t('analytics.completionRate')}
+                    </span>
+                    <div className="progress-bar">
+                      <div
+                        className="progress-fill"
+                        style={{ width: `${getCompletionRate()}%` }}
+                      ></div>
+                    </div>
+                    <span className="stat-item-value">
+                      {data.completedBreaks} / {data.breakCount}
+                    </span>
                   </div>
-                  <span className="stat-item-value">
-                    {data.completedBreaks} / {data.breakCount}
-                  </span>
-                </div>
 
-                <div className="stat-item">
-                  <span className="stat-item-label">{t('analytics.skippedBreaks')}</span>
-                  <div className="stat-item-value text-warning">
-                    {data.skippedBreaks}
+                  <div className="stat-item">
+                    <span className="stat-item-label">{t('analytics.skippedBreaks')}</span>
+                    <div className="stat-item-value text-warning">
+                      {data.skippedBreaks}
+                    </div>
                   </div>
-                </div>
 
-                <div className="stat-item">
-                  <span className="stat-item-label">{t('analytics.averageSession')}</span>
-                  <div className="stat-item-value">
-                    {data.sessions.length > 0
-                      ? formatDuration(
-                          Math.round(
-                            // Avoid TS param annotations in JSX to keep Babel happy
-                            data.sessions.reduce((sum, s) => sum + s.duration, 0) /
-                              data.sessions.length
+                  <div className="stat-item">
+                    <span className="stat-item-label">{t('analytics.averageSession')}</span>
+                    <div className="stat-item-value">
+                      {data.sessions.length > 0
+                        ? formatDuration(
+                            Math.round(
+                              data.sessions.reduce((sum, s) => sum + s.duration, 0) /
+                                data.sessions.length
+                            )
                           )
-                        )
-                      : `0${t('common.minutes')}`}
+                        : `0${t('common.minutes')}`}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </section>
+              </section>
 
-            {/* Weekly fragment totals */}
-            <section className="card stats-details">
-              <h2 className="card-header">{t('analytics.fragments')}</h2>
-              <div className="stats-grid">
-                <div className="stat-item">
-                  <span className="stat-item-label">{t('analytics.totalFragmentsWeek')}</span>
-                  <div className="stat-item-value">{weeklyFragments}</div>
+              {/* Weekly fragment totals */}
+              <section className="card stats-details">
+                <h2 className="card-header">{t('analytics.fragments')}</h2>
+                <div className="stats-grid">
+                  <div className="stat-item">
+                    <span className="stat-item-label">{t('analytics.totalFragmentsWeek')}</span>
+                    <div className="stat-item-value">{weeklyFragments}</div>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-item-label">{t('analytics.workFragmentsWeek')}</span>
+                    <div className="stat-item-value">{weeklyWorkFragments}</div>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-item-label">{t('analytics.breakFragmentsWeek')}</span>
+                    <div className="stat-item-value">{weeklyRestFragments}</div>
+                  </div>
                 </div>
-                <div className="stat-item">
-                  <span className="stat-item-label">{t('analytics.workFragmentsWeek')}</span>
-                  <div className="stat-item-value">{weeklyWorkFragments}</div>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-item-label">{t('analytics.breakFragmentsWeek')}</span>
-                  <div className="stat-item-value">{weeklyRestFragments}</div>
-                </div>
-              </div>
-            </section>
+              </section>
+            </div>
           </>
         )}
       </div>

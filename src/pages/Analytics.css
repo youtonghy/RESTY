@@ -345,6 +345,18 @@
   margin-bottom: var(--spacing-xl);
 }
 
+.details-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-xl);
+  align-items: stretch;
+  margin-bottom: var(--spacing-xl);
+}
+
+.details-row .stats-details {
+  margin-bottom: 0; /* prevent double spacing inside the grid */
+}
+
 .stats-grid {
   display: grid;
   gap: var(--spacing-lg);
@@ -403,6 +415,10 @@
 @media (max-width: 768px) {
   .stats-overview {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .details-row {
+    grid-template-columns: 1fr; /* stack on small screens */
   }
 
   .stat-value {
