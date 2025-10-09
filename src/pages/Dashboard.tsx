@@ -148,8 +148,7 @@ interface GridMetrics {
 
 const GRID_COLUMNS = 12;
 const BASE_SPAN = 2;
-const MIN_TRACK_HEIGHT = 160;
-const HEIGHT_RATIO = 0.8;
+const FALLBACK_TRACK_SIZE = 120;
 
 const CARD_LIMITS: Record<CardId, { minW: number; minH: number; initial: LayoutItem }> = {
   status: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: 0, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
@@ -340,12 +339,12 @@ export function Dashboard() {
 
   const [layout, setLayout] = useState<LayoutMap>(() => createInitialLayout());
   const [metrics, setMetrics] = useState<GridMetrics>(() => ({
-    trackWidth: 0,
-    trackHeight: MIN_TRACK_HEIGHT,
+    trackWidth: FALLBACK_TRACK_SIZE,
+    trackHeight: FALLBACK_TRACK_SIZE,
     columnGap: 24,
     rowGap: 24,
-    columnSpan: 24,
-    rowSpan: MIN_TRACK_HEIGHT + 24,
+    columnSpan: FALLBACK_TRACK_SIZE + 24,
+    rowSpan: FALLBACK_TRACK_SIZE + 24,
   }));
   const gridRef = useRef<HTMLDivElement | null>(null);
 
@@ -591,20 +590,26 @@ export function Dashboard() {
 
       const width = entry.contentRect.width;
       const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : width;
-      const gap = Math.max(18, Math.min(28, viewportWidth * 0.02));
+      const gap = Math.round(Math.max(18, Math.min(28, viewportWidth * 0.02)));
       const columnGap = gap;
       const rowGap = gap;
       const baseWidth = (width - columnGap * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
-      const trackWidth = Number.isFinite(baseWidth) ? Math.max(48, baseWidth) : 48;
-      const trackHeight = Math.max(MIN_TRACK_HEIGHT, trackWidth * HEIGHT_RATIO);
 
-      setMetrics({
-        trackWidth,
-        trackHeight,
-        columnGap,
-        rowGap,
-        columnSpan: trackWidth + columnGap,
-        rowSpan: trackHeight + rowGap,
+      setMetrics((previous) => {
+        const candidate =
+          Number.isFinite(baseWidth) && baseWidth > 0
+            ? baseWidth
+            : previous.trackWidth || FALLBACK_TRACK_SIZE;
+        const trackSize = Math.max(1, Math.floor(candidate));
+
+        return {
+          trackWidth: trackSize,
+          trackHeight: trackSize,
+          columnGap,
+          rowGap,
+          columnSpan: trackSize + columnGap,
+          rowSpan: trackSize + rowGap,
+        };
       });
     });
 
@@ -615,8 +620,8 @@ export function Dashboard() {
 
   const gridStyle: CSSProperties = useMemo(
     () => ({
-      gridTemplateColumns: `repeat(${GRID_COLUMNS}, minmax(0, 1fr))`,
-      gridAutoRows: `${metrics.trackHeight}px`,
+      gridTemplateColumns: `repeat(${GRID_COLUMNS}, ${Math.max(1, metrics.trackWidth)}px)`,
+      gridAutoRows: `${Math.max(1, metrics.trackHeight)}px`,
       columnGap: `${metrics.columnGap}px`,
       rowGap: `${metrics.rowGap}px`,
     }),

@@ -107,6 +107,9 @@
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: clamp(18px, 2vw, 28px);
   position: relative;
+  justify-content: center;
+  align-content: start;
+  justify-items: stretch;
 }
 
 .draggable-card {
@@ -176,6 +179,10 @@
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-md);
   padding: clamp(24px, 4vw, 32px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: clamp(12px, 2vw, 20px);
   transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.35s ease;
   opacity: 0;
   transform: translateY(18px);
@@ -230,7 +237,6 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  margin-bottom: 12px;
 }
 
 .tile-icon {
