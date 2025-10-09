@@ -91,6 +91,12 @@ export async function getSystemStatus(): Promise<SystemStatus> {
   return await invoke('get_system_status');
 }
 
+// Rest music commands
+/** 列出休息音乐目录中的音频文件路径。 */
+export async function getRestMusicFiles(): Promise<string[]> {
+  return await invoke('get_rest_music_files');
+}
+
 // Autostart plugin commands (via Tauri v2 plugin)
 /** 检查是否已启用开机自启（兼容不同命令命名）。 */
 export async function isAutostartEnabled(): Promise<boolean> {

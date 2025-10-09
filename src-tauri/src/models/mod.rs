@@ -1,5 +1,23 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
+/// 默认的休息音乐目录：位于用户家目录下的 `RESTY/rest-music`。
+pub fn rest_music_directory_default() -> String {
+    let base = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+    base.join("RESTY")
+        .join("rest-music")
+        .to_string_lossy()
+        .into_owned()
+}
+
+fn default_rest_music_enabled() -> bool {
+    false
+}
+
+fn default_rest_music_directory() -> String {
+    rest_music_directory_default()
+}
 
 /// Theme preference
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -69,6 +87,10 @@ pub struct Settings {
     pub floating_position: FloatingPosition,
     pub opacity: u8, // 0-100
     pub play_sound: bool,
+    #[serde(default = "default_rest_music_enabled")]
+    pub rest_music_enabled: bool,
+    #[serde(default = "default_rest_music_directory")]
+    pub rest_music_directory: String,
 
     // Appearance
     pub theme: Theme,
@@ -96,6 +118,8 @@ impl Default for Settings {
             floating_position: FloatingPosition::TopRight,
             opacity: 95,
             play_sound: true,
+            rest_music_enabled: default_rest_music_enabled(),
+            rest_music_directory: rest_music_directory_default(),
             theme: Theme::Auto,
             autostart: false,
             minimize_to_tray: true,

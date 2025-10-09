@@ -95,6 +95,37 @@
   color: var(--color-text-secondary);
 }
 
+.card-subtitle {
+  margin-top: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  text-decoration: underline;
+}
+
+.link-button:disabled {
+  color: var(--color-text-secondary);
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.directory-display {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-monospace, monospace);
+  word-break: break-all;
+}
+
 .opacity-value {
   margin-left: var(--spacing-sm);
   font-weight: 500;

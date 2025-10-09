@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { open } from '@tauri-apps/plugin-opener';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
 import * as api from '../utils/api';
@@ -53,6 +54,16 @@ export function Settings() {
   const handleReset = () => {
     if (confirm(t('settings.actions.reset'))) {
       setLocalSettings(settings);
+    }
+  };
+
+  const handleOpenMusicDirectory = async () => {
+    if (!localSettings.restMusicDirectory) return;
+    try {
+      await open(localSettings.restMusicDirectory);
+    } catch (error) {
+      console.error('Failed to open music directory:', error);
+      setMessage(t('settings.reminder.restMusic.openFailed'));
     }
   };
 
@@ -159,7 +170,38 @@ export function Settings() {
             </select>
           </div>
 
-          
+          <h3 className="card-subtitle">{t('settings.reminder.restMusic.title')}</h3>
+
+          <div className="form-group toggle-group">
+            <label className="toggle-row">
+              <span className="toggle-text">{t('settings.reminder.restMusic.enable')}</span>
+              <span className="switch">
+                <input
+                  type="checkbox"
+                  checked={localSettings.restMusicEnabled}
+                  onChange={(e) => {
+                    const next = { ...localSettings, restMusicEnabled: e.target.checked };
+                    setLocalSettings(next);
+                    saveSettingsAuto(next);
+                  }}
+                />
+                <span className="slider" />
+              </span>
+            </label>
+            <p className="helper-text">{t('settings.reminder.restMusic.description')}</p>
+          </div>
+
+          <div className="form-group">
+            <label>{t('settings.reminder.restMusic.directory')}</label>
+            <button
+              type="button"
+              className="link-button directory-display"
+              onClick={handleOpenMusicDirectory}
+              disabled={!localSettings.restMusicDirectory}
+            >
+              {localSettings.restMusicDirectory || t('settings.reminder.restMusic.directoryMissing')}
+            </button>
+          </div>
         </section>
 
         {/* Appearance Settings */}

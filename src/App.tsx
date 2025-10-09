@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { ThemeProvider } from './components/Common/ThemeProvider';
 import { Reminder } from './components/Reminder/Reminder';
 import { Layout } from './components/Common/Layout';
@@ -19,13 +20,77 @@ import './i18n';
  */
 function App() {
   const { i18n } = useTranslation();
-  const { settings, setTimerInfo } = useAppStore();
+  const { settings, timerInfo, setTimerInfo } = useAppStore();
 
   const isReminderWindow = (() => {
     if (typeof window === 'undefined') return false;
     const hash = window.location.hash.replace(/^#\/?/, '');
     return hash.startsWith('reminder');
   })();
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const currentTrackRef = useRef<string | null>(null);
+
+  const stopRestMusic = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.src = '';
+    }
+    audioRef.current = null;
+    currentTrackRef.current = null;
+  }, []);
+
+  const startRestMusic = useCallback(
+    async (enabled: boolean, directory: string) => {
+      if (isReminderWindow) return;
+      if (!enabled || !directory) {
+        stopRestMusic();
+        return;
+      }
+
+      try {
+        const files = await api.getRestMusicFiles();
+        if (files.length === 0) {
+          stopRestMusic();
+          return;
+        }
+
+        const nextTrack = files[0];
+        const existing = audioRef.current;
+
+        if (existing && currentTrackRef.current === nextTrack) {
+          if (existing.paused) {
+            try {
+              await existing.play();
+            } catch (error) {
+              console.error('Failed to resume rest music:', error);
+            }
+          }
+          return;
+        }
+
+        stopRestMusic();
+
+        const audio = new Audio(convertFileSrc(nextTrack));
+        audio.loop = true;
+
+        try {
+          await audio.play();
+          audioRef.current = audio;
+          currentTrackRef.current = nextTrack;
+        } catch (error) {
+          console.error('Failed to play rest music:', error);
+          audioRef.current = null;
+          currentTrackRef.current = null;
+        }
+      } catch (error) {
+        console.error('Failed to load rest music files:', error);
+        stopRestMusic();
+      }
+    },
+    [isReminderWindow, stopRestMusic]
+  );
 
   useEffect(() => {
     /**
@@ -46,6 +111,14 @@ function App() {
         api.closeReminderWindow().catch((error) => {
           console.error('Failed to close reminder window:', error);
         });
+      }
+
+      if (!isReminderWindow) {
+        if (phase === 'break') {
+          void startRestMusic(activeSettings.restMusicEnabled, activeSettings.restMusicDirectory);
+        } else {
+          stopRestMusic();
+        }
       }
     };
 
@@ -105,8 +178,11 @@ function App() {
     // 清理事件监听，避免内存泄漏
     return () => {
       unsubscribers.forEach((p) => p.then((unsub) => unsub()));
+      if (!isReminderWindow) {
+        stopRestMusic();
+      }
     };
-  }, []);
+  }, [isReminderWindow, setTimerInfo, startRestMusic, stopRestMusic]);
 
   // Update language when settings change
   useEffect(() => {
@@ -117,6 +193,26 @@ function App() {
       });
     }
   }, [settings.language, i18n]);
+
+  useEffect(() => {
+    if (isReminderWindow) return;
+
+    if (!settings.restMusicEnabled) {
+      stopRestMusic();
+      return;
+    }
+
+    if (timerInfo.phase === 'break') {
+      void startRestMusic(settings.restMusicEnabled, settings.restMusicDirectory);
+    }
+  }, [
+    isReminderWindow,
+    settings.restMusicEnabled,
+    settings.restMusicDirectory,
+    timerInfo.phase,
+    startRestMusic,
+    stopRestMusic,
+  ]);
 
   return (
     <ThemeProvider>

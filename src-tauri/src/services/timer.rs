@@ -286,6 +286,7 @@ impl TimerService {
         state.break_duration = break_duration;
     }
 
+
     /// Do not take breaks for the specified number of hours from now.
     pub fn suppress_breaks_for_hours(&self, hours: i64) {
         let mut state = self.state.lock().unwrap();

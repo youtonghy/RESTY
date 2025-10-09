@@ -23,6 +23,8 @@ export interface Settings {
   floatingPosition: FloatingPosition;
   opacity: number; // 0-100
   playSound: boolean;
+  restMusicEnabled: boolean;
+  restMusicDirectory: string;
 
   // Appearance
   theme: Theme;
@@ -118,6 +120,8 @@ export const DEFAULT_SETTINGS: Settings = {
   floatingPosition: 'top-right',
   opacity: 95,
   playSound: true,
+  restMusicEnabled: false,
+  restMusicDirectory: '',
   theme: 'auto',
   autostart: false,
   minimizeToTray: true,

@@ -19,7 +19,15 @@
       "floating": "浮窗",
       "floatingPosition": "窗口位置",
       "opacity": "窗口透明度",
-      "playSound": "播放提示音"
+      "playSound": "播放提示音",
+      "restMusic": {
+        "title": "休息音乐",
+        "enable": "休息时自动播放音乐",
+        "description": "将 mp3、wav、flac 或 ogg 文件放入下方目录即可播放。",
+        "directory": "音乐目录",
+        "directoryMissing": "音乐目录不可用",
+        "openFailed": "打开音乐目录失败"
+      }
     },
     "appearance": {
       "title": "外观",

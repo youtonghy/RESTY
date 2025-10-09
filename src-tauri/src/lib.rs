@@ -231,6 +231,7 @@ pub fn run() {
             commands::open_reminder_window,
             commands::show_reminder_window,
             commands::close_reminder_window,
+            commands::get_rest_music_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

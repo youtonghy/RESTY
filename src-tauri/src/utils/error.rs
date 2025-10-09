@@ -30,6 +30,9 @@ pub enum AppError {
     #[error("Configuration validation failed: {0}")]
     ValidationError(String),
 
+    #[error("Audio error: {0}")]
+    AudioError(String),
+
     #[error("Unknown error: {0}")]
     Unknown(String),
 }

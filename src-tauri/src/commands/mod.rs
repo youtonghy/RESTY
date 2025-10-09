@@ -3,6 +3,7 @@ use crate::models::{
 };
 use crate::services::{DatabaseService, TimerService};
 use crate::utils::AppError;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 
@@ -29,10 +30,54 @@ pub async fn save_settings(settings: Settings, state: State<'_, AppState>) -> Re
     state
         .timer_service
         .update_durations(settings.work_duration, settings.break_duration);
-
     // Save to database
     let db = state.database_service.lock().await;
     db.save_settings(&settings).await.map_err(|e| e.to_string())
+}
+
+/// List audio files in the configured rest music directory.
+#[tauri::command]
+pub async fn get_rest_music_files(state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    let directory = {
+        let db = state.database_service.lock().await;
+        let settings = db.load_settings().await.map_err(|e| e.to_string())?;
+        settings.rest_music_directory.clone()
+    };
+
+    let path = PathBuf::from(directory);
+    if !path.exists() {
+        return Ok(vec![]);
+    }
+
+    let mut files: Vec<String> = Vec::new();
+    match std::fs::read_dir(&path) {
+        Ok(entries) => {
+            for entry in entries.flatten() {
+                let entry_path = entry.path();
+                if entry_path.is_file() {
+                    let is_supported = entry_path
+                        .extension()
+                        .and_then(|ext| ext.to_str())
+                        .map(|ext| ext.to_ascii_lowercase())
+                        .map(|ext| matches!(ext.as_str(), "mp3" | "wav" | "flac" | "ogg"))
+                        .unwrap_or(false);
+                    if is_supported {
+                        files.push(entry_path.to_string_lossy().into_owned());
+                    }
+                }
+            }
+        }
+        Err(err) => {
+            eprintln!(
+                "Failed to read rest music directory {}: {}",
+                path.display(),
+                err
+            );
+        }
+    }
+
+    files.sort();
+    Ok(files)
 }
 
 /// Start work session

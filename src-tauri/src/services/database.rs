@@ -1,4 +1,6 @@
-use crate::models::{AnalyticsData, AnalyticsQuery, Session, Settings};
+use crate::models::{
+    rest_music_directory_default, AnalyticsData, AnalyticsQuery, Session, Settings,
+};
 use crate::utils::{AppError, AppResult};
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -123,17 +125,54 @@ impl DatabaseService {
             AppError::DatabaseError(format!("Failed to write settings file: {}", e))
         })?;
 
+        // Ensure rest music directory exists when settings change
+        if !settings.rest_music_directory.trim().is_empty() {
+            let target = PathBuf::from(&settings.rest_music_directory);
+            if let Err(e) = std::fs::create_dir_all(&target) {
+                return Err(AppError::DatabaseError(format!(
+                    "Failed to create rest music directory: {}",
+                    e
+                )));
+            }
+        }
+
         Ok(())
     }
 
     /// Load settings from database
     /// 返回内存中的设置快照。
     pub async fn load_settings(&self) -> AppResult<Settings> {
-        let settings = self
-            .settings
-            .lock()
-            .map_err(|e| AppError::DatabaseError(format!("Failed to lock settings: {}", e)))?;
-        Ok(settings.clone())
+        let (snapshot, needs_persist) = {
+            let mut settings = self
+                .settings
+                .lock()
+                .map_err(|e| AppError::DatabaseError(format!("Failed to lock settings: {}", e)))?;
+
+            let mut persist_flag = false;
+            if settings.rest_music_directory.trim().is_empty() {
+                settings.rest_music_directory = rest_music_directory_default();
+                persist_flag = true;
+            }
+
+            let dir = PathBuf::from(&settings.rest_music_directory);
+            if !dir.exists() {
+                if let Err(e) = std::fs::create_dir_all(&dir) {
+                    return Err(AppError::DatabaseError(format!(
+                        "Failed to create rest music directory: {}",
+                        e
+                    )));
+                }
+                persist_flag = true;
+            }
+
+            (settings.clone(), persist_flag)
+        };
+
+        if needs_persist {
+            self.save_settings(&snapshot).await?;
+        }
+
+        Ok(snapshot)
     }
 
     /// Save a completed session

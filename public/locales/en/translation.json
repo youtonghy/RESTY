@@ -19,7 +19,15 @@
       "floating": "Floating Window",
       "floatingPosition": "Window Position",
       "opacity": "Window Opacity",
-      "playSound": "Play notification sound"
+      "playSound": "Play notification sound",
+      "restMusic": {
+        "title": "Rest Music",
+        "enable": "Play music automatically during breaks",
+        "description": "Drop mp3, wav, flac or ogg files into the folder below.",
+        "directory": "Music directory",
+        "directoryMissing": "Music directory unavailable",
+        "openFailed": "Failed to open the music folder"
+      }
     },
     "appearance": {
       "title": "Appearance",
