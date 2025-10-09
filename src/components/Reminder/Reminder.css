@@ -1,3 +1,19 @@
+@keyframes floatCloud {
+  0% { transform: translateX(-15%); }
+  50% { transform: translateX(15%); }
+  100% { transform: translateX(-15%); }
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.9; }
+}
+
+@keyframes cityGlow {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.8; }
+}
+
 .reminder {
   width: 100vw;
   height: 100vh;
@@ -5,21 +21,16 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: linear-gradient(135deg, #0f172a 0%, #111827 100%);
+  position: relative;
+  color: #fff;
+}
+
+.reminder.theme-light {
+  color-scheme: light;
+}
+
+.reminder.theme-dark {
   color-scheme: dark;
-}
-
-/* Phase-based background accents */
-.reminder.phase-break {
-  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); /* indigo-900 -> indigo-800 */
-}
-
-.reminder.phase-work {
-  background: linear-gradient(135deg, #022c22 0%, #064e3b 100%); /* emerald-950 -> emerald-800 */
-}
-
-.reminder.phase-idle {
-  background: linear-gradient(135deg, #0f172a 0%, #111827 100%); /* slate-900 -> gray-900 */
 }
 
 .reminder-fullscreen {
@@ -34,7 +45,6 @@
 }
 
 .reminder-fullscreen {
-  /* Scale factor for fullscreen reminder; responsive with safe bounds */
   --reminder-scale: clamp(1.4, calc(min(100vw, 100vh) / 540), 2.4);
 }
 
@@ -47,15 +57,29 @@
   width: min(92vw, 340px);
   padding: var(--spacing-lg);
   border-radius: 22px;
-  background: rgba(17, 24, 39, 0.66); /* slate-900 @ ~66% */
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.7);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   color: #fff;
   opacity: 0;
   transform: translateY(6px);
   transition: opacity 220ms ease, transform 220ms ease;
+  position: relative;
+  z-index: 5;
+}
+
+.reminder.theme-light .reminder-panel {
+  background: rgba(255, 255, 255, 0.75);
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.1);
+  box-shadow: 0 20px 45px rgba(148, 163, 184, 0.4);
+}
+
+.reminder.theme-light .reminder-simple-timer {
+  color: #0f172a;
+  text-shadow: none;
 }
 
 .reminder-content {
@@ -63,17 +87,19 @@
   margin: 0 auto;
 }
 
-/* Fade-in after content is ready */
 .reminder.is-ready .reminder-panel {
   opacity: 1;
   transform: none;
 }
 
-/* Minimal label + timer for simple break UI */
 .reminder-simple-label {
   font-size: 0.9rem;
   color: rgba(255, 255, 255, 0.85);
   letter-spacing: 0.5px;
+}
+
+.reminder.theme-light .reminder-simple-label {
+  color: rgba(15, 23, 42, 0.66);
 }
 
 .reminder-simple-timer {
@@ -84,77 +110,6 @@
   color: #ffffff;
   text-shadow: 0 8px 22px rgba(0, 0, 0, 0.6);
   margin: var(--spacing-md) 0 var(--spacing-xl);
-}
-
-.reminder-icon {
-  font-size: 4rem;
-  margin-bottom: var(--spacing-lg);
-  animation: bounce 2s ease-in-out infinite;
-}
-
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-.reminder-title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  margin-bottom: var(--spacing-md);
-  color: var(--color-text-primary);
-}
-
-.reminder-message {
-  font-size: 1.25rem;
-  color: var(--color-text-secondary);
-  margin-bottom: var(--spacing-xl);
-  line-height: 1.6;
-}
-
-.reminder-timer {
-  margin: var(--spacing-xl) 0;
-}
-
-.timer-circle {
-  position: relative;
-  width: 250px;
-  height: 250px;
-  margin: 0 auto;
-}
-
-.timer-svg {
-  width: 100%;
-  height: 100%;
-  color: var(--color-primary);
-}
-
-.timer-progress {
-  transition: stroke-dashoffset 1s linear;
-}
-
-.timer-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  text-align: center;
-}
-
-.timer-time {
-  font-size: 3rem;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.timer-label {
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-  margin-top: var(--spacing-xs);
 }
 
 .reminder-actions {
@@ -172,11 +127,15 @@
   min-width: 150px;
 }
 
-/* Dark-surface tuned buttons inside reminder */
 .reminder .btn-secondary {
   background: transparent;
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.reminder.theme-light .btn-secondary {
+  color: #1e293b;
+  border-color: rgba(15, 23, 42, 0.25);
 }
 
 .reminder .btn-secondary:hover {
@@ -184,18 +143,222 @@
   border-color: rgba(255, 255, 255, 0.55);
 }
 
+.reminder.theme-light .btn-secondary:hover {
+  background: rgba(15, 23, 42, 0.08);
+  border-color: rgba(15, 23, 42, 0.4);
+}
+
 .reminder .btn-primary {
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
 }
 
-.btn-ghost {
-  background: transparent;
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
+.reminder.theme-light .btn-primary {
+  box-shadow: 0 12px 30px rgba(148, 163, 184, 0.35);
 }
 
-.btn-ghost:hover {
-  background: var(--color-surface-hover);
+.reminder-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.scene-group {
+  position: absolute;
+  inset: 0;
+  transition: opacity 260ms ease;
+}
+
+.scene {
+  position: absolute;
+  transition: transform 500ms ease, opacity 260ms ease;
+}
+
+.scene-day {
+  opacity: 0;
+}
+
+.scene-night {
+  opacity: 0;
+}
+
+.reminder.theme-light .scene-day {
+  opacity: 1;
+}
+
+.reminder.theme-dark .scene-night {
+  opacity: 1;
+}
+
+.scene-phase-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 55%, rgba(0, 0, 0, 0.35) 100%);
+  opacity: 0.8;
+  mix-blend-mode: soft-light;
+}
+
+/* Day scene */
+.scene-day-sky {
+  inset: 0;
+  background: linear-gradient(180deg, #7dd3fc 0%, #cffafe 40%, #fef3c7 100%);
+}
+
+.scene-day-sun {
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.88) 0%, rgba(251, 191, 36, 0.9) 45%, rgba(245, 158, 11, 0.85) 100%);
+  top: 10%;
+  right: 10%;
+  box-shadow: 0 0 70px rgba(251, 191, 36, 0.6);
+}
+
+.scene-day-mountain {
+  bottom: -12%;
+  width: 65%;
+  height: 45%;
+  background: linear-gradient(135deg, #15803d 0%, #065f46 100%);
+  border-radius: 54% 46% 0 0;
+}
+
+.scene-day-mountain-back {
+  left: 10%;
+  background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+  transform: translateY(8%);
+}
+
+.scene-day-mountain-front {
+  left: 18%;
+  transform: translate(22%, 12%);
+}
+
+.scene-day-water {
+  bottom: -14%;
+  height: 35%;
+  width: 100%;
+  background: linear-gradient(180deg, rgba(125, 211, 252, 0.9) 0%, rgba(14, 165, 233, 0.7) 100%);
+  box-shadow: 0 -16px 30px rgba(14, 116, 144, 0.4);
+  border-radius: 50% 50% 0 0;
+}
+
+.scene-day-cloud {
+  width: 160px;
+  height: 50px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 35px 12px 0 rgba(255, 255, 255, 0.95), -22px 10px 0 rgba(255, 255, 255, 0.7);
+  top: 18%;
+  animation: floatCloud 14s ease-in-out infinite;
+}
+
+.scene-day-cloud-1 {
+  left: 8%;
+  animation-delay: -4s;
+}
+
+.scene-day-cloud-2 {
+  right: 12%;
+  top: 24%;
+  animation-delay: -2s;
+}
+
+/* Night scene */
+.scene-night-sky {
+  inset: 0;
+  background: linear-gradient(180deg, #020617 0%, #0f172a 55%, #111827 100%);
+}
+
+.scene-night-stars {
+  inset: 0;
+  background-image:
+    radial-gradient(2px 2px at 10% 20%, rgba(255, 255, 255, 0.75) 0%, transparent 60%),
+    radial-gradient(3px 3px at 80% 10%, rgba(248, 250, 252, 0.75) 0%, transparent 60%),
+    radial-gradient(3px 3px at 35% 65%, rgba(241, 245, 249, 0.55) 0%, transparent 60%),
+    radial-gradient(2px 2px at 65% 78%, rgba(255, 255, 255, 0.7) 0%, transparent 55%);
+  animation: twinkle 6s ease-in-out infinite alternate;
+}
+
+.scene-night-moon {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(226, 232, 240, 0.95) 30%, rgba(148, 163, 184, 0.6) 65%, rgba(71, 85, 105, 0.35) 90%);
+  top: 12%;
+  left: 12%;
+  box-shadow: 0 0 80px rgba(148, 163, 184, 0.6);
+}
+
+.scene-night-city {
+  bottom: -14%;
+  height: 42%;
+  width: 80%;
+  border-radius: 50% 50% 0 0;
+  left: 10%;
+  background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+}
+
+.scene-night-city-back {
+  filter: brightness(1.05);
+  opacity: 0.8;
+}
+
+.scene-night-city-front {
+  bottom: -18%;
+  height: 50%;
+  background: linear-gradient(180deg, #111827 0%, #020617 100%);
+  box-shadow:
+    0 -18px 60px rgba(17, 24, 39, 0.7),
+    inset 0 35px 45px rgba(15, 23, 42, 0.65);
+}
+
+.scene-night-haze {
+  bottom: -6%;
+  width: 100%;
+  height: 35%;
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.35) 0%, rgba(15, 23, 42, 0.85) 100%);
+  opacity: 0.7;
+  box-shadow: 0 -20px 35px rgba(148, 163, 184, 0.4);
+  animation: cityGlow 8s ease-in-out infinite;
+}
+
+.scene-night-city::before,
+.scene-night-city::after {
+  content: '';
+  position: absolute;
+  top: 15%;
+  width: 14%;
+  height: 60%;
+  background: linear-gradient(180deg, rgba(226, 232, 240, 0.55) 0%, rgba(248, 250, 252, 0.4) 50%, transparent 100%);
+  box-shadow:
+    18px 0 0 rgba(226, 232, 240, 0.28),
+    36px 0 0 rgba(226, 232, 240, 0.18),
+    54px 0 0 rgba(226, 232, 240, 0.12);
+  animation: cityGlow 6s ease-in-out infinite alternate;
+}
+
+.scene-night-city::before {
+  left: 10%;
+  animation-delay: -2.2s;
+}
+
+.scene-night-city::after {
+  right: 16%;
+  animation-delay: -4.5s;
+}
+
+/* Phase accents */
+.phase-break .scene-phase-overlay {
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.3) 0%, rgba(14, 116, 144, 0.2) 55%, rgba(15, 23, 42, 0.55) 100%);
+}
+
+.phase-work .scene-phase-overlay {
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.28) 0%, rgba(59, 130, 246, 0.2) 55%, rgba(0, 0, 0, 0.45) 100%);
+}
+
+.phase-idle .scene-phase-overlay {
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.25) 0%, rgba(148, 163, 184, 0.18) 40%, rgba(15, 23, 42, 0.45) 100%);
 }
 
 .reminder-close {

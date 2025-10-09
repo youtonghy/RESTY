@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../../store';
 import * as api from '../../utils/api';
 import './Reminder.css';
+import { useTheme } from '../Common/ThemeProvider';
 
 interface ReminderProps {
   isFullscreen?: boolean;
@@ -11,6 +12,7 @@ interface ReminderProps {
 export function Reminder({ isFullscreen = true }: ReminderProps) {
   const { t } = useTranslation();
   const { timerInfo, settings } = useAppStore();
+  const { effectiveTheme } = useTheme();
   const [optimisticMinutes, setOptimisticMinutes] = useState<number | null>(null);
   const [isReady, setIsReady] = useState(false);
   const safeRemainingMinutes = Math.max(0, timerInfo.remainingMinutes);
@@ -109,8 +111,36 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
     };
   }, []);
 
+  const rootClassName = [
+    'reminder',
+    isFullscreen ? 'reminder-fullscreen' : 'reminder-floating',
+    phaseClass,
+    `theme-${effectiveTheme}`,
+    isReady ? 'is-ready' : '',
+  ].join(' ');
+
   return (
-    <div className={`reminder ${isFullscreen ? 'reminder-fullscreen' : 'reminder-floating'} ${phaseClass} ${isReady ? 'is-ready' : ''}`}>
+    <div className={rootClassName}>
+      <div className="reminder-scene" aria-hidden="true">
+        <div className="scene-group scene-day">
+          <div className="scene scene-day-sky" />
+          <div className="scene scene-day-sun" />
+          <div className="scene scene-day-mountain scene-day-mountain-back" />
+          <div className="scene scene-day-mountain scene-day-mountain-front" />
+          <div className="scene scene-day-water" />
+          <div className="scene scene-day-cloud scene-day-cloud-1" />
+          <div className="scene scene-day-cloud scene-day-cloud-2" />
+        </div>
+        <div className="scene-group scene-night">
+          <div className="scene scene-night-sky" />
+          <div className="scene scene-night-stars" />
+          <div className="scene scene-night-moon" />
+          <div className="scene scene-night-city scene-night-city-back" />
+          <div className="scene scene-night-city scene-night-city-front" />
+          <div className="scene scene-night-haze" />
+        </div>
+        <div className="scene-phase-overlay" />
+      </div>
       <div className="reminder-panel" role="dialog" aria-label={t('reminder.simpleLabel')}>
         <div className="reminder-content">
           <div className="reminder-simple-label">{timerLabel}</div>
