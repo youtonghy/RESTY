@@ -149,6 +149,8 @@ interface GridMetrics {
 const GRID_COLUMNS = 12;
 const BASE_SPAN = 2;
 const FALLBACK_TRACK_SIZE = 120;
+const CARD_ORDER: CardId[] = ['status', 'next', 'day', 'week', 'month', 'year', 'tips'];
+const MAX_GRID_ROWS = 120;
 
 const CARD_LIMITS: Record<CardId, { minW: number; minH: number; initial: LayoutItem }> = {
   status: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: 0, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
@@ -186,11 +188,86 @@ const clampLayout = (id: CardId, candidate: LayoutItem): LayoutItem => {
 const rectanglesOverlap = (a: LayoutItem, b: LayoutItem) =>
   a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
-const layoutHasCollision = (id: CardId, candidate: LayoutItem, state: LayoutMap) => {
-  return Object.entries(state).some(([key, item]) => {
-    if (key === id) return false;
-    return rectanglesOverlap(candidate, item);
-  });
+const normalizeLayoutItem = (id: CardId, item?: LayoutItem): LayoutItem => {
+  const limits = CARD_LIMITS[id];
+  const source = item ?? limits.initial;
+
+  const width = Math.max(limits.minW, Math.min(Math.round(source.w), GRID_COLUMNS));
+  const height = Math.max(limits.minH, Math.max(1, Math.round(source.h)));
+  const maxStart = Math.max(0, GRID_COLUMNS - width);
+
+  const x = Math.max(0, Math.min(Number.isFinite(source.x) ? Math.round(source.x) : limits.initial.x, maxStart));
+  const y = Math.max(0, Number.isFinite(source.y) ? Math.round(source.y) : limits.initial.y);
+
+  return { x, y, w: width, h: height };
+};
+
+const findSlot = (
+  width: number,
+  height: number,
+  preferredX: number,
+  preferredY: number,
+  occupied: LayoutItem[]
+): LayoutItem => {
+  const safeWidth = Math.min(width, GRID_COLUMNS);
+  const safeHeight = Math.max(1, height);
+  const startRow = Math.max(0, preferredY);
+  const maxStartX = Math.max(0, GRID_COLUMNS - safeWidth);
+  const clampPreferredX = Math.max(0, Math.min(preferredX, maxStartX));
+
+  for (let y = startRow; y < MAX_GRID_ROWS; y += 1) {
+    const orderedColumns: number[] = [];
+    for (let x = clampPreferredX; x <= maxStartX; x += 1) orderedColumns.push(x);
+    for (let x = 0; x < clampPreferredX; x += 1) orderedColumns.push(x);
+
+    for (const x of orderedColumns) {
+      const rect = { x, y, w: safeWidth, h: safeHeight };
+      const hasCollision = occupied.some((item) => rectanglesOverlap(rect, item));
+      if (!hasCollision) {
+        return rect;
+      }
+    }
+  }
+
+  for (let y = 0; y < startRow; y += 1) {
+    for (let x = 0; x <= maxStartX; x += 1) {
+      const rect = { x, y, w: safeWidth, h: safeHeight };
+      const hasCollision = occupied.some((item) => rectanglesOverlap(rect, item));
+      if (!hasCollision) {
+        return rect;
+      }
+    }
+  }
+
+  return { x: clampPreferredX, y: startRow, w: safeWidth, h: safeHeight };
+};
+
+const resolveLayoutWithPush = (
+  id: CardId,
+  candidate: LayoutItem,
+  state: LayoutMap
+): LayoutMap => {
+  const placed: Partial<LayoutMap> = {};
+  const occupied: LayoutItem[] = [];
+
+  for (const key of CARD_ORDER) {
+    const limits = CARD_LIMITS[key];
+    const base = key === id ? candidate : normalizeLayoutItem(key, state[key]);
+    const width = Math.max(limits.minW, Math.min(base.w, GRID_COLUMNS));
+    const height = Math.max(limits.minH, base.h);
+    const target = findSlot(
+      width,
+      height,
+      key === id ? candidate.x : base.x,
+      key === id ? candidate.y : base.y,
+      occupied
+    );
+
+    placed[key] = target;
+    occupied.push(target);
+  }
+
+  return placed as LayoutMap;
 };
 
 // Relative time display not used in simplified next-slot card
@@ -534,36 +611,38 @@ export function Dashboard() {
 
   const dayInfo = timeFormatter.format(now);
 
-  const attemptUpdate = useCallback(
-    (id: CardId, candidate: LayoutItem) => {
-      let applied = false;
-      setLayout((prev) => {
-        const current = prev[id];
-        if (!current) return prev;
+  const attemptUpdate = useCallback((id: CardId, candidate: LayoutItem) => {
+    let applied = false;
+    setLayout((prev) => {
+      const current = prev[id];
+      if (!current) return prev;
 
-        const normalized = clampLayout(id, candidate);
+      const normalized = clampLayout(id, candidate);
+      const resolved = resolveLayoutWithPush(id, normalized, prev);
 
-        if (
-          current.x === normalized.x &&
-          current.y === normalized.y &&
-          current.w === normalized.w &&
-          current.h === normalized.h
-        ) {
-          return prev;
-        }
-
-        if (layoutHasCollision(id, normalized, prev)) {
-          return prev;
-        }
-
-        applied = true;
-        return { ...prev, [id]: normalized };
+      const unchanged = CARD_ORDER.every((key) => {
+        const before = prev[key];
+        const after = resolved[key];
+        return (
+          before &&
+          after &&
+          before.x === after.x &&
+          before.y === after.y &&
+          before.w === after.w &&
+          before.h === after.h
+        );
       });
 
-      return applied;
-    },
-    []
-  );
+      if (unchanged) {
+        return prev;
+      }
+
+      applied = true;
+      return resolved;
+    });
+
+    return applied;
+  }, []);
 
   useEffect(() => {
     const node = gridRef.current;
