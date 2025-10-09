@@ -71,6 +71,21 @@
   gap: 8px;
 }
 
+.app-logo {
+  width: 18px;
+  height: 18px;
+  opacity: 0.9;
+}
+
+.app-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: 0.2px;
+  user-select: none;
+  opacity: 0.95;
+}
+
 /* Desktop styles */
 @media (min-width: 769px) {
   .layout-content {

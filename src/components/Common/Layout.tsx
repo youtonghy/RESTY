@@ -17,7 +17,8 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
       {/* Draggable area for borderless window with overlay title bar */}
       <div className="app-titlebar" data-tauri-drag-region>
         <div className="titlebar-left">
-          {/* You can place app name or breadcrumbs here if desired */}
+          <img className="app-logo" src="/tauri.svg" alt="RESTY logo" aria-hidden="true" />
+          <span className="app-title" title="RESTY">RESTY</span>
         </div>
         <WindowControls />
       </div>
