@@ -106,6 +106,14 @@
   transform: translateX(-50%);
 }
 
+.time-scale-mark.start {
+  transform: translateX(0);
+}
+
+.time-scale-mark.end {
+  transform: translateX(-100%);
+}
+
 .time-scale-line {
   width: 1px;
   height: 10px;

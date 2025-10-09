@@ -10,7 +10,7 @@ type TimeRange = 'today' | 'week' | 'month' | 'custom';
  * 数据统计页面：按日期区间加载会话数据，展示工作/休息统计与时间轴。
  */
 export function Analytics() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [range, setRange] = useState<TimeRange>('today');
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -79,31 +79,36 @@ export function Analytics() {
 
   /** 将时间范围转换为后端需要的查询参数。 */
   const getQueryForRange = (range: TimeRange): AnalyticsQuery => {
-    const now = new Date();
-    const endDate = now.toISOString();
-    let startDate: string;
+    const bounds = getDisplayBounds(range);
+    return {
+      startDate: new Date(bounds.start).toISOString(),
+      endDate: new Date(bounds.end).toISOString(),
+    };
+  };
 
+  const getDisplayBounds = (range: TimeRange) => {
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+
+    const start = new Date(end);
     switch (range) {
       case 'today':
-        const today = new Date(now);
-        today.setHours(0, 0, 0, 0);
-        startDate = today.toISOString();
+        start.setHours(0, 0, 0, 0);
         break;
       case 'week':
-        const weekAgo = new Date(now);
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        startDate = weekAgo.toISOString();
+        start.setDate(start.getDate() - 6);
+        start.setHours(0, 0, 0, 0);
         break;
       case 'month':
-        const monthAgo = new Date(now);
-        monthAgo.setMonth(monthAgo.getMonth() - 1);
-        startDate = monthAgo.toISOString();
+        start.setMonth(start.getMonth() - 1);
+        start.setHours(0, 0, 0, 0);
         break;
       default:
-        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+        start.setHours(0, 0, 0, 0);
+        break;
     }
 
-    return { startDate, endDate };
+    return { start: start.getTime(), end: end.getTime() };
   };
 
   /** 计算“片段”数量：工作片段 + 非跳过的休息片段 */
@@ -140,50 +145,117 @@ export function Analytics() {
     return Math.round((data.completedBreaks / data.breakCount) * 100);
   };
 
-  /** 返回今天 00:00:00 和 23:59:59 的毫秒时间戳 */
-  const getTodayBounds = () => {
-    const now = new Date();
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(now);
-    end.setHours(23, 59, 59, 999);
-    return { start: start.getTime(), end: end.getTime() };
+  type TimelineBounds = { start: number; end: number };
+  type TimeScaleMark = {
+    key: string;
+    left: number;
+    label: string;
+    position: 'start' | 'middle' | 'end';
   };
 
-  /** 生成 0-24 小时的横向时间刻度（每 2 小时一刻度） */
-  const generateTimeScale = () => {
-    const marks = [] as React.ReactElement[];
-    for (let h = 0; h <= 24; h += 2) {
-      const left = (h / 24) * 100;
-      const label = `${String(h).padStart(2, '0')}:00`;
-      marks.push(
-        <div key={h} className="time-scale-mark" style={{ left: `${left}%` }}>
-          <div className="time-scale-line"></div>
-          <div className="time-scale-label">{label}</div>
-        </div>
-      );
-    }
-    return marks;
-  };
+  const displayBounds = useMemo<TimelineBounds>(() => getDisplayBounds(range), [range]);
 
-  // 旧时间轴实现使用的辅助函数已移除：
-  // - calculateTimelinePosition
-  // - calculateBlockWidth
-  // - getDisplayedDurationSeconds
-  // 现改为使用渐变绘制整条时间轴，不再需要逐块布局。
-  // 仅用于时间轴的“今日片段”，包含与今天有重叠的会话，并过滤掉跳过的休息
-  const daySessions = useMemo(() => {
-    const sessions = data?.sessions ?? [];
-    const { start, end } = getTodayBounds();
-    return sessions
+  const timelineSessions = useMemo(() => {
+    if (!data) return [] as Session[];
+    const { start, end } = displayBounds;
+    return data.sessions
       .filter((s) => {
         const sStart = new Date(s.startTime).getTime();
         const sEnd = new Date(s.endTime).getTime();
-        return sEnd >= start && sStart <= end; // 与今天有重叠
+        return sEnd >= start && sStart <= end;
       })
       .filter((s) => !(s.type === 'break' && s.isSkipped))
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-  }, [data]);
+  }, [data, displayBounds]);
+
+  const generateTimeScale = (
+    selectedRange: TimeRange,
+    bounds: TimelineBounds,
+    language: string
+  ): TimeScaleMark[] => {
+    const marks: TimeScaleMark[] = [];
+    const total = bounds.end - bounds.start;
+    if (total <= 0) return marks;
+
+    const clampToBounds = (timestamp: number) =>
+      Math.min(bounds.end, Math.max(bounds.start, timestamp));
+    const computeLeft = (timestamp: number) =>
+      ((clampToBounds(timestamp) - bounds.start) / total) * 100;
+
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const dateFormatter = new Intl.DateTimeFormat(language, {
+      month: 'numeric',
+      day: 'numeric',
+    });
+
+    if (selectedRange === 'today' || selectedRange === 'custom') {
+      const HOURS_STEP = 2;
+      const HOURS_TOTAL = 24;
+      for (let h = 0; h <= HOURS_TOTAL; h += HOURS_STEP) {
+        const timestamp = bounds.start + h * 60 * 60 * 1000;
+        marks.push({
+          key: `hour-${h}`,
+          left: computeLeft(timestamp),
+          label: `${String(h).padStart(2, '0')}:00`,
+          position: h === 0 ? 'start' : h === HOURS_TOTAL ? 'end' : 'middle',
+        });
+      }
+      return marks;
+    }
+
+    if (selectedRange === 'week') {
+      const totalDays = Math.max(1, Math.ceil(total / DAY_MS));
+      for (let d = 0; d <= totalDays; d++) {
+        const timestamp = bounds.start + d * DAY_MS;
+        marks.push({
+          key: `day-${d}`,
+          left: computeLeft(timestamp),
+          label: dateFormatter.format(new Date(clampToBounds(timestamp))),
+          position: d === 0 ? 'start' : d === totalDays ? 'end' : 'middle',
+        });
+      }
+      return marks;
+    }
+
+    if (selectedRange === 'month') {
+      const totalDays = Math.max(1, Math.ceil(total / DAY_MS));
+      const approxSegments = 6;
+      const interval = Math.max(1, Math.round(totalDays / approxSegments));
+
+      marks.push({
+        key: 'day-0',
+        left: computeLeft(bounds.start),
+        label: dateFormatter.format(new Date(bounds.start)),
+        position: 'start',
+      });
+
+      for (let d = interval; d < totalDays; d += interval) {
+        const timestamp = bounds.start + d * DAY_MS;
+        marks.push({
+          key: `day-${d}`,
+          left: computeLeft(timestamp),
+          label: dateFormatter.format(new Date(clampToBounds(timestamp))),
+          position: 'middle',
+        });
+      }
+
+      marks.push({
+        key: `day-${totalDays}`,
+        left: computeLeft(bounds.end),
+        label: dateFormatter.format(new Date(bounds.end)),
+        position: 'end',
+      });
+
+      return marks;
+    }
+
+    return marks;
+  };
+
+  const timeScaleMarks = useMemo(
+    () => generateTimeScale(range, displayBounds, i18n.language),
+    [range, displayBounds, i18n.language]
+  );
 
   /**
    * 构建单条时间轴的线性渐变：
@@ -191,29 +263,30 @@ export function Analytics() {
    * - 工作片段为蓝色（var(--color-primary)），休息片段为绿色（var(--color-success)）；
    * - 其他时间透明，底色为浅色轨道；
    */
-  const buildTimelineGradient = (sessions: Session[]) => {
+  const buildTimelineGradient = (sessions: Session[], bounds: TimelineBounds) => {
     const base = 'var(--color-surface-hover)';
     if (!sessions || sessions.length === 0) {
       return base;
     }
+
+    const total = bounds.end - bounds.start;
+    if (total <= 0) return base;
 
     const stops: string[] = [];
     // 初始透明到 0%
     stops.push('transparent 0%');
 
     // 根据会话生成区段色带
-    const { start: dayStart, end: dayEnd } = getTodayBounds();
-    const dayTotal = dayEnd - dayStart;
     for (const s of sessions) {
       // 计算精准百分比（不强制最小宽度）
       const sStart = new Date(s.startTime).getTime();
       const sEnd = new Date(s.endTime).getTime();
-      const clampedStart = Math.max(sStart, dayStart);
-      const clampedEnd = Math.min(sEnd, dayEnd);
+      const clampedStart = Math.max(sStart, bounds.start);
+      const clampedEnd = Math.min(sEnd, bounds.end);
       const dur = Math.max(0, clampedEnd - clampedStart);
-      if (dur <= 0 || dayTotal <= 0) continue;
-      const start = ((clampedStart - dayStart) / dayTotal) * 100;
-      const end = Math.min(100, start + (dur / dayTotal) * 100);
+      if (dur <= 0 || total <= 0) continue;
+      const start = ((clampedStart - bounds.start) / total) * 100;
+      const end = Math.min(100, start + (dur / total) * 100);
       const color = s.type === 'work' ? 'var(--color-primary)' : 'var(--color-success)';
       // 透明到 start，然后着色到 end，再恢复透明
       stops.push(`transparent ${start}%`);
@@ -227,7 +300,10 @@ export function Analytics() {
     return `${gradient}, ${base}`;
   };
 
-  const timelineBackground = useMemo(() => buildTimelineGradient(daySessions), [daySessions]);
+  const timelineBackground = useMemo(
+    () => buildTimelineGradient(timelineSessions, displayBounds),
+    [timelineSessions, displayBounds]
+  );
 
   /**
    * 以前端为准计算当前区间的总工作/休息时长：
@@ -326,7 +402,18 @@ export function Analytics() {
               <div className="horizontal-timeline-container">
                 {/* 刻度 */}
                 <div className="timeline-header">
-                  <div className="timeline-time-scale">{generateTimeScale()}</div>
+                  <div className="timeline-time-scale">
+                    {timeScaleMarks.map((mark) => (
+                      <div
+                        key={mark.key}
+                        className={`time-scale-mark ${mark.position}`}
+                        style={{ left: `${mark.left}%` }}
+                      >
+                        <div className="time-scale-line"></div>
+                        <div className="time-scale-label">{mark.label}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 {/* 单条时间轴（用渐变绘制工作/休息片段） */}
