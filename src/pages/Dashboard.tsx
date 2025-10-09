@@ -878,12 +878,6 @@ export function Dashboard() {
   return (
     <div className="dashboard-page">
       <div className="dashboard-content">
-        <header className="dashboard-header">
-          <div className="header-main">
-            {/* Title/subtitle intentionally removed */}
-          </div>
-        </header>
-
         <div className="dashboard-grid" ref={gridRef} role="list" style={gridStyle}>
           {renderCards}
         </div>

@@ -3,7 +3,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  padding: clamp(48px, 6vw, 90px) 0;
+  padding: clamp(24px, 4vw, 60px) 0;
   background: transparent; /* 跟随全局背景 */
   color: var(--color-text-primary); /* 跟随全局文字色 */
   transition: background 0.4s ease, color 0.4s ease;
