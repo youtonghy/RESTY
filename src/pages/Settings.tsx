@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { openPath } from '@tauri-apps/plugin-opener';
+import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
 import * as api from '../utils/api';
@@ -60,7 +60,7 @@ export function Settings() {
   const handleOpenMusicDirectory = async () => {
     if (!localSettings.restMusicDirectory) return;
     try {
-      await openPath(localSettings.restMusicDirectory);
+      await revealItemInDir(localSettings.restMusicDirectory);
     } catch (error) {
       console.error('Failed to open music directory:', error);
       setMessage(t('settings.reminder.restMusic.openFailed'));
