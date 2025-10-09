@@ -159,24 +159,7 @@ export function Settings() {
             </select>
           </div>
 
-  
-          <div className="form-group toggle-group">
-            <label className="toggle-row">
-              <span className="toggle-text">{t('settings.reminder.playSound')}</span>
-              <span className="switch">
-                <input
-                  type="checkbox"
-                  checked={localSettings.playSound}
-                  onChange={(e) => {
-                    const next = { ...localSettings, playSound: e.target.checked };
-                    setLocalSettings(next);
-                    saveSettingsAuto(next);
-                  }}
-                />
-                <span className="slider" />
-              </span>
-            </label>
-          </div>
+          
         </section>
 
         {/* Appearance Settings */}
