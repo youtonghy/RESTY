@@ -15,27 +15,25 @@ export function Analytics() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [weeklyFragments, setWeeklyFragments] = useState<number>(0);
-  const [monthlyFragments, setMonthlyFragments] = useState<number>(0);
+  const [weeklyWorkFragments, setWeeklyWorkFragments] = useState<number>(0);
+  const [weeklyRestFragments, setWeeklyRestFragments] = useState<number>(0);
 
   useEffect(() => {
     loadAnalytics();
   }, [range]);
 
-  // Load week/month fragment counts once (or when day changes)
+  // Load weekly fragment counts once (or when day changes)
   useEffect(() => {
     // fire and forget; independent of current range selection
     (async () => {
       try {
         const weekQuery = getQueryForRange('week');
-        const monthQuery = getQueryForRange('month');
-        const [weekData, monthData] = await Promise.all([
-          api.getAnalytics(weekQuery),
-          api.getAnalytics(monthQuery)
-        ]);
+        const weekData = await api.getAnalytics(weekQuery);
         setWeeklyFragments(countFragments(weekData.sessions));
-        setMonthlyFragments(countFragments(monthData.sessions));
+        setWeeklyWorkFragments(countWorkFragments(weekData.sessions));
+        setWeeklyRestFragments(countRestFragments(weekData.sessions));
       } catch (e) {
-        console.error('Failed to load week/month fragments:', e);
+        console.error('Failed to load weekly fragments:', e);
       }
     })();
   }, []);
@@ -47,14 +45,12 @@ export function Analytics() {
       unlisten = await api.onSessionUpserted(async () => {
         // Refresh current range data
         await loadAnalytics();
-        // Also refresh week/month fragments in background
+        // Also refresh weekly fragments in background
         try {
-          const [weekData, monthData] = await Promise.all([
-            api.getAnalytics(getQueryForRange('week')),
-            api.getAnalytics(getQueryForRange('month')),
-          ]);
+          const weekData = await api.getAnalytics(getQueryForRange('week'));
           setWeeklyFragments(countFragments(weekData.sessions));
-          setMonthlyFragments(countFragments(monthData.sessions));
+          setWeeklyWorkFragments(countWorkFragments(weekData.sessions));
+          setWeeklyRestFragments(countRestFragments(weekData.sessions));
         } catch (e) {
           console.warn('Failed to refresh fragments after session-upserted:', e);
         }
@@ -118,6 +114,14 @@ export function Analytics() {
       return acc;
     }, 0);
   };
+
+  /** 仅计算工作片段数量 */
+  const countWorkFragments = (sessions: Session[]) =>
+    sessions.reduce((acc, s) => (s.type === 'work' ? acc + 1 : acc), 0);
+
+  /** 仅计算休息片段数量（排除跳过的休息） */
+  const countRestFragments = (sessions: Session[]) =>
+    sessions.reduce((acc, s) => (s.type === 'break' && !s.isSkipped ? acc + 1 : acc), 0);
 
   /** 将秒数格式化为“小时+分钟”文案。 */
   const formatDuration = (seconds: number): string => {
@@ -389,7 +393,7 @@ export function Analytics() {
               </div>
             </section>
 
-            {/* Week/Month fragment totals */}
+            {/* Weekly fragment totals */}
             <section className="card stats-details">
               <h2 className="card-header">{t('analytics.fragments')}</h2>
               <div className="stats-grid">
@@ -398,8 +402,12 @@ export function Analytics() {
                   <div className="stat-item-value">{weeklyFragments}</div>
                 </div>
                 <div className="stat-item">
-                  <span className="stat-item-label">{t('analytics.totalFragmentsMonth')}</span>
-                  <div className="stat-item-value">{monthlyFragments}</div>
+                  <span className="stat-item-label">{t('analytics.workFragmentsWeek')}</span>
+                  <div className="stat-item-value">{weeklyWorkFragments}</div>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-item-label">{t('analytics.breakFragmentsWeek')}</span>
+                  <div className="stat-item-value">{weeklyRestFragments}</div>
                 </div>
               </div>
             </section>

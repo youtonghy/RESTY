@@ -84,6 +84,8 @@
     "fragments": "片段统计",
     "totalFragmentsWeek": "本周总片段",
     "totalFragmentsMonth": "本月总片段",
+    "workFragmentsWeek": "本周工作片段",
+    "breakFragmentsWeek": "本周休息片段",
     "skippedBreaks": "已跳过的休息",
     "averageSession": "平均片段时长"
   },

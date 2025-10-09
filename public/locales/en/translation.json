@@ -84,6 +84,8 @@
     "fragments": "Fragments",
     "totalFragmentsWeek": "Total Fragments (Week)",
     "totalFragmentsMonth": "Total Fragments (Month)",
+    "workFragmentsWeek": "Work Fragments (Week)",
+    "breakFragmentsWeek": "Break Fragments (Week)",
     "skippedBreaks": "Skipped Breaks",
     "averageSession": "Average Session"
   },
