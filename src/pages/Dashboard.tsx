@@ -126,7 +126,7 @@ const generateTip = (language: string): string => {
   return pool[randomIndex];
 };
 
-type CardId = 'status' | 'next' | 'day' | 'week' | 'month' | 'year' | 'tips';
+type CardId = 'status' | 'next' | 'day' | 'week' | 'month' | 'year' | 'tips' | 'clock';
 
 interface LayoutItem {
   x: number;
@@ -149,7 +149,7 @@ interface GridMetrics {
 const GRID_COLUMNS = 12;
 const BASE_SPAN = 2;
 const FALLBACK_TRACK_SIZE = 120;
-const CARD_ORDER: CardId[] = ['status', 'next', 'day', 'week', 'month', 'year', 'tips'];
+const CARD_ORDER: CardId[] = ['status', 'next', 'day', 'week', 'month', 'year', 'tips', 'clock'];
 const MAX_GRID_ROWS = 120;
 const LAYOUT_STORAGE_KEY = 'resty.dashboard.layout.v1';
 const CARD_LIMITS: Record<CardId, { minW: number; minH: number; initial: LayoutItem }> = {
@@ -163,6 +163,11 @@ const CARD_LIMITS: Record<CardId, { minW: number; minH: number; initial: LayoutI
     minW: BASE_SPAN * 2,
     minH: BASE_SPAN,
     initial: { x: 0, y: BASE_SPAN, w: BASE_SPAN * 2, h: BASE_SPAN },
+  },
+  clock: {
+    minW: BASE_SPAN * 2,
+    minH: BASE_SPAN,
+    initial: { x: BASE_SPAN * 2, y: BASE_SPAN, w: BASE_SPAN * 2, h: BASE_SPAN },
   },
 };
 
@@ -435,6 +440,25 @@ function TipsCard({ tip, delay = 0 }: TipsCardProps) {
   );
 }
 
+interface ClockCardProps {
+  time: string;
+  date: string;
+  timezone: string;
+  delay?: number;
+}
+
+function ClockCard({ time, date, timezone, delay = 0 }: ClockCardProps) {
+  return (
+    <FeatureCard
+      primary={time}
+      label={joinParts([date, timezone])}
+      icon="🕒"
+      delay={delay}
+      className="clock-card"
+    />
+  );
+}
+
 /**
  * 仪表盘页面：苹果发布会信息卡拼贴风格的番茄工作状态总览。
  */
@@ -558,17 +582,7 @@ export function Dashboard() {
     [i18n.language]
   );
 
-  const heroClockFormatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat(i18n.language, {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      }),
-    [i18n.language]
-  );
-
-  const heroDateFormatter = useMemo(
+  const dateFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(i18n.language, {
         weekday: 'long',
@@ -577,6 +591,9 @@ export function Dashboard() {
       }),
     [i18n.language]
   );
+
+  const clockPrimary = timeFormatter.format(now);
+  const clockDate = dateFormatter.format(now);
 
   const statusContent = useMemo(() => {
     if (timerInfo.state === 'running' && timerInfo.phase === 'work') {
@@ -635,10 +652,6 @@ export function Dashboard() {
     : t('dashboard.next.none', { defaultValue: isZh ? '未计划' : 'No schedule' });
   // Only show the label (e.g., Next break), hide source/relative/timezone
   const nextSecondary = slotTypeLabel;
-
-  // Title/subtitle removed per optimization request
-  const heroClock = heroClockFormatter.format(now);
-  const heroDate = heroDateFormatter.format(now);
 
   const dayLabel = t('dashboard.progress.day.label', {
     defaultValue: isZh ? '今天进度' : 'Today progress',
@@ -818,8 +831,16 @@ export function Dashboard() {
         minH: CARD_LIMITS.tips.minH,
         element: <TipsCard tip={tip} delay={360} />,
       },
+      {
+        id: 'clock' as const,
+        minW: CARD_LIMITS.clock.minW,
+        minH: CARD_LIMITS.clock.minH,
+        element: <ClockCard time={clockPrimary} date={clockDate} timezone={timezone} delay={420} />,
+      },
     ];
   }, [
+    clockDate,
+    clockPrimary,
     dayInfo,
     dayLabel,
     dayProgress,
@@ -832,6 +853,7 @@ export function Dashboard() {
     tip,
     weekLabel,
     weekProgress,
+    timezone,
     yearLabel,
     yearProgress,
   ]);
@@ -858,13 +880,6 @@ export function Dashboard() {
       <div className="dashboard-content">
         <header className="dashboard-header">
           <div className="header-main">
-            <div className="hero-meta">
-              <span className="hero-clock">{heroClock}</span>
-              <div className="hero-meta-row">
-                <span className="hero-date">{heroDate}</span>
-                <span className="hero-tz">{timezone}</span>
-              </div>
-            </div>
             {/* Title/subtitle intentionally removed */}
           </div>
         </header>
