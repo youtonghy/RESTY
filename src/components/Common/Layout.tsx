@@ -14,7 +14,7 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
   return (
     <div className="layout">
       {/* Draggable area for borderless window with overlay title bar */}
-      <div className="app-titlebar" />
+      <div className="app-titlebar" data-tauri-drag-region />
       <div className="layout-content">
         {showNavigation && <Navigation />}
         <main className="layout-main">{children}</main>
