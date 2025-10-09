@@ -151,7 +151,7 @@ const BASE_SPAN = 2;
 const FALLBACK_TRACK_SIZE = 120;
 const CARD_ORDER: CardId[] = ['status', 'next', 'day', 'week', 'month', 'year', 'tips'];
 const MAX_GRID_ROWS = 120;
-
+const LAYOUT_STORAGE_KEY = 'resty.dashboard.layout.v1';
 const CARD_LIMITS: Record<CardId, { minW: number; minH: number; initial: LayoutItem }> = {
   status: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: 0, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
   next: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: BASE_SPAN, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
@@ -168,7 +168,7 @@ const CARD_LIMITS: Record<CardId, { minW: number; minH: number; initial: LayoutI
 
 const createInitialLayout = (): LayoutMap => {
   return Object.fromEntries(
-    Object.entries(CARD_LIMITS).map(([key, value]) => [key, { ...value.initial }])
+    CARD_ORDER.map((key) => [key, { ...CARD_LIMITS[key].initial }])
   ) as LayoutMap;
 };
 
@@ -268,6 +268,46 @@ const resolveLayoutWithPush = (
   }
 
   return placed as LayoutMap;
+};
+
+const normalizeLayoutMap = (
+  value: Partial<Record<CardId, LayoutItem>> | null | undefined
+): LayoutMap => {
+  let layout = createInitialLayout();
+  if (!value) return layout;
+
+  for (const key of CARD_ORDER) {
+    const item = normalizeLayoutItem(key, value[key] ?? layout[key]);
+    layout = resolveLayoutWithPush(key, item, layout);
+  }
+
+  return layout;
+};
+
+const loadPersistedLayout = (): LayoutMap | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(LAYOUT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<Record<CardId, LayoutItem>>;
+    return normalizeLayoutMap(parsed);
+  } catch (error) {
+    console.warn('Failed to load dashboard layout:', error);
+    return null;
+  }
+};
+
+const persistLayout = (layout: LayoutMap) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const payload = CARD_ORDER.reduce<Record<CardId, LayoutItem>>((acc, key) => {
+      acc[key] = layout[key];
+      return acc;
+    }, {} as Record<CardId, LayoutItem>);
+    window.localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    console.warn('Failed to persist dashboard layout:', error);
+  }
 };
 
 // Relative time display not used in simplified next-slot card
@@ -405,7 +445,7 @@ export function Dashboard() {
   const [now, setNow] = useState(() => new Date());
   const [tip] = useState(() => generateTip(i18n.language));
 
-  const [layout, setLayout] = useState<LayoutMap>(() => createInitialLayout());
+  const [layout, setLayout] = useState<LayoutMap>(() => loadPersistedLayout() ?? createInitialLayout());
   const [metrics, setMetrics] = useState<GridMetrics>(() => ({
     trackWidth: FALLBACK_TRACK_SIZE,
     trackHeight: FALLBACK_TRACK_SIZE,
@@ -415,6 +455,10 @@ export function Dashboard() {
     rowSpan: FALLBACK_TRACK_SIZE + 24,
   }));
   const gridRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    persistLayout(layout);
+  }, [layout]);
 
   useEffect(() => {
     api.getTimerInfo().then(setTimerInfo).catch((error) => {
