@@ -30,35 +30,38 @@
 /* Window controls for borderless window */
 .window-controls {
   display: flex;
-  gap: 4px;
+  gap: 8px;
   -webkit-app-region: no-drag;
 }
 
 .window-button {
-  width: 46px;
-  height: 28px;
+  width: 18px;
+  height: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-sm, 6px);
-  color: var(--color-text-secondary);
-  background: transparent;
+  border-radius: 4px;
+  color: #ffffff;
+  background: transparent; /* overridden by variants */
   border: none;
   outline: none;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.12s ease, transform 0.06s ease;
   -webkit-app-region: no-drag;
 }
 
-.window-button:hover {
-  background: var(--color-surface-hover, rgba(255,255,255,0.06));
-  color: var(--color-text-primary);
-}
+.window-button svg { pointer-events: none; }
+.window-button:active { transform: translateY(1px); }
 
-.window-button.close:hover {
-  background: #ef444433; /* subtle red */
-  color: #ef4444;
-}
+/* Variants: color-coded square buttons */
+.window-button.minimize { background: #f59e0b; }
+.window-button.minimize:hover { background: #d97706; }
+
+.window-button.fullscreen { background: #10b981; }
+.window-button.fullscreen:hover { background: #059669; }
+
+.window-button.close { background: #ef4444; }
+.window-button.close:hover { background: #dc2626; }
 
 .titlebar-left {
   flex: 1 1 auto;
