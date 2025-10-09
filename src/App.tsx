@@ -49,6 +49,8 @@ function App() {
         return;
       }
 
+      const previousTrack = currentTrackRef.current;
+
       try {
         const files = await api.getRestMusicFiles();
         if (files.length === 0) {
@@ -56,18 +58,14 @@ function App() {
           return;
         }
 
-        const nextTrack = files[0];
-        const existing = audioRef.current;
-
-        if (existing && currentTrackRef.current === nextTrack) {
-          if (existing.paused) {
-            try {
-              await existing.play();
-            } catch (error) {
-              console.error('Failed to resume rest music:', error);
-            }
+        let nextTrack = files[Math.floor(Math.random() * files.length)];
+        if (files.length > 1 && previousTrack) {
+          const maxAttempts = files.length;
+          let attempts = 0;
+          while (nextTrack === previousTrack && attempts < maxAttempts) {
+            nextTrack = files[Math.floor(Math.random() * files.length)];
+            attempts += 1;
           }
-          return;
         }
 
         stopRestMusic();
