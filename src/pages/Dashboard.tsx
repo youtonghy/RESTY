@@ -305,24 +305,15 @@ function NextSlotCard({ primary, secondary, delay = 0 }: NextSlotCardProps) {
 
 interface TipsCardProps {
   tip: string;
-  title: string;
   delay?: number;
 }
 
-function TipsCard({ tip, title, delay = 0 }: TipsCardProps) {
+function TipsCard({ tip, delay = 0 }: TipsCardProps) {
   const ref = useFadeInOnScroll<HTMLElement>(delay);
 
   return (
     <section ref={ref} className="tile-card tips-card" tabIndex={0} role="listitem">
-      <div className="tile-primary-row">
-        <span className="tile-icon" aria-hidden="true">
-          👀
-        </span>
-        <span className="tile-primary">{title}</span>
-      </div>
-      <div className="tips-content">
-        <span className="tips-text">{tip}</span>
-      </div>
+      <span className="tips-text">{tip}</span>
     </section>
   );
 }
@@ -543,10 +534,6 @@ export function Dashboard() {
 
   const dayInfo = timeFormatter.format(now);
 
-  const tipsTitle = t('dashboard.tips.title', {
-    defaultValue: isZh ? '护眼技巧' : 'Eye-care tips',
-  });
-
   const attemptUpdate = useCallback(
     (id: CardId, candidate: LayoutItem) => {
       let applied = false;
@@ -706,7 +693,7 @@ export function Dashboard() {
         id: 'tips' as const,
         minW: CARD_LIMITS.tips.minW,
         minH: CARD_LIMITS.tips.minH,
-        element: <TipsCard tip={tip} title={tipsTitle} delay={360} />,
+        element: <TipsCard tip={tip} delay={360} />,
       },
     ];
   }, [
@@ -720,7 +707,6 @@ export function Dashboard() {
     percentFormatter,
     statusContent,
     tip,
-    tipsTitle,
     weekLabel,
     weekProgress,
     yearLabel,
