@@ -1,4 +1,12 @@
-import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
@@ -118,6 +126,74 @@ const generateTip = (language: string): string => {
   return pool[randomIndex];
 };
 
+type CardId = 'status' | 'next' | 'day' | 'week' | 'month' | 'year' | 'tips';
+
+interface LayoutItem {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+type LayoutMap = Record<CardId, LayoutItem>;
+
+interface GridMetrics {
+  trackWidth: number;
+  trackHeight: number;
+  columnGap: number;
+  rowGap: number;
+  columnSpan: number;
+  rowSpan: number;
+}
+
+const GRID_COLUMNS = 12;
+const BASE_SPAN = 2;
+const MIN_TRACK_HEIGHT = 160;
+const HEIGHT_RATIO = 0.8;
+
+const CARD_LIMITS: Record<CardId, { minW: number; minH: number; initial: LayoutItem }> = {
+  status: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: 0, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
+  next: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: BASE_SPAN, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
+  day: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: BASE_SPAN * 2, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
+  week: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: BASE_SPAN * 3, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
+  month: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: BASE_SPAN * 4, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
+  year: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: BASE_SPAN * 5, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
+  tips: {
+    minW: BASE_SPAN * 2,
+    minH: BASE_SPAN,
+    initial: { x: 0, y: BASE_SPAN, w: BASE_SPAN * 2, h: BASE_SPAN },
+  },
+};
+
+const createInitialLayout = (): LayoutMap => {
+  return Object.fromEntries(
+    Object.entries(CARD_LIMITS).map(([key, value]) => [key, { ...value.initial }])
+  ) as LayoutMap;
+};
+
+const clampLayout = (id: CardId, candidate: LayoutItem): LayoutItem => {
+  const limits = CARD_LIMITS[id];
+
+  let width = Math.max(limits.minW, Math.min(candidate.w, GRID_COLUMNS));
+  let x = Math.max(0, Math.min(candidate.x, GRID_COLUMNS - width));
+  width = Math.min(width, GRID_COLUMNS - x);
+
+  const height = Math.max(limits.minH, candidate.h);
+  const y = Math.max(0, candidate.y);
+
+  return { x, y, w: width, h: height };
+};
+
+const rectanglesOverlap = (a: LayoutItem, b: LayoutItem) =>
+  a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+const layoutHasCollision = (id: CardId, candidate: LayoutItem, state: LayoutMap) => {
+  return Object.entries(state).some(([key, item]) => {
+    if (key === id) return false;
+    return rectanglesOverlap(candidate, item);
+  });
+};
+
 // Relative time display not used in simplified next-slot card
 
 function useFadeInOnScroll<T extends HTMLElement>(delay: number) {
@@ -157,29 +233,33 @@ interface FeatureCardProps {
   primary: string;
   label: string;
   icon?: string;
-  span?: 4 | 12;
   delay?: number;
   children?: ReactNode;
   progress?: number; // 0..1 (optional) — when provided, card background fills as progress
+  className?: string;
+  style?: CSSProperties;
 }
 
-function FeatureCard({ primary, label, icon, span = 4, delay = 0, children, progress }: FeatureCardProps) {
+function FeatureCard({ primary, label, icon, delay = 0, children, progress, className, style }: FeatureCardProps) {
   const ref = useFadeInOnScroll<HTMLElement>(delay);
   const classes = [
     `tile-card`,
-    `tile-span-${span}`,
+    className,
     progress !== undefined ? 'has-progress' : undefined,
   ]
     .filter(Boolean)
     .join(' ');
 
-  const style =
+  const computedStyle =
     progress !== undefined
-      ? ({ ['--progress' as any]: String(clamp01(progress)) } as CSSProperties)
-      : undefined;
+      ? ({
+          ['--progress' as any]: String(clamp01(progress)),
+          ...(style as CSSProperties | undefined),
+        } as CSSProperties)
+      : (style as CSSProperties | undefined);
 
   return (
-    <section ref={ref} className={classes} style={style} tabIndex={0} role="listitem">
+    <section ref={ref} className={classes} style={computedStyle} tabIndex={0} role="listitem">
       <div className="tile-primary-row">
         {icon && (
           <span className="tile-icon" aria-hidden="true">
@@ -234,7 +314,7 @@ function TipsCard({ tip, title, delay = 0 }: TipsCardProps) {
   const ref = useFadeInOnScroll<HTMLElement>(delay);
 
   return (
-    <section ref={ref} className="tile-card tile-span-12 tips-card" tabIndex={0} role="listitem">
+    <section ref={ref} className="tile-card tips-card" tabIndex={0} role="listitem">
       <div className="tile-primary-row">
         <span className="tile-icon" aria-hidden="true">
           👀
@@ -254,9 +334,20 @@ function TipsCard({ tip, title, delay = 0 }: TipsCardProps) {
 export function Dashboard() {
   const { t, i18n } = useTranslation();
   const isZh = i18n.language.startsWith('zh');
-    const { timerInfo, setTimerInfo } = useAppStore();
+  const { timerInfo, setTimerInfo } = useAppStore();
   const [now, setNow] = useState(() => new Date());
   const [tip] = useState(() => generateTip(i18n.language));
+
+  const [layout, setLayout] = useState<LayoutMap>(() => createInitialLayout());
+  const [metrics, setMetrics] = useState<GridMetrics>(() => ({
+    trackWidth: 0,
+    trackHeight: MIN_TRACK_HEIGHT,
+    columnGap: 24,
+    rowGap: 24,
+    columnSpan: 24,
+    rowSpan: MIN_TRACK_HEIGHT + 24,
+  }));
+  const gridRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     api.getTimerInfo().then(setTimerInfo).catch((error) => {
@@ -347,17 +438,6 @@ export function Dashboard() {
   );
 
   const timeFormatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat(i18n.language, {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      }),
-    [i18n.language]
-  );
-
-  // For next break/work display, only show HH:MM (no date)
-  const hourMinuteFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(i18n.language, {
         hour: '2-digit',
@@ -468,6 +548,197 @@ export function Dashboard() {
     defaultValue: isZh ? '护眼技巧' : 'Eye-care tips',
   });
 
+  const attemptUpdate = useCallback(
+    (id: CardId, candidate: LayoutItem) => {
+      let applied = false;
+      setLayout((prev) => {
+        const current = prev[id];
+        if (!current) return prev;
+
+        const normalized = clampLayout(id, candidate);
+
+        if (
+          current.x === normalized.x &&
+          current.y === normalized.y &&
+          current.w === normalized.w &&
+          current.h === normalized.h
+        ) {
+          return prev;
+        }
+
+        if (layoutHasCollision(id, normalized, prev)) {
+          return prev;
+        }
+
+        applied = true;
+        return { ...prev, [id]: normalized };
+      });
+
+      return applied;
+    },
+    []
+  );
+
+  useEffect(() => {
+    const node = gridRef.current;
+    if (!node) {
+      return;
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+
+      const width = entry.contentRect.width;
+      const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : width;
+      const gap = Math.max(18, Math.min(28, viewportWidth * 0.02));
+      const columnGap = gap;
+      const rowGap = gap;
+      const baseWidth = (width - columnGap * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
+      const trackWidth = Number.isFinite(baseWidth) ? Math.max(48, baseWidth) : 48;
+      const trackHeight = Math.max(MIN_TRACK_HEIGHT, trackWidth * HEIGHT_RATIO);
+
+      setMetrics({
+        trackWidth,
+        trackHeight,
+        columnGap,
+        rowGap,
+        columnSpan: trackWidth + columnGap,
+        rowSpan: trackHeight + rowGap,
+      });
+    });
+
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, []);
+
+  const gridStyle: CSSProperties = useMemo(
+    () => ({
+      gridTemplateColumns: `repeat(${GRID_COLUMNS}, minmax(0, 1fr))`,
+      gridAutoRows: `${metrics.trackHeight}px`,
+      columnGap: `${metrics.columnGap}px`,
+      rowGap: `${metrics.rowGap}px`,
+    }),
+    [metrics]
+  );
+
+  const cards = useMemo(() => {
+    return [
+      {
+        id: 'status' as const,
+        minW: CARD_LIMITS.status.minW,
+        minH: CARD_LIMITS.status.minH,
+        element: (
+          <FeatureCard
+            primary={statusContent.primary}
+            label={statusContent.label}
+            icon={statusContent.icon}
+            delay={0}
+          />
+        ),
+      },
+      {
+        id: 'next' as const,
+        minW: CARD_LIMITS.next.minW,
+        minH: CARD_LIMITS.next.minH,
+        element: <NextSlotCard primary={nextPrimary} secondary={nextSecondary} delay={60} />,
+      },
+      {
+        id: 'day' as const,
+        minW: CARD_LIMITS.day.minW,
+        minH: CARD_LIMITS.day.minH,
+        element: (
+          <PercentCard
+            value={dayProgress}
+            formatted={percentFormatter.format(dayProgress)}
+            label={dayLabel}
+            info={dayInfo}
+            delay={120}
+          />
+        ),
+      },
+      {
+        id: 'week' as const,
+        minW: CARD_LIMITS.week.minW,
+        minH: CARD_LIMITS.week.minH,
+        element: (
+          <PercentCard
+            value={weekProgress}
+            formatted={percentFormatter.format(weekProgress)}
+            label={weekLabel}
+            delay={180}
+          />
+        ),
+      },
+      {
+        id: 'month' as const,
+        minW: CARD_LIMITS.month.minW,
+        minH: CARD_LIMITS.month.minH,
+        element: (
+          <PercentCard
+            value={monthProgress}
+            formatted={percentFormatter.format(monthProgress)}
+            label={monthLabel}
+            delay={240}
+          />
+        ),
+      },
+      {
+        id: 'year' as const,
+        minW: CARD_LIMITS.year.minW,
+        minH: CARD_LIMITS.year.minH,
+        element: (
+          <PercentCard
+            value={yearProgress}
+            formatted={percentFormatter.format(yearProgress)}
+            label={yearLabel}
+            delay={300}
+          />
+        ),
+      },
+      {
+        id: 'tips' as const,
+        minW: CARD_LIMITS.tips.minW,
+        minH: CARD_LIMITS.tips.minH,
+        element: <TipsCard tip={tip} title={tipsTitle} delay={360} />,
+      },
+    ];
+  }, [
+    dayInfo,
+    dayLabel,
+    dayProgress,
+    monthLabel,
+    monthProgress,
+    nextPrimary,
+    nextSecondary,
+    percentFormatter,
+    statusContent,
+    tip,
+    tipsTitle,
+    weekLabel,
+    weekProgress,
+    yearLabel,
+    yearProgress,
+  ]);
+
+  const renderCards = cards.map((card) => {
+    const item = layout[card.id] ?? CARD_LIMITS[card.id].initial;
+    return (
+      <DraggableCard
+        key={card.id}
+        id={card.id}
+        item={item}
+        minW={card.minW}
+        minH={card.minH}
+        metrics={metrics}
+        onChange={attemptUpdate}
+      >
+        {card.element}
+      </DraggableCard>
+    );
+  });
+
   return (
     <div className="dashboard-page">
       <div className="dashboard-content">
@@ -482,54 +753,169 @@ export function Dashboard() {
             </div>
             {/* Title/subtitle intentionally removed */}
           </div>
-          </header>
+        </header>
 
-        <div className="dashboard-grid" role="list">
-          <FeatureCard
-            primary={statusContent.primary}
-            label={statusContent.label}
-            icon={statusContent.icon}
-            delay={0}
-          />
-
-          <NextSlotCard primary={nextPrimary} secondary={nextSecondary} delay={60} />
-
-          <PercentCard
-            value={dayProgress}
-            formatted={percentFormatter.format(dayProgress)}
-            label={dayLabel}
-            info={dayInfo}
-            delay={120}
-          />
-
-          <PercentCard
-            value={weekProgress}
-            formatted={percentFormatter.format(weekProgress)}
-            label={weekLabel}
-            delay={180}
-          />
-
-          <PercentCard
-            value={monthProgress}
-            formatted={percentFormatter.format(monthProgress)}
-            label={monthLabel}
-            delay={240}
-          />
-
-          <PercentCard
-            value={yearProgress}
-            formatted={percentFormatter.format(yearProgress)}
-            label={yearLabel}
-            delay={300}
-          />
-
-          <TipsCard
-            tip={tip}
-            title={tipsTitle}
-            delay={360}
-          />
+        <div className="dashboard-grid" ref={gridRef} role="list" style={gridStyle}>
+          {renderCards}
         </div>
       </div>
+    </div>
+  );
+}
+
+interface DraggableCardProps {
+  id: CardId;
+  item: LayoutItem;
+  minW: number;
+  minH: number;
+  metrics: GridMetrics;
+  children: ReactNode;
+  onChange: (id: CardId, candidate: LayoutItem) => boolean;
+}
+
+function DraggableCard({ id, item, metrics, children, onChange, minW, minH }: DraggableCardProps) {
+  const [mode, setMode] = useState<'idle' | 'dragging' | 'resizing'>('idle');
+
+  const applyWithBounds = useCallback(
+    (candidate: LayoutItem) => {
+      const normalized = {
+        x: candidate.x,
+        y: candidate.y,
+        w: Math.max(minW, candidate.w),
+        h: Math.max(minH, candidate.h),
+      };
+      if (
+        !Number.isFinite(normalized.x) ||
+        !Number.isFinite(normalized.y) ||
+        !Number.isFinite(normalized.w) ||
+        !Number.isFinite(normalized.h)
+      ) {
+        return;
+      }
+      onChange(id, normalized);
+    },
+    [id, minH, minW, onChange]
+  );
+
+  const handleDragStart = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (mode !== 'idle') return;
+      if (metrics.columnSpan <= 0 || metrics.rowSpan <= 0) return;
+      event.preventDefault();
+
+      const node = event.currentTarget;
+      node.setPointerCapture(event.pointerId);
+      setMode('dragging');
+
+      const start = {
+        pointerX: event.clientX,
+        pointerY: event.clientY,
+        original: { ...item },
+      };
+
+      const handleMove = (moveEvent: PointerEvent) => {
+        const deltaX = moveEvent.clientX - start.pointerX;
+        const deltaY = moveEvent.clientY - start.pointerY;
+
+        const next: LayoutItem = {
+          x: Math.round(start.original.x + deltaX / metrics.columnSpan),
+          y: Math.round(start.original.y + deltaY / metrics.rowSpan),
+          w: start.original.w,
+          h: start.original.h,
+        };
+
+        applyWithBounds(next);
+      };
+
+      const handleEnd = () => {
+        node.removeEventListener('pointermove', handleMove);
+        node.removeEventListener('pointerup', handleEnd);
+        node.removeEventListener('pointercancel', handleEnd);
+        try {
+          node.releasePointerCapture(event.pointerId);
+        } catch (error) {
+          /* ignore */
+        }
+        setMode('idle');
+      };
+
+      node.addEventListener('pointermove', handleMove);
+      node.addEventListener('pointerup', handleEnd, { once: true });
+      node.addEventListener('pointercancel', handleEnd, { once: true });
+    },
+    [applyWithBounds, item, metrics, mode]
+  );
+
+  const handleResizeStart = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (metrics.columnSpan <= 0 || metrics.rowSpan <= 0) return;
+
+      const node = event.currentTarget;
+      node.setPointerCapture(event.pointerId);
+      setMode('resizing');
+
+      const start = {
+        pointerX: event.clientX,
+        pointerY: event.clientY,
+        original: { ...item },
+      };
+
+      const handleMove = (moveEvent: PointerEvent) => {
+        const deltaX = moveEvent.clientX - start.pointerX;
+        const deltaY = moveEvent.clientY - start.pointerY;
+
+        const next: LayoutItem = {
+          x: start.original.x,
+          y: start.original.y,
+          w: Math.round(start.original.w + deltaX / metrics.columnSpan),
+          h: Math.round(start.original.h + deltaY / metrics.rowSpan),
+        };
+
+        applyWithBounds(next);
+      };
+
+      const handleEnd = () => {
+        node.removeEventListener('pointermove', handleMove);
+        node.removeEventListener('pointerup', handleEnd);
+        node.removeEventListener('pointercancel', handleEnd);
+        try {
+          node.releasePointerCapture(event.pointerId);
+        } catch (error) {
+          /* ignore */
+        }
+        setMode('idle');
+      };
+
+      node.addEventListener('pointermove', handleMove);
+      node.addEventListener('pointerup', handleEnd, { once: true });
+      node.addEventListener('pointercancel', handleEnd, { once: true });
+    },
+    [applyWithBounds, item, metrics]
+  );
+
+  const classes = useMemo(() => {
+    const base = ['draggable-card'];
+    if (mode === 'dragging') base.push('is-dragging');
+    if (mode === 'resizing') base.push('is-resizing');
+    return base.join(' ');
+  }, [mode]);
+
+  return (
+    <div
+      className={classes}
+      onPointerDown={handleDragStart}
+      style={{
+        gridColumnStart: item.x + 1,
+        gridColumnEnd: `span ${Math.max(minW, item.w)}`,
+        gridRowStart: item.y + 1,
+        gridRowEnd: `span ${Math.max(minH, item.h)}`,
+        touchAction: 'none',
+      }}
+    >
+      {children}
+      <div className="card-resize-handle" aria-hidden="true" onPointerDown={handleResizeStart} />
     </div>
   );
 }
