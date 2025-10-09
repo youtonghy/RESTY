@@ -55,6 +55,19 @@ const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 const joinParts = (parts: Array<string | null | undefined>) =>
   parts.filter(Boolean).join(' · ');
 
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+const formatCountdown = (ms: number) => {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  if (hours > 0) {
+    return `${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}`;
+  }
+  return `${pad2(minutes)}:${pad2(seconds)}`;
+};
+
 const getStartOfWeek = (date: Date) => {
   const start = new Date(date);
   start.setHours(0, 0, 0, 0);
@@ -268,9 +281,10 @@ export function Dashboard() {
   }, [setTimerInfo]);
 
   useEffect(() => {
+    // 每秒刷新一次，确保倒计时显示顺畅
     const id = window.setInterval(() => {
       setNow(new Date());
-    }, 30_000);
+    }, 1_000);
     return () => window.clearInterval(id);
   }, []);
 
@@ -421,8 +435,10 @@ export function Dashboard() {
 
   const timezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, []);
 
-  // Next time display: hour only
-  const nextPrimary = nextBreakSlot ? hourMinuteFormatter.format(nextBreakSlot.start) : '—';
+  // Next break display: show countdown instead of absolute time
+  const nextPrimary = nextBreakSlot
+    ? formatCountdown(nextBreakSlot.start.getTime() - now.getTime())
+    : '—';
   const slotTypeLabel = nextBreakSlot
     ? t('dashboard.next.break', { defaultValue: isZh ? '下次休息' : 'Next break' })
     : t('dashboard.next.none', { defaultValue: isZh ? '未计划' : 'No schedule' });
