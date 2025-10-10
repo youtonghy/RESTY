@@ -1,4 +1,7 @@
-import { ReactNode } from 'react';
+import { ReactNode, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import { open } from '@tauri-apps/plugin-opener';
+import { useAppStore } from '../../store';
 import { Navigation } from './Navigation';
 import { WindowControls } from './WindowControls';
 import './Layout.css';
@@ -12,9 +15,26 @@ interface LayoutProps {
  * 应用外壳，负责组合导航与主内容区域。
  */
 export function Layout({ children, showNavigation = true }: LayoutProps) {
+  const { t } = useTranslation();
+  const { updateManifest, appVersion, setUpdateManifest } = useAppStore();
+
+  const handleOpenWebsite = useCallback(async () => {
+    if (!updateManifest) return;
+    const target = updateManifest.downloadUrl || updateManifest.website;
+    try {
+      await open(target);
+    } catch (error) {
+      console.error('Failed to open update page:', error);
+    }
+  }, [updateManifest]);
+
+  const handleDismiss = useCallback(() => {
+    setUpdateManifest(null);
+  }, [setUpdateManifest]);
+
   return (
     <div className="layout">
-      {/* Draggable area for borderless window with overlay title bar */}
+      {/* Draggable area for borderless window with overlay buttons */}
       <div className="app-titlebar" data-tauri-drag-region>
         <div className="titlebar-left">
           <img className="app-logo" src="/tauri.svg" alt="RESTY logo" aria-hidden="true" />
@@ -25,6 +45,32 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
         </div>
         <WindowControls />
       </div>
+      {updateManifest && (
+        <div className="update-banner" role="status" aria-live="polite">
+          <div className="update-banner__content">
+            <span className="update-banner__title">
+              {t('updates.available', { version: updateManifest.version })}
+            </span>
+            {appVersion && (
+              <span className="update-banner__current">
+                {t('updates.current', { version: appVersion })}
+              </span>
+            )}
+          </div>
+          <div className="update-banner__actions">
+            <button type="button" className="update-banner__button" onClick={handleOpenWebsite}>
+              {t('updates.view')}
+            </button>
+            <button
+              type="button"
+              className="update-banner__button update-banner__button--ghost"
+              onClick={handleDismiss}
+            >
+              {t('updates.dismiss')}
+            </button>
+          </div>
+        </div>
+      )}
       <div className="layout-content">
         {showNavigation && <Navigation />}
         <main className="layout-main">{children}</main>

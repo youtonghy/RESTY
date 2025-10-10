@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { convertFileSrc } from '@tauri-apps/api/core';
+import { getVersion } from '@tauri-apps/api/app';
 import { ThemeProvider } from './components/Common/ThemeProvider';
 import { Reminder } from './components/Reminder/Reminder';
 import { Layout } from './components/Common/Layout';
@@ -9,9 +10,10 @@ import { Dashboard } from './pages/Dashboard';
 import { Settings } from './pages/Settings';
 import { Analytics } from './pages/Analytics';
 import { useAppStore } from './store';
-import type { Settings as AppSettings } from './types';
+import type { Settings as AppSettings, UpdateManifest } from './types';
 import * as api from './utils/api';
 import { changeLanguage } from './i18n';
+import { isNewerVersion } from './utils/version';
 import './App.css';
 import './i18n';
 
@@ -20,7 +22,7 @@ import './i18n';
  */
 function App() {
   const { i18n } = useTranslation();
-  const { settings, timerInfo, setTimerInfo } = useAppStore();
+  const { settings, timerInfo, setTimerInfo, setAppVersion, setUpdateManifest } = useAppStore();
 
   const isReminderWindow = (() => {
     if (typeof window === 'undefined') return false;
@@ -211,6 +213,36 @@ function App() {
     startRestMusic,
     stopRestMusic,
   ]);
+
+  useEffect(() => {
+    if (isReminderWindow) return;
+
+    const checkForUpdates = async () => {
+      try {
+        const currentVersion = await getVersion();
+        setAppVersion(currentVersion);
+
+        const response = await fetch(
+          'https://raw.githubusercontent.com/youtonghy/RESTY/refs/heads/main/latest.json',
+          { cache: 'no-store' }
+        );
+        if (!response.ok) {
+          return;
+        }
+
+        const manifest = (await response.json()) as UpdateManifest;
+        if (manifest?.version && isNewerVersion(manifest.version, currentVersion)) {
+          setUpdateManifest(manifest);
+        } else {
+          setUpdateManifest(null);
+        }
+      } catch (error) {
+        console.error('Failed to check for updates:', error);
+      }
+    };
+
+    void checkForUpdates();
+  }, [isReminderWindow, setAppVersion, setUpdateManifest]);
 
   return (
     <ThemeProvider>

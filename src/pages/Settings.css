@@ -138,6 +138,30 @@
   margin-top: var(--spacing-xl);
 }
 
+.about-list {
+  display: grid;
+  gap: var(--spacing-sm);
+  margin: 0;
+}
+
+.about-item {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: var(--spacing-md);
+  align-items: center;
+}
+
+.about-label {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.about-value {
+  margin: 0;
+  color: var(--color-text-secondary);
+  word-break: break-word;
+}
+
 .message {
   margin-top: var(--spacing-md);
   padding: var(--spacing-md);

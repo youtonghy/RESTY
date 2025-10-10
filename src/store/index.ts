@@ -1,5 +1,12 @@
 import { create } from 'zustand';
-import { Settings, DEFAULT_SETTINGS, TimerInfo, TimerPhase, TimerState } from '../types';
+import {
+  Settings,
+  DEFAULT_SETTINGS,
+  TimerInfo,
+  TimerPhase,
+  TimerState,
+  UpdateManifest,
+} from '../types';
 
 /**
  * 全局应用状态定义：封装设置与计时器信息，供各 React 组件共享。
@@ -8,6 +15,12 @@ interface AppStore {
   // Settings
   settings: Settings;
   setSettings: (settings: Partial<Settings>) => void;
+
+  // Application metadata
+  appVersion: string | null;
+  setAppVersion: (version: string) => void;
+  updateManifest: UpdateManifest | null;
+  setUpdateManifest: (manifest: UpdateManifest | null) => void;
 
   // Timer
   timerInfo: TimerInfo;
@@ -24,6 +37,12 @@ export const useAppStore = create<AppStore>((set) => ({
       merged.closeToTray = true;
       return { settings: merged };
     }),
+
+  // Application metadata
+  appVersion: null,
+  setAppVersion: (version) => set(() => ({ appVersion: version })),
+  updateManifest: null,
+  setUpdateManifest: (manifest) => set(() => ({ updateManifest: manifest })),
 
   // Timer
   timerInfo: {

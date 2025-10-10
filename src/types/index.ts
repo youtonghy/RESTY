@@ -43,6 +43,18 @@ export interface Settings {
 }
 
 /**
+ * Remote manifest metadata used for update checks.
+ */
+export interface UpdateManifest {
+  name: string;
+  version: string;
+  author: string;
+  website: string;
+  downloadUrl?: string;
+  notes?: string;
+}
+
+/**
  * Work/Break session record
  */
 export interface Session {
@@ -127,6 +139,6 @@ export const DEFAULT_SETTINGS: Settings = {
   minimizeToTray: true,
   closeToTray: true,
   language: 'en',
-  version: '1.0.0',
+  version: '0.1.0',
   updatedAt: new Date().toISOString(),
 };

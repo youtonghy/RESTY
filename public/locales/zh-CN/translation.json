@@ -46,6 +46,14 @@
       "title": "语言",
       "select": "选择语言"
     },
+    "about": {
+      "title": "关于",
+      "software": "软件名称",
+      "author": "作者",
+      "website": "官网",
+      "version": "当前版本",
+      "versionUnknown": "未知"
+    },
     "actions": {
       "save": "保存设置",
       "reset": "恢复默认",
@@ -156,5 +164,11 @@
     "nextBreakAt": "下次休息时间 {{time}}",
     "nextWorkAt": "下次开始工作 {{time}}",
     "nextEventUnavailable": "暂无排程信息"
+  },
+  "updates": {
+    "available": "检测到新版本 {{version}}",
+    "current": "当前版本: {{version}}",
+    "view": "前往官网",
+    "dismiss": "稍后提醒"
   }
 }

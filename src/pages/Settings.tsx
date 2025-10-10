@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { revealItemInDir } from '@tauri-apps/plugin-opener';
+import { open, revealItemInDir } from '@tauri-apps/plugin-opener';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
 import * as api from '../utils/api';
@@ -17,7 +17,7 @@ const enforceTrayDefaults = (settings: SettingsType): SettingsType => ({
  */
 export function Settings() {
   const { t } = useTranslation();
-  const { settings, setSettings } = useAppStore();
+  const { settings, setSettings, appVersion } = useAppStore();
   const [localSettings, setLocalSettings] = useState<SettingsType>(enforceTrayDefaults(settings));
   const [message, setMessage] = useState('');
   const [showSuccessToast, setShowSuccessToast] = useState(false);
@@ -89,6 +89,14 @@ export function Settings() {
     } catch (error) {
       console.error('Failed to open music directory:', error);
       setMessage(t('settings.reminder.restMusic.openFailed'));
+    }
+  };
+
+  const handleOpenWebsite = async () => {
+    try {
+      await open('https://resty.tokisantike.net');
+    } catch (error) {
+      console.error('Failed to open RESTY website:', error);
     }
   };
 
@@ -305,6 +313,35 @@ export function Settings() {
               <option value="zh-CN">简体中文</option>
             </select>
           </div>
+        </section>
+
+        {/* About */}
+        <section className="card settings-section">
+          <h2 className="card-header">{t('settings.about.title')}</h2>
+          <dl className="about-list">
+            <div className="about-item">
+              <dt className="about-label">{t('settings.about.software')}</dt>
+              <dd className="about-value">{t('app.name')}</dd>
+            </div>
+            <div className="about-item">
+              <dt className="about-label">{t('settings.about.author')}</dt>
+              <dd className="about-value">youtonghy</dd>
+            </div>
+            <div className="about-item">
+              <dt className="about-label">{t('settings.about.website')}</dt>
+              <dd className="about-value">
+                <button type="button" className="link-button" onClick={handleOpenWebsite}>
+                  https://resty.tokisantike.net
+                </button>
+              </dd>
+            </div>
+            <div className="about-item">
+              <dt className="about-label">{t('settings.about.version')}</dt>
+              <dd className="about-value">
+                {appVersion ?? t('settings.about.versionUnknown')}
+              </dd>
+            </div>
+          </dl>
         </section>
 
         {/* Actions: 仅保留重置，移除手动保存/导出/导入 */}

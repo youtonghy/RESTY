@@ -46,6 +46,14 @@
       "title": "Language",
       "select": "Select Language"
     },
+    "about": {
+      "title": "About",
+      "software": "Software",
+      "author": "Author",
+      "website": "Website",
+      "version": "Version",
+      "versionUnknown": "Unknown"
+    },
     "actions": {
       "save": "Save Settings",
       "reset": "Reset to Defaults",
@@ -156,5 +164,11 @@
     "nextBreakAt": "Next break at {{time}}",
     "nextWorkAt": "Next work at {{time}}",
     "nextEventUnavailable": "Schedule pending"
+  },
+  "updates": {
+    "available": "New version {{version}} available",
+    "current": "Current version: {{version}}",
+    "view": "Open website",
+    "dismiss": "Dismiss"
   }
 }
