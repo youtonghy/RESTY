@@ -3,7 +3,7 @@ import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
 import * as api from '../utils/api';
-import type { Settings as SettingsType } from '../types';
+import type { Language, Settings as SettingsType } from '../types';
 import './Settings.css';
 
 const enforceTrayDefaults = (settings: SettingsType): SettingsType => ({
@@ -11,6 +11,13 @@ const enforceTrayDefaults = (settings: SettingsType): SettingsType => ({
   minimizeToTray: true,
   closeToTray: true,
 });
+
+const LANGUAGE_OPTIONS: Array<{ value: Language; labelKey: string }> = [
+  { value: 'en-US', labelKey: 'settings.language.options.enUS' },
+  { value: 'en-GB', labelKey: 'settings.language.options.enGB' },
+  { value: 'zh-CN', labelKey: 'settings.language.options.zhCN' },
+  { value: 'zh-TW', labelKey: 'settings.language.options.zhTW' },
+];
 
 /**
  * 设置页面：负责从后端加载配置、提供表单编辑与导入导出能力。
@@ -306,14 +313,17 @@ export function Settings() {
               className="input"
               value={localSettings.language}
               onChange={(e) => {
-                const newLang = e.target.value as 'en' | 'zh-CN';
+                const newLang = e.target.value as Language;
                 const next = { ...localSettings, language: newLang } as SettingsType;
                 setLocalSettings(next);
                 saveSettingsAuto(next);
               }}
             >
-              <option value="en">English</option>
-              <option value="zh-CN">简体中文</option>
+              {LANGUAGE_OPTIONS.map(({ value, labelKey }) => (
+                <option key={value} value={value}>
+                  {t(labelKey)}
+                </option>
+              ))}
             </select>
           </div>
         </section>

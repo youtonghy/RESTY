@@ -15,7 +15,7 @@
     "reminder": {
       "title": "Reminder Settings",
       "mode": "Display Mode",
-      "fullscreen": "Fullscreen",
+      "fullscreen": "Full-screen",
       "floating": "Floating Window",
       "floatingPosition": "Window Position",
       "opacity": "Window Opacity",
@@ -38,8 +38,8 @@
     },
     "system": {
       "title": "System",
-      "autostart": "Launch on system startup",
-      "minimizeToTray": "Minimize to system tray",
+      "autostart": "Launch at system start-up",
+      "minimizeToTray": "Minimise to system tray",
       "closeToTray": "Close to system tray"
     },
     "language": {

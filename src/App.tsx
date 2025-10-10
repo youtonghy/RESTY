@@ -12,7 +12,7 @@ import { Analytics } from './pages/Analytics';
 import { useAppStore } from './store';
 import type { Settings as AppSettings, UpdateManifest } from './types';
 import * as api from './utils/api';
-import { changeLanguage } from './i18n';
+import { changeLanguage, normalizeLanguage } from './i18n';
 import { isNewerVersion } from './utils/version';
 import './App.css';
 import './i18n';
@@ -124,10 +124,14 @@ function App() {
 
     // 初始化加载持久化设置，并同步语言环境
     api.loadSettings().then(async (loaded) => {
-      useAppStore.getState().setSettings(loaded);
-      // Apply language with proper resource loading
-      const lang = loaded.language === 'en' ? 'en' : 'zh-CN';
-      await changeLanguage(lang);
+      const normalizedLanguage = normalizeLanguage(loaded.language);
+      const normalizedSettings = {
+        ...loaded,
+        language: normalizedLanguage,
+      } as AppSettings;
+
+      useAppStore.getState().setSettings(normalizedSettings);
+      await changeLanguage(normalizedLanguage);
 
       // Sync autostart with persisted setting
       api.setAutostart(loaded.autostart).catch((error) => {
@@ -186,7 +190,7 @@ function App() {
 
   // Update language when settings change
   useEffect(() => {
-    const lang = settings.language === 'en' ? 'en' : 'zh-CN';
+    const lang = normalizeLanguage(settings.language);
     if (i18n.language !== lang) {
       changeLanguage(lang).catch((error) => {
         console.error('Failed to change language:', error);

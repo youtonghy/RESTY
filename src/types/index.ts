@@ -3,7 +3,7 @@
  */
 
 export type Theme = 'light' | 'dark' | 'auto';
-export type Language = 'en' | 'zh-CN';
+export type Language = 'en-US' | 'en-GB' | 'zh-CN' | 'zh-TW';
 export type ReminderMode = 'fullscreen' | 'floating';
 export type FloatingPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 export type TimerPhase = 'work' | 'break' | 'idle';
@@ -138,7 +138,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autostart: false,
   minimizeToTray: true,
   closeToTray: true,
-  language: 'en',
+  language: 'en-US',
   version: '0.1.0',
   updatedAt: new Date().toISOString(),
 };

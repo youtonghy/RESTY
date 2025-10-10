@@ -1,0 +1,180 @@
+{
+  "app": {
+    "name": "RESTY",
+    "description": "護眼休息提醒應用"
+  },
+  "settings": {
+    "title": "設定",
+    "timer": {
+      "title": "計時設定",
+      "workDuration": "工作時長（分鐘）",
+      "breakDuration": "休息時長（分鐘）",
+      "enableForceBreak": "強制休息模式",
+      "forceBreakDescription": "休息期間禁止跳過"
+    },
+    "reminder": {
+      "title": "提醒設定",
+      "mode": "顯示模式",
+      "fullscreen": "全螢幕",
+      "floating": "浮動視窗",
+      "floatingPosition": "視窗位置",
+      "opacity": "視窗透明度",
+      "playSound": "播放提示音",
+      "restMusic": {
+        "title": "休息音樂",
+        "enable": "休息時自動播放音樂",
+        "description": "將 mp3、wav、flac 或 ogg 檔案放入下方目錄即可播放。",
+        "directory": "音樂目錄",
+        "directoryMissing": "無法取得音樂目錄",
+        "openFailed": "開啟音樂資料夾失敗"
+      }
+    },
+    "appearance": {
+      "title": "外觀",
+      "theme": "主題",
+      "light": "淺色",
+      "dark": "深色",
+      "auto": "自動"
+    },
+    "system": {
+      "title": "系統",
+      "autostart": "開機自動啟動",
+      "minimizeToTray": "最小化到系統匣",
+      "closeToTray": "關閉到系統匣"
+    },
+    "language": {
+      "title": "語言",
+      "select": "選擇語言",
+      "options": {
+        "enUS": "英語（美國）",
+        "enGB": "英語（英國）",
+        "zhCN": "簡體中文",
+        "zhTW": "繁體中文"
+      }
+    },
+    "about": {
+      "title": "關於",
+      "software": "軟體名稱",
+      "author": "作者",
+      "website": "官方網站",
+      "version": "目前版本",
+      "versionUnknown": "未知"
+    },
+    "actions": {
+      "save": "儲存設定",
+      "reset": "恢復預設",
+      "import": "匯入設定",
+      "export": "匯出設定"
+    }
+  },
+  "reminder": {
+    "title": {
+      "work": "開始工作",
+      "break": "休息時間"
+    },
+    "message": {
+      "work": "休息結束了，準備好繼續工作了嗎？",
+      "break": "您已經工作一段時間了，該讓眼睛休息一下！"
+    },
+    "countdown": "剩餘時間：{{time}}",
+    "simpleBreakTime": "休息 {{minutes}} 分鐘",
+    "simpleLabel": "本次休息剩餘",
+    "forceBreakTooltip": "已啟用強制休息",
+    "actions": {
+      "skip": "跳過",
+      "extend": "延長 5 分鐘",
+      "extend5min": "增加 5 分鐘休息",
+      "extendShort": "+5 分鐘",
+      "startBreak": "立即休息"
+    }
+  },
+  "analytics": {
+    "title": "統計",
+    "overview": "總覽",
+    "totalWork": "總工作時間",
+    "totalBreak": "總休息時間",
+    "breakCount": "休息次數",
+    "completionRate": "完成率",
+    "timeRange": {
+      "today": "今天",
+      "week": "本週",
+      "month": "本月",
+      "custom": "自訂區間"
+    },
+    "timeline": "時間軸",
+    "noData": "所選期間暫無資料",
+    "fragments": "片段統計",
+    "totalFragmentsWeek": "本週總片段",
+    "totalFragmentsMonth": "本月總片段",
+    "workFragmentsWeek": "本週工作片段",
+    "breakFragmentsWeek": "本週休息片段",
+    "skippedBreaks": "已跳過的休息",
+    "averageSession": "平均片段時長"
+  },
+  "tray": {
+    "show": "顯示視窗",
+    "hide": "隱藏視窗",
+    "startWork": "開始工作",
+    "startBreak": "開始休息",
+    "pause": "暫停計時",
+    "resume": "繼續計時",
+    "settings": "設定",
+    "analytics": "統計",
+    "quit": "退出"
+  },
+  "shortcuts": {
+    "toggle": "開始/暫停",
+    "skip": "跳過目前階段",
+    "extend": "延長時間",
+    "immediateBreak": "立即休息",
+    "showWindow": "顯示/隱藏視窗"
+  },
+  "notifications": {
+    "workStarted": "工作時段已開始",
+    "breakStarted": "休息時間到！讓眼睛休息一下。",
+    "breakEnded": "休息結束，準備開工！",
+    "timerPaused": "計時器已暫停",
+    "timerResumed": "計時器已恢復",
+    "settingsSaved": "設定儲存成功",
+    "configImported": "設定匯入成功",
+    "configExported": "設定匯出成功"
+  },
+  "errors": {
+    "invalidDuration": "時長必須介於 1 到 120 分鐘之間",
+    "invalidOpacity": "透明度必須介於 0 到 100",
+    "importFailed": "匯入設定失敗",
+    "exportFailed": "匯出設定失敗",
+    "saveFailed": "儲存設定失敗",
+    "loadFailed": "載入設定失敗",
+    "unknown": "發生未知錯誤"
+  },
+  "common": {
+    "confirm": "確認",
+    "cancel": "取消",
+    "close": "關閉",
+    "ok": "確定",
+    "yes": "是",
+    "no": "否",
+    "minutes": "分鐘",
+    "seconds": "秒",
+    "hours": "小時",
+    "running": "運行中",
+    "stopped": "已停止",
+    "loading": "載入中..."
+  },
+  "dashboard": {
+    "workMessage": "專注工作，記得保護眼睛！",
+    "breakMessage": "放鬆一下，讓眼睛休息片刻。",
+    "idleMessage": "準備好了嗎？點擊下方開始。",
+    "takeBreak": "立即休息",
+    "nextBreakAt": "下次休息時間 {{time}}",
+    "nextWorkAt": "下次開始工作 {{time}}",
+    "nextEventUnavailable": "暫無排程資訊"
+  },
+  "updates": {
+    "available": "偵測到新版本 {{version}}",
+    "current": "目前版本：{{version}}",
+    "view": "前往官網",
+    "dismiss": "稍後提醒"
+  }
+}

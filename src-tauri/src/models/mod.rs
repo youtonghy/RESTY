@@ -31,10 +31,14 @@ pub enum Theme {
 /// Language preference
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Language {
-    #[serde(rename = "en")]
-    English,
-    #[serde(rename = "zh-CN")]
+    #[serde(rename = "en-US", alias = "en", alias = "en-us")]
+    EnglishUnitedStates,
+    #[serde(rename = "en-GB", alias = "en-gb")]
+    EnglishUnitedKingdom,
+    #[serde(rename = "zh-CN", alias = "zh", alias = "zh-cn")]
     ChineseSimplified,
+    #[serde(rename = "zh-TW", alias = "zh-tw", alias = "zh-HK", alias = "zh-hk")]
+    ChineseTraditional,
 }
 
 /// Reminder display mode
@@ -124,7 +128,7 @@ impl Default for Settings {
             autostart: false,
             minimize_to_tray: true,
             close_to_tray: true,
-            language: Language::English,
+            language: Language::EnglishUnitedStates,
             version: "1.0.0".to_string(),
             updated_at: Utc::now(),
         }
