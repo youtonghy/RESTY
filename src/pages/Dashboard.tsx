@@ -135,7 +135,11 @@ interface LayoutItem {
   h: number;
 }
 
-type LayoutMap = Record<CardId, LayoutItem>;
+interface CardInstance {
+  instanceId: string;
+  type: CardId;
+  layout: LayoutItem;
+}
 
 interface GridMetrics {
   trackWidth: number;
@@ -151,7 +155,7 @@ const BASE_SPAN = 2;
 const FALLBACK_TRACK_SIZE = 120;
 const CARD_ORDER: CardId[] = ['status', 'next', 'day', 'week', 'month', 'year', 'tips', 'clock'];
 const MAX_GRID_ROWS = 120;
-const LAYOUT_STORAGE_KEY = 'resty.dashboard.layout.v1';
+const CARD_STORAGE_KEY = 'resty.dashboard.cards.v2';
 const CARD_LIMITS: Record<CardId, { minW: number; minH: number; initial: LayoutItem }> = {
   status: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: 0, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
   next: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: BASE_SPAN, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
@@ -170,15 +174,8 @@ const CARD_LIMITS: Record<CardId, { minW: number; minH: number; initial: LayoutI
     initial: { x: BASE_SPAN * 2, y: BASE_SPAN, w: BASE_SPAN * 2, h: BASE_SPAN },
   },
 };
-
-const createInitialLayout = (): LayoutMap => {
-  return Object.fromEntries(
-    CARD_ORDER.map((key) => [key, { ...CARD_LIMITS[key].initial }])
-  ) as LayoutMap;
-};
-
-const clampLayout = (id: CardId, candidate: LayoutItem): LayoutItem => {
-  const limits = CARD_LIMITS[id];
+const clampLayout = (type: CardId, candidate: LayoutItem): LayoutItem => {
+  const limits = CARD_LIMITS[type];
 
   let width = Math.max(limits.minW, Math.min(candidate.w, GRID_COLUMNS));
   let x = Math.max(0, Math.min(candidate.x, GRID_COLUMNS - width));
@@ -192,20 +189,6 @@ const clampLayout = (id: CardId, candidate: LayoutItem): LayoutItem => {
 
 const rectanglesOverlap = (a: LayoutItem, b: LayoutItem) =>
   a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-
-const normalizeLayoutItem = (id: CardId, item?: LayoutItem): LayoutItem => {
-  const limits = CARD_LIMITS[id];
-  const source = item ?? limits.initial;
-
-  const width = Math.max(limits.minW, Math.min(Math.round(source.w), GRID_COLUMNS));
-  const height = Math.max(limits.minH, Math.max(1, Math.round(source.h)));
-  const maxStart = Math.max(0, GRID_COLUMNS - width);
-
-  const x = Math.max(0, Math.min(Number.isFinite(source.x) ? Math.round(source.x) : limits.initial.x, maxStart));
-  const y = Math.max(0, Number.isFinite(source.y) ? Math.round(source.y) : limits.initial.y);
-
-  return { x, y, w: width, h: height };
-};
 
 const findSlot = (
   width: number,
@@ -247,71 +230,113 @@ const findSlot = (
   return { x: clampPreferredX, y: startRow, w: safeWidth, h: safeHeight };
 };
 
-const resolveLayoutWithPush = (
-  id: CardId,
-  candidate: LayoutItem,
-  state: LayoutMap
-): LayoutMap => {
-  const placed: Partial<LayoutMap> = {};
+const resolveInstances = (
+  instances: CardInstance[],
+  targetId: string,
+  candidate: LayoutItem
+): CardInstance[] => {
+  const ordered = [...instances].sort((a, b) =>
+    a.instanceId === targetId ? -1 : b.instanceId === targetId ? 1 : 0
+  );
+
   const occupied: LayoutItem[] = [];
+  const placements = new Map<string, LayoutItem>();
 
-  for (const key of CARD_ORDER) {
-    const limits = CARD_LIMITS[key];
-    const base = key === id ? candidate : normalizeLayoutItem(key, state[key]);
-    const width = Math.max(limits.minW, Math.min(base.w, GRID_COLUMNS));
-    const height = Math.max(limits.minH, base.h);
-    const target = findSlot(
-      width,
-      height,
-      key === id ? candidate.x : base.x,
-      key === id ? candidate.y : base.y,
-      occupied
+  for (const card of ordered) {
+    const desired = clampLayout(
+      card.type,
+      card.instanceId === targetId ? candidate : card.layout
     );
-
-    placed[key] = target;
-    occupied.push(target);
+    const slot = findSlot(desired.w, desired.h, desired.x, desired.y, occupied);
+    occupied.push(slot);
+    placements.set(card.instanceId, slot);
   }
 
-  return placed as LayoutMap;
+  return instances.map((card) => ({
+    ...card,
+    layout: placements.get(card.instanceId) ?? card.layout,
+  }));
 };
 
-const normalizeLayoutMap = (
-  value: Partial<Record<CardId, LayoutItem>> | null | undefined
-): LayoutMap => {
-  let layout = createInitialLayout();
-  if (!value) return layout;
+const createInitialInstances = (): CardInstance[] =>
+  CARD_ORDER.map((type, index) => ({
+    instanceId: `${type}-${index}`,
+    type,
+    layout: { ...CARD_LIMITS[type].initial },
+  }));
 
-  for (const key of CARD_ORDER) {
-    const item = normalizeLayoutItem(key, value[key] ?? layout[key]);
-    layout = resolveLayoutWithPush(key, item, layout);
+const createCardInstance = (type: CardId, existing: CardInstance[]): CardInstance => {
+  const limits = CARD_LIMITS[type];
+  const occupied = existing.map((item) => item.layout);
+  const preferred = limits.initial;
+  const slot = findSlot(limits.initial.w, limits.initial.h, preferred.x, preferred.y, occupied);
+  return {
+    instanceId: `${type}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`,
+    type,
+    layout: clampLayout(type, slot),
+  };
+};
+
+const cardsEqual = (a: CardInstance[], b: CardInstance[]) => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    const lhs = a[i];
+    const rhs = b[i];
+    if (lhs.instanceId !== rhs.instanceId || lhs.type !== rhs.type) return false;
+    const la = lhs.layout;
+    const lb = rhs.layout;
+    if (la.x !== lb.x || la.y !== lb.y || la.w !== lb.w || la.h !== lb.h) return false;
   }
-
-  return layout;
+  return true;
 };
 
-const loadPersistedLayout = (): LayoutMap | null => {
+const loadPersistedCards = (): CardInstance[] | null => {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = window.localStorage.getItem(LAYOUT_STORAGE_KEY);
+    const raw = window.localStorage.getItem(CARD_STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<Record<CardId, LayoutItem>>;
-    return normalizeLayoutMap(parsed);
+    const parsed = JSON.parse(raw) as CardInstance[];
+    const sanitized: CardInstance[] = [];
+    for (const item of parsed) {
+      if (!item || !item.instanceId || typeof item.type !== 'string') continue;
+      const type = item.type as CardId;
+      if (!CARD_LIMITS[type]) continue;
+      sanitized.push({
+        instanceId: item.instanceId,
+        type,
+        layout: clampLayout(type, item.layout),
+      });
+    }
+    return sanitized.length ? sanitized : null;
   } catch (error) {
-    console.warn('Failed to load dashboard layout:', error);
+    console.warn('Failed to load dashboard cards:', error);
     return null;
   }
 };
 
-const persistLayout = (layout: LayoutMap) => {
+const migrateLegacyLayout = (): CardInstance[] | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem('resty.dashboard.layout.v1');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<Record<CardId, LayoutItem>>;
+    const fallback = createInitialInstances();
+    return fallback.map((card) => ({
+      ...card,
+      layout: clampLayout(card.type, parsed?.[card.type] ?? card.layout),
+    }));
+  } catch (error) {
+    console.warn('Failed to migrate legacy dashboard layout:', error);
+    return null;
+  }
+};
+
+const persistCards = (cards: CardInstance[]) => {
   if (typeof window === 'undefined') return;
   try {
-    const payload = CARD_ORDER.reduce<Record<CardId, LayoutItem>>((acc, key) => {
-      acc[key] = layout[key];
-      return acc;
-    }, {} as Record<CardId, LayoutItem>);
-    window.localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(payload));
+    window.localStorage.setItem(CARD_STORAGE_KEY, JSON.stringify(cards));
   } catch (error) {
-    console.warn('Failed to persist dashboard layout:', error);
+    console.warn('Failed to persist dashboard cards:', error);
   }
 };
 
@@ -469,7 +494,9 @@ export function Dashboard() {
   const [now, setNow] = useState(() => new Date());
   const [tip] = useState(() => generateTip(i18n.language));
 
-  const [layout, setLayout] = useState<LayoutMap>(() => loadPersistedLayout() ?? createInitialLayout());
+  const [cardInstances, setCardInstances] = useState<CardInstance[]>(() =>
+    loadPersistedCards() ?? migrateLegacyLayout() ?? createInitialInstances()
+  );
   const [metrics, setMetrics] = useState<GridMetrics>(() => ({
     trackWidth: FALLBACK_TRACK_SIZE,
     trackHeight: FALLBACK_TRACK_SIZE,
@@ -479,10 +506,13 @@ export function Dashboard() {
     rowSpan: FALLBACK_TRACK_SIZE + 24,
   }));
   const gridRef = useRef<HTMLDivElement | null>(null);
+  const [isAddMenuOpen, setAddMenuOpen] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement | null>(null);
+  const addButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    persistLayout(layout);
-  }, [layout]);
+    persistCards(cardInstances);
+  }, [cardInstances]);
 
   useEffect(() => {
     api.getTimerInfo().then(setTimerInfo).catch((error) => {
@@ -668,38 +698,47 @@ export function Dashboard() {
 
   const dayInfo = timeFormatter.format(now);
 
-  const attemptUpdate = useCallback((id: CardId, candidate: LayoutItem) => {
+  const attemptUpdate = useCallback((instanceId: string, candidate: LayoutItem) => {
     let applied = false;
-    setLayout((prev) => {
-      const current = prev[id];
-      if (!current) return prev;
-
-      const normalized = clampLayout(id, candidate);
-      const resolved = resolveLayoutWithPush(id, normalized, prev);
-
-      const unchanged = CARD_ORDER.every((key) => {
-        const before = prev[key];
-        const after = resolved[key];
-        return (
-          before &&
-          after &&
-          before.x === after.x &&
-          before.y === after.y &&
-          before.w === after.w &&
-          before.h === after.h
-        );
-      });
-
-      if (unchanged) {
+    setCardInstances((prev) => {
+      if (!prev.some((card) => card.instanceId === instanceId)) {
         return prev;
       }
-
+      const resolved = resolveInstances(prev, instanceId, candidate);
+      if (cardsEqual(prev, resolved)) {
+        return prev;
+      }
       applied = true;
       return resolved;
     });
-
     return applied;
   }, []);
+
+  const handleRemoveCard = useCallback((instanceId: string) => {
+    setCardInstances((prev) => prev.filter((card) => card.instanceId !== instanceId));
+  }, []);
+
+  const handleAddCard = useCallback((type: CardId) => {
+    setCardInstances((prev) => {
+      const created = createCardInstance(type, prev);
+      const withNew = [...prev, created];
+      return resolveInstances(withNew, created.instanceId, created.layout);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isAddMenuOpen) return;
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (addMenuRef.current?.contains(target)) return;
+      if (addButtonRef.current?.contains(target)) return;
+      setAddMenuOpen(false);
+    };
+    window.addEventListener('mousedown', handleClick);
+    return () => {
+      window.removeEventListener('mousedown', handleClick);
+    };
+  }, [isAddMenuOpen]);
 
   useEffect(() => {
     const node = gridRef.current;
@@ -751,126 +790,163 @@ export function Dashboard() {
     [metrics]
   );
 
-  const cards = useMemo(() => {
-    return [
-      {
-        id: 'status' as const,
+  const cardCatalog = useMemo<Record<
+    CardId,
+    { minW: number; minH: number; render: (delay: number) => ReactNode }
+  >>(
+    () => ({
+      status: {
         minW: CARD_LIMITS.status.minW,
         minH: CARD_LIMITS.status.minH,
-        element: (
+        render: (delay: number) => (
           <FeatureCard
             primary={statusContent.primary}
             label={statusContent.label}
             icon={statusContent.icon}
-            delay={0}
+            delay={delay}
           />
         ),
       },
-      {
-        id: 'next' as const,
+      next: {
         minW: CARD_LIMITS.next.minW,
         minH: CARD_LIMITS.next.minH,
-        element: <NextSlotCard primary={nextPrimary} secondary={nextSecondary} delay={60} />,
+        render: (delay: number) => (
+          <NextSlotCard primary={nextPrimary} secondary={nextSecondary} delay={delay} />
+        ),
       },
-      {
-        id: 'day' as const,
+      day: {
         minW: CARD_LIMITS.day.minW,
         minH: CARD_LIMITS.day.minH,
-        element: (
+        render: (delay: number) => (
           <PercentCard
             value={dayProgress}
             formatted={percentFormatter.format(dayProgress)}
             label={dayLabel}
             info={dayInfo}
-            delay={120}
+            delay={delay}
           />
         ),
       },
-      {
-        id: 'week' as const,
+      week: {
         minW: CARD_LIMITS.week.minW,
         minH: CARD_LIMITS.week.minH,
-        element: (
+        render: (delay: number) => (
           <PercentCard
             value={weekProgress}
             formatted={percentFormatter.format(weekProgress)}
             label={weekLabel}
-            delay={180}
+            delay={delay}
           />
         ),
       },
-      {
-        id: 'month' as const,
+      month: {
         minW: CARD_LIMITS.month.minW,
         minH: CARD_LIMITS.month.minH,
-        element: (
+        render: (delay: number) => (
           <PercentCard
             value={monthProgress}
             formatted={percentFormatter.format(monthProgress)}
             label={monthLabel}
-            delay={240}
+            delay={delay}
           />
         ),
       },
-      {
-        id: 'year' as const,
+      year: {
         minW: CARD_LIMITS.year.minW,
         minH: CARD_LIMITS.year.minH,
-        element: (
+        render: (delay: number) => (
           <PercentCard
             value={yearProgress}
             formatted={percentFormatter.format(yearProgress)}
             label={yearLabel}
-            delay={300}
+            delay={delay}
           />
         ),
       },
-      {
-        id: 'tips' as const,
+      tips: {
         minW: CARD_LIMITS.tips.minW,
         minH: CARD_LIMITS.tips.minH,
-        element: <TipsCard tip={tip} delay={360} />,
+        render: (delay: number) => <TipsCard tip={tip} delay={delay} />,
       },
-      {
-        id: 'clock' as const,
+      clock: {
         minW: CARD_LIMITS.clock.minW,
         minH: CARD_LIMITS.clock.minH,
-        element: <ClockCard time={clockPrimary} date={clockDate} timezone={timezone} delay={420} />,
+        render: (delay: number) => (
+          <ClockCard time={clockPrimary} date={clockDate} timezone={timezone} delay={delay} />
+        ),
       },
-    ];
-  }, [
-    clockDate,
-    clockPrimary,
-    dayInfo,
-    dayLabel,
-    dayProgress,
-    monthLabel,
-    monthProgress,
-    nextPrimary,
-    nextSecondary,
-    percentFormatter,
-    statusContent,
-    tip,
-    weekLabel,
-    weekProgress,
-    timezone,
-    yearLabel,
-    yearProgress,
-  ]);
+    }),
+    [
+      clockDate,
+      clockPrimary,
+      dayInfo,
+      dayLabel,
+      dayProgress,
+      monthLabel,
+      monthProgress,
+      nextPrimary,
+      nextSecondary,
+      percentFormatter,
+      statusContent,
+      tip,
+      weekLabel,
+      weekProgress,
+      timezone,
+      yearLabel,
+      yearProgress,
+    ]
+  );
 
-  const renderCards = cards.map((card) => {
-    const item = layout[card.id] ?? CARD_LIMITS[card.id].initial;
+  const cardLabels = useMemo<Record<CardId, string>>(
+    () => ({
+      status: t('dashboard.cardNames.status', {
+        defaultValue: isZh ? '专注状态' : 'Focus status',
+      }),
+      next: t('dashboard.cardNames.next', {
+        defaultValue: isZh ? '下次节奏' : 'Next session',
+      }),
+      day: t('dashboard.cardNames.day', {
+        defaultValue: isZh ? '今日进度' : "Today's progress",
+      }),
+      week: t('dashboard.cardNames.week', {
+        defaultValue: isZh ? '本周进度' : 'Weekly progress',
+      }),
+      month: t('dashboard.cardNames.month', {
+        defaultValue: isZh ? '本月进度' : 'Monthly progress',
+      }),
+      year: t('dashboard.cardNames.year', {
+        defaultValue: isZh ? '年度进度' : 'Year progress',
+      }),
+      tips: t('dashboard.cardNames.tips', {
+        defaultValue: isZh ? '护眼贴士' : 'Eye care tips',
+      }),
+      clock: t('dashboard.cardNames.clock', {
+        defaultValue: isZh ? '当前时间' : 'Clock',
+      }),
+    }),
+    [t, isZh]
+  );
+
+  const renderedCards = cardInstances.map((card, index) => {
+    const config = cardCatalog[card.type];
+    if (!config) return null;
+    const delay = Math.min(index * 60, 420);
+    const removeLabel = isZh
+      ? `移除 ${cardLabels[card.type]}`
+      : `Remove ${cardLabels[card.type]}`;
     return (
       <DraggableCard
-        key={card.id}
-        id={card.id}
-        item={item}
-        minW={card.minW}
-        minH={card.minH}
+        key={card.instanceId}
+        id={card.instanceId}
+        item={card.layout}
+        minW={config.minW}
+        minH={config.minH}
         metrics={metrics}
         onChange={attemptUpdate}
+        onRemove={handleRemoveCard}
+        removeLabel={removeLabel}
       >
-        {card.element}
+        {config.render(delay)}
       </DraggableCard>
     );
   });
@@ -878,8 +954,39 @@ export function Dashboard() {
   return (
     <div className="dashboard-page">
       <div className="dashboard-content">
+        <div className="dashboard-toolbar">
+          <button
+            ref={addButtonRef}
+            type="button"
+            className="dashboard-add-button"
+            onClick={() => setAddMenuOpen((open) => !open)}
+            aria-haspopup="true"
+            aria-expanded={isAddMenuOpen}
+            aria-label={isZh ? '添加卡片' : 'Add card'}
+          >
+            +
+          </button>
+          {isAddMenuOpen && (
+            <div className="dashboard-add-menu" ref={addMenuRef} role="menu">
+              {CARD_ORDER.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  className="dashboard-add-menu-item"
+                  onClick={() => {
+                    handleAddCard(type);
+                    setAddMenuOpen(false);
+                  }}
+                  role="menuitem"
+                >
+                  {cardLabels[type]}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="dashboard-grid" ref={gridRef} role="list" style={gridStyle}>
-          {renderCards}
+          {renderedCards}
         </div>
       </div>
     </div>
@@ -887,16 +994,28 @@ export function Dashboard() {
 }
 
 interface DraggableCardProps {
-  id: CardId;
+  id: string;
   item: LayoutItem;
   minW: number;
   minH: number;
   metrics: GridMetrics;
   children: ReactNode;
-  onChange: (id: CardId, candidate: LayoutItem) => boolean;
+  onChange: (id: string, candidate: LayoutItem) => boolean;
+  onRemove: (id: string) => void;
+  removeLabel: string;
 }
 
-function DraggableCard({ id, item, metrics, children, onChange, minW, minH }: DraggableCardProps) {
+function DraggableCard({
+  id,
+  item,
+  metrics,
+  children,
+  onChange,
+  onRemove,
+  removeLabel,
+  minW,
+  minH,
+}: DraggableCardProps) {
   const [mode, setMode] = useState<'idle' | 'dragging' | 'resizing'>('idle');
 
   const applyWithBounds = useCallback(
@@ -1037,6 +1156,21 @@ function DraggableCard({ id, item, metrics, children, onChange, minW, minH }: Dr
         touchAction: 'none',
       }}
     >
+      <button
+        type="button"
+        className="card-remove-button"
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onRemove(id);
+        }}
+        onPointerDown={(event) => {
+          event.stopPropagation();
+        }}
+        aria-label={removeLabel}
+      >
+        ×
+      </button>
       {children}
       <div className="card-resize-handle" aria-hidden="true" onPointerDown={handleResizeStart} />
     </div>

@@ -112,6 +112,80 @@
   justify-items: stretch;
 }
 
+.dashboard-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: clamp(12px, 3vw, 20px);
+  position: relative;
+  z-index: 3;
+}
+
+.dashboard-add-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.dashboard-add-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.dashboard-add-button:focus-visible {
+  outline: 2px solid rgba(94, 160, 255, 0.6);
+  outline-offset: 3px;
+}
+
+.dashboard-add-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 200px;
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: 0 16px 42px rgba(15, 23, 42, 0.22);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dashboard-add-menu-item {
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 0.95rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.dashboard-add-menu-item:hover {
+  background: rgba(94, 160, 255, 0.12);
+  transform: translateX(2px);
+}
+
+.dashboard-add-menu-item:focus-visible {
+  outline: 2px solid rgba(94, 160, 255, 0.6);
+  outline-offset: 2px;
+}
+
 .draggable-card {
   position: relative;
   display: flex;
@@ -149,6 +223,44 @@
   cursor: nwse-resize;
   opacity: 0;
   transition: opacity 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.card-remove-button {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(239, 68, 68, 0.85);
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+  z-index: 2;
+}
+
+.draggable-card:hover .card-remove-button {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.card-remove-button:hover {
+  background: rgba(220, 38, 38, 0.95);
+}
+
+.card-remove-button:focus-visible {
+  outline: 2px solid rgba(239, 68, 68, 0.7);
+  outline-offset: 2px;
+  opacity: 1;
+  transform: scale(1);
 }
 
 .card-resize-handle::before {
