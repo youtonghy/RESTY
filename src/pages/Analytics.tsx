@@ -400,29 +400,28 @@ export function Analytics() {
               <h2 className="card-header">{t('analytics.timeline')}</h2>
 
               <div className="horizontal-timeline-container">
-                {/* 刻度 */}
-                <div className="timeline-header">
-                  <div className="timeline-time-scale">
+                <div className="timeline-bar-wrapper">
+                  <div className="timeline-scale">
                     {timeScaleMarks.map((mark) => (
                       <div
                         key={mark.key}
                         className={`time-scale-mark ${mark.position}`}
                         style={{ left: `${mark.left}%` }}
                       >
-                        <div className="time-scale-line"></div>
                         <div className="time-scale-label">{mark.label}</div>
+                        <div className="time-scale-tick" />
                       </div>
                     ))}
                   </div>
-                </div>
 
-                {/* 单条时间轴（用渐变绘制工作/休息片段） */}
-                <div
-                  className="horizontal-timeline enhanced"
-                  style={{ background: timelineBackground }}
-                  aria-label={t('analytics.timeline')}
-                  role="img"
-                />
+                  {/* 单条时间轴（用渐变绘制工作/休息片段） */}
+                  <div
+                    className="horizontal-timeline enhanced"
+                    style={{ background: timelineBackground }}
+                    aria-label={t('analytics.timeline')}
+                    role="img"
+                  />
+                </div>
 
                 <div className="timeline-legend">
                   <div className="legend-item">
