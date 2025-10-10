@@ -135,11 +135,21 @@ interface LayoutItem {
   h: number;
 }
 
+interface ClockCardSettings {
+  timeZone: string | null;
+  use12Hour: boolean;
+}
+
+interface CardSettings {
+  clock?: ClockCardSettings;
+}
+
 interface CardInstance {
   instanceId: string;
   type: CardId;
   layout: LayoutItem;
   styleId?: string | null;
+  settings?: CardSettings;
 }
 
 interface GridMetrics {
@@ -161,6 +171,57 @@ interface CardStylePreset {
   id: string;
   name: string;
 }
+
+const SUPPORTED_TIMEZONES: Set<string> | null = (() => {
+  const supportedValuesOf = (Intl as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf;
+  if (typeof supportedValuesOf !== 'function') {
+    return null;
+  }
+  try {
+    const timeZones = supportedValuesOf('timeZone');
+    return Array.isArray(timeZones) && timeZones.length ? new Set(timeZones) : null;
+  } catch (error) {
+    return null;
+  }
+})();
+
+const sanitizeTimeZone = (zone: unknown): string | null => {
+  if (typeof zone !== 'string' || zone.trim() === '') return null;
+  const normalized = zone.trim();
+  if (SUPPORTED_TIMEZONES && !SUPPORTED_TIMEZONES.has(normalized)) {
+    return null;
+  }
+  try {
+    const formatter = new Intl.DateTimeFormat(undefined, { timeZone: normalized });
+    formatter.format(Date.now());
+    return normalized;
+  } catch (error) {
+    return null;
+  }
+};
+
+const sanitizeClockSettings = (settings: unknown): ClockCardSettings | undefined => {
+  if (!settings || typeof settings !== 'object') return undefined;
+  const clock = settings as Partial<ClockCardSettings> & Record<string, unknown>;
+  const timeZone = sanitizeTimeZone(clock.timeZone);
+  const use12Hour = clock.use12Hour === undefined ? false : Boolean(clock.use12Hour);
+  if (timeZone === null && !use12Hour) {
+    return undefined;
+  }
+  return {
+    timeZone,
+    use12Hour,
+  };
+};
+
+const sanitizeCardSettings = (settings: unknown): CardSettings | undefined => {
+  if (!settings || typeof settings !== 'object') return undefined;
+  const clock = sanitizeClockSettings((settings as CardSettings).clock);
+  if (!clock) {
+    return undefined;
+  }
+  return { clock };
+};
 const CARD_LIMITS: Record<CardId, { minW: number; minH: number; initial: LayoutItem }> = {
   status: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: 0, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
   next: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: BASE_SPAN, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
@@ -279,6 +340,7 @@ const createInitialInstances = (): CardInstance[] =>
     type,
     layout: { ...CARD_LIMITS[type].initial },
     styleId: null,
+    settings: undefined,
   }));
 
 const createCardInstance = (type: CardId, existing: CardInstance[]): CardInstance => {
@@ -291,7 +353,18 @@ const createCardInstance = (type: CardId, existing: CardInstance[]): CardInstanc
     type,
     layout: clampLayout(type, slot),
     styleId: null,
+    settings: undefined,
   };
+};
+
+const settingsEqual = (a?: CardSettings, b?: CardSettings) => {
+  const ac = a?.clock;
+  const bc = b?.clock;
+  const aZone = ac?.timeZone ?? null;
+  const bZone = bc?.timeZone ?? null;
+  const aMode = ac?.use12Hour ?? false;
+  const bMode = bc?.use12Hour ?? false;
+  return aZone === bZone && aMode === bMode;
 };
 
 const cardsEqual = (a: CardInstance[], b: CardInstance[]) => {
@@ -301,6 +374,7 @@ const cardsEqual = (a: CardInstance[], b: CardInstance[]) => {
     const rhs = b[i];
     if (lhs.instanceId !== rhs.instanceId || lhs.type !== rhs.type) return false;
     if ((lhs.styleId ?? null) !== (rhs.styleId ?? null)) return false;
+    if (!settingsEqual(lhs.settings, rhs.settings)) return false;
     const la = lhs.layout;
     const lb = rhs.layout;
     if (la.x !== lb.x || la.y !== lb.y || la.w !== lb.w || la.h !== lb.h) return false;
@@ -319,11 +393,13 @@ const loadPersistedCards = (): CardInstance[] | null => {
       if (!item || !item.instanceId || typeof item.type !== 'string') continue;
       const type = item.type as CardId;
       if (!CARD_LIMITS[type]) continue;
+      const settings = sanitizeCardSettings((item as CardInstance).settings);
       sanitized.push({
         instanceId: item.instanceId,
         type,
         layout: clampLayout(type, item.layout),
         styleId: item.styleId ?? null,
+        settings,
       });
     }
     return sanitized.length ? sanitized : null;
@@ -344,6 +420,7 @@ const migrateLegacyLayout = (): CardInstance[] | null => {
       ...card,
       layout: clampLayout(card.type, parsed?.[card.type] ?? card.layout),
       styleId: null,
+      settings: undefined,
     }));
   } catch (error) {
     console.warn('Failed to migrate legacy dashboard layout:', error);
@@ -632,19 +709,6 @@ export function Dashboard() {
     [i18n.language]
   );
 
-  const dateFormatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat(i18n.language, {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-      }),
-    [i18n.language]
-  );
-
-  const clockPrimary = timeFormatter.format(now);
-  const clockDate = dateFormatter.format(now);
-
   const statusContent = useMemo(() => {
     if (timerInfo.state === 'running' && timerInfo.phase === 'work') {
       return {
@@ -691,7 +755,17 @@ export function Dashboard() {
     };
   }, [t, timerInfo.state, timerInfo.phase, isZh]);
 
-  const timezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, []);
+  const systemTimeZone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, []);
+
+  const timeZoneOptions = useMemo(() => {
+    if (!SUPPORTED_TIMEZONES) return [] as string[];
+    return Array.from(SUPPORTED_TIMEZONES).sort((a, b) => a.localeCompare(b));
+  }, []);
+
+  const filteredTimeZones = useMemo(
+    () => timeZoneOptions.filter((zone) => zone !== systemTimeZone),
+    [timeZoneOptions, systemTimeZone]
+  );
 
   // Next break display: show countdown instead of absolute time
   const nextPrimary = nextBreakSlot
@@ -759,6 +833,22 @@ export function Dashboard() {
     );
   }, []);
 
+  const handleUpdateSettings = useCallback(
+    (instanceId: string, updater: (prev: CardSettings | undefined) => CardSettings | undefined) => {
+      setCardInstances((prev) =>
+        prev.map((card) =>
+          card.instanceId === instanceId
+            ? {
+                ...card,
+                settings: updater(card.settings),
+              }
+            : card
+        )
+      );
+    },
+    []
+  );
+
   useEffect(() => {
     if (!isAddMenuOpen) return;
     const handleClick = (event: MouseEvent) => {
@@ -825,13 +915,13 @@ export function Dashboard() {
 
   const cardCatalog = useMemo<Record<
     CardId,
-    { minW: number; minH: number; render: (delay: number) => ReactNode }
+    { minW: number; minH: number; render: (instance: CardInstance, delay: number) => ReactNode }
   >>(
     () => ({
       status: {
         minW: CARD_LIMITS.status.minW,
         minH: CARD_LIMITS.status.minH,
-        render: (delay: number) => (
+        render: (_instance, delay: number) => (
           <FeatureCard
             primary={statusContent.primary}
             label={statusContent.label}
@@ -843,14 +933,14 @@ export function Dashboard() {
       next: {
         minW: CARD_LIMITS.next.minW,
         minH: CARD_LIMITS.next.minH,
-        render: (delay: number) => (
+        render: (_instance, delay: number) => (
           <NextSlotCard primary={nextPrimary} secondary={nextSecondary} delay={delay} />
         ),
       },
       day: {
         minW: CARD_LIMITS.day.minW,
         minH: CARD_LIMITS.day.minH,
-        render: (delay: number) => (
+        render: (_instance, delay: number) => (
           <PercentCard
             value={dayProgress}
             formatted={percentFormatter.format(dayProgress)}
@@ -863,7 +953,7 @@ export function Dashboard() {
       week: {
         minW: CARD_LIMITS.week.minW,
         minH: CARD_LIMITS.week.minH,
-        render: (delay: number) => (
+        render: (_instance, delay: number) => (
           <PercentCard
             value={weekProgress}
             formatted={percentFormatter.format(weekProgress)}
@@ -875,7 +965,7 @@ export function Dashboard() {
       month: {
         minW: CARD_LIMITS.month.minW,
         minH: CARD_LIMITS.month.minH,
-        render: (delay: number) => (
+        render: (_instance, delay: number) => (
           <PercentCard
             value={monthProgress}
             formatted={percentFormatter.format(monthProgress)}
@@ -887,7 +977,7 @@ export function Dashboard() {
       year: {
         minW: CARD_LIMITS.year.minW,
         minH: CARD_LIMITS.year.minH,
-        render: (delay: number) => (
+        render: (_instance, delay: number) => (
           <PercentCard
             value={yearProgress}
             formatted={percentFormatter.format(yearProgress)}
@@ -899,32 +989,58 @@ export function Dashboard() {
       tips: {
         minW: CARD_LIMITS.tips.minW,
         minH: CARD_LIMITS.tips.minH,
-        render: (delay: number) => <TipsCard tip={tip} delay={delay} />,
+        render: (_instance, delay: number) => <TipsCard tip={tip} delay={delay} />,
       },
       clock: {
         minW: CARD_LIMITS.clock.minW,
         minH: CARD_LIMITS.clock.minH,
-        render: (delay: number) => (
-          <ClockCard time={clockPrimary} date={clockDate} timezone={timezone} delay={delay} />
-        ),
+        render: (instance, delay: number) => {
+          const settings = instance.settings?.clock;
+          const selectedTimeZone = settings?.timeZone;
+          const use12Hour = settings?.use12Hour ?? false;
+          const timeZone = selectedTimeZone ?? systemTimeZone;
+          const timeFormatterWithZone = new Intl.DateTimeFormat(i18n.language, {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: use12Hour,
+            timeZone,
+          });
+          const dateFormatterWithZone = new Intl.DateTimeFormat(i18n.language, {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+            timeZone,
+          });
+          const timeString = timeFormatterWithZone.format(now);
+          const dateString = dateFormatterWithZone.format(now);
+
+          return (
+            <ClockCard
+              time={timeString}
+              date={dateString}
+              timezone={timeZone}
+              delay={delay}
+            />
+          );
+        },
       },
     }),
     [
-      clockDate,
-      clockPrimary,
       dayInfo,
       dayLabel,
       dayProgress,
+      i18n.language,
       monthLabel,
       monthProgress,
       nextPrimary,
       nextSecondary,
+      now,
       percentFormatter,
       statusContent,
+      systemTimeZone,
       tip,
       weekLabel,
       weekProgress,
-      timezone,
       yearLabel,
       yearProgress,
     ]
@@ -971,6 +1087,104 @@ export function Dashboard() {
     const resetStyleLabel = isZh ? '恢复默认样式' : 'Use default style';
     const styleModalTitle = isZh ? '自定义卡片样式' : 'Customize card style';
     const styleModalCloseLabel = isZh ? '关闭' : 'Close';
+    let renderCustomContent: ((close: () => void) => ReactNode) | undefined;
+
+    if (card.type === 'clock') {
+      const clockSettings = card.settings?.clock;
+      const selectedZone = clockSettings?.timeZone ?? null;
+      const use12Hour = clockSettings?.use12Hour ?? false;
+      const timezoneLabel = isZh ? '时区' : 'Time zone';
+      const formatLabel = isZh ? '时间格式' : 'Time format';
+      const option12Label = isZh ? '12 小时制' : '12-hour';
+      const option24Label = isZh ? '24 小时制' : '24-hour';
+      const systemOptionLabel = isZh
+        ? `跟随系统（${systemTimeZone}）`
+        : `System default (${systemTimeZone})`;
+      const clockDefaults: ClockCardSettings = { timeZone: null, use12Hour: false };
+
+      const updateClockSettings = (
+        updater: (prev: ClockCardSettings) => ClockCardSettings
+      ) => {
+        handleUpdateSettings(card.instanceId, (prev) => {
+          const base = prev?.clock ?? clockDefaults;
+          const next = updater({ ...base });
+          const normalized: ClockCardSettings = {
+            timeZone: next.timeZone ?? null,
+            use12Hour: next.use12Hour ?? false,
+          };
+          const hasCustom = normalized.timeZone !== null || normalized.use12Hour !== false;
+          if (!hasCustom) {
+            if (!prev) return undefined;
+            const { clock: _omit, ...rest } = prev;
+            return Object.keys(rest).length ? rest : undefined;
+          }
+          return { ...(prev ?? {}), clock: normalized };
+        });
+      };
+
+      renderCustomContent = () => (
+        <div className="card-style-custom">
+          <label className="card-style-field">
+            <span className="card-style-field-label">{timezoneLabel}</span>
+            <select
+              className="card-style-select"
+              value={selectedZone ?? 'system'}
+              onChange={(event) => {
+                const value = event.target.value;
+                const nextZone = value === 'system' ? null : sanitizeTimeZone(value) ?? null;
+                updateClockSettings((prevClock) => ({
+                  ...prevClock,
+                  timeZone: nextZone,
+                }));
+              }}
+            >
+              <option value="system">{systemOptionLabel}</option>
+              {filteredTimeZones.map((zone) => (
+                <option key={zone} value={zone}>
+                  {zone}
+                </option>
+              ))}
+            </select>
+          </label>
+          <fieldset className="card-style-field">
+            <legend className="card-style-field-label">{formatLabel}</legend>
+            <div className="card-style-radio-group">
+              <label className="card-style-radio">
+                <input
+                  type="radio"
+                  name={`${card.instanceId}-clock-format`}
+                  value="24"
+                  checked={!use12Hour}
+                  onChange={() => {
+                    updateClockSettings((prevClock) => ({
+                      ...prevClock,
+                      use12Hour: false,
+                    }));
+                  }}
+                />
+                <span>{option24Label}</span>
+              </label>
+              <label className="card-style-radio">
+                <input
+                  type="radio"
+                  name={`${card.instanceId}-clock-format`}
+                  value="12"
+                  checked={use12Hour}
+                  onChange={() => {
+                    updateClockSettings((prevClock) => ({
+                      ...prevClock,
+                      use12Hour: true,
+                    }));
+                  }}
+                />
+                <span>{option12Label}</span>
+              </label>
+            </div>
+          </fieldset>
+        </div>
+      );
+    }
+
     return (
       <DraggableCard
         key={card.instanceId}
@@ -989,8 +1203,9 @@ export function Dashboard() {
         resetStyleLabel={resetStyleLabel}
         styleModalTitle={styleModalTitle}
         styleModalCloseLabel={styleModalCloseLabel}
+        renderCustomContent={renderCustomContent}
       >
-        {config.render(delay)}
+        {config.render(card, delay)}
       </DraggableCard>
     );
   });
@@ -1054,6 +1269,7 @@ interface DraggableCardProps {
   resetStyleLabel: string;
   styleModalTitle: string;
   styleModalCloseLabel: string;
+  renderCustomContent?: (close: () => void) => ReactNode;
 }
 
 function DraggableCard({
@@ -1071,6 +1287,7 @@ function DraggableCard({
   resetStyleLabel,
   styleModalTitle,
   styleModalCloseLabel,
+  renderCustomContent,
   minW,
   minH,
 }: DraggableCardProps) {
@@ -1108,7 +1325,9 @@ function DraggableCard({
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    const focusable = styleMenuRef.current?.querySelector<HTMLElement>('button:not([disabled])');
+    const focusable = styleMenuRef.current?.querySelector<HTMLElement>(
+      'button:not([disabled]), select, input:not([disabled])'
+    );
     focusable?.focus();
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
@@ -1262,6 +1481,9 @@ function DraggableCard({
     return base.join(' ');
   }, [mode]);
 
+  const hasStyleOptions = styleOptions.length > 0;
+  const hasCustomContent = typeof renderCustomContent === 'function';
+
   return (
     <div
       ref={cardRef}
@@ -1324,8 +1546,13 @@ function DraggableCard({
               </button>
             </div>
             <div className="card-style-modal-body">
-              {styleOptions.length ? (
-                <>
+              {hasCustomContent && (
+                <div className="card-style-custom-wrapper">
+                  {renderCustomContent?.(closeStyleMenu)}
+                </div>
+              )}
+              {hasStyleOptions && (
+                <div className="card-style-menu-group">
                   <button
                     type="button"
                     className={`card-style-menu-item${selectedStyleId ? '' : ' is-active'}`}
@@ -1349,8 +1576,9 @@ function DraggableCard({
                       {style.name}
                     </button>
                   ))}
-                </>
-              ) : (
+                </div>
+              )}
+              {!hasStyleOptions && !hasCustomContent && (
                 <div className="card-style-menu-empty">{noStyleLabel}</div>
               )}
             </div>
