@@ -969,7 +969,6 @@ export function Dashboard() {
       : `Remove ${cardLabels[card.type]}`;
     const noStyleLabel = isZh ? '暂无更多样式' : 'No additional styles';
     const resetStyleLabel = isZh ? '恢复默认样式' : 'Use default style';
-    const styleButtonLabel = isZh ? '自定义卡片样式' : 'Customize card style';
     return (
       <DraggableCard
         key={card.instanceId}
@@ -986,7 +985,6 @@ export function Dashboard() {
         onSelectStyle={handleSelectStyle}
         noStyleLabel={noStyleLabel}
         resetStyleLabel={resetStyleLabel}
-        styleButtonLabel={styleButtonLabel}
       >
         {config.render(delay)}
       </DraggableCard>
@@ -1050,7 +1048,6 @@ interface DraggableCardProps {
   onSelectStyle: (id: string, styleId: string | null) => void;
   noStyleLabel: string;
   resetStyleLabel: string;
-  styleButtonLabel: string;
 }
 
 function DraggableCard({
@@ -1066,21 +1063,21 @@ function DraggableCard({
   onSelectStyle,
   noStyleLabel,
   resetStyleLabel,
-  styleButtonLabel,
   minW,
   minH,
 }: DraggableCardProps) {
   const [mode, setMode] = useState<'idle' | 'dragging' | 'resizing'>('idle');
   const [styleMenuOpen, setStyleMenuOpen] = useState(false);
   const styleMenuRef = useRef<HTMLDivElement | null>(null);
-  const styleButtonRef = useRef<HTMLButtonElement | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const dragIntentRef = useRef(false);
 
   useEffect(() => {
     if (!styleMenuOpen) return;
     const handleClick = (event: MouseEvent) => {
       const target = event.target as Node;
       if (styleMenuRef.current?.contains(target)) return;
-      if (styleButtonRef.current?.contains(target)) return;
+      if (cardRef.current?.contains(target)) return;
       setStyleMenuOpen(false);
     };
     window.addEventListener('mousedown', handleClick);
@@ -1114,7 +1111,11 @@ function DraggableCard({
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (mode !== 'idle') return;
       if (metrics.columnSpan <= 0 || metrics.rowSpan <= 0) return;
+      if (event.button !== 0) return;
       event.preventDefault();
+
+      dragIntentRef.current = false;
+      setStyleMenuOpen(false);
 
       const node = event.currentTarget;
       node.setPointerCapture(event.pointerId);
@@ -1137,6 +1138,13 @@ function DraggableCard({
           h: start.original.h,
         };
 
+        if (
+          !dragIntentRef.current &&
+          (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4)
+        ) {
+          dragIntentRef.current = true;
+        }
+
         applyWithBounds(next);
       };
 
@@ -1150,6 +1158,9 @@ function DraggableCard({
           /* ignore */
         }
         setMode('idle');
+        if (!dragIntentRef.current) {
+          setStyleMenuOpen(true);
+        }
       };
 
       node.addEventListener('pointermove', handleMove);
@@ -1217,6 +1228,7 @@ function DraggableCard({
 
   return (
     <div
+      ref={cardRef}
       className={classes}
       onPointerDown={handleDragStart}
       style={{
@@ -1242,26 +1254,15 @@ function DraggableCard({
       >
         ×
       </button>
-      <button
-        ref={styleButtonRef}
-        type="button"
-        className="card-style-button"
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          setStyleMenuOpen((open) => !open);
-        }}
-        onPointerDown={(event) => {
-          event.stopPropagation();
-        }}
-        aria-haspopup="true"
-        aria-expanded={styleMenuOpen}
-        aria-label={styleButtonLabel}
-      >
-        🎨
-      </button>
       {styleMenuOpen && (
-        <div className="card-style-menu" ref={styleMenuRef} role="menu">
+        <div
+          className="card-style-menu"
+          ref={styleMenuRef}
+          role="menu"
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+        >
           {styleOptions.length ? (
             <>
               <button
