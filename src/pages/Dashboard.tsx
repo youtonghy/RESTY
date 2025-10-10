@@ -139,6 +139,7 @@ interface CardInstance {
   instanceId: string;
   type: CardId;
   layout: LayoutItem;
+  styleId?: string | null;
 }
 
 interface GridMetrics {
@@ -156,6 +157,10 @@ const FALLBACK_TRACK_SIZE = 120;
 const CARD_ORDER: CardId[] = ['status', 'next', 'day', 'week', 'month', 'year', 'tips', 'clock'];
 const MAX_GRID_ROWS = 120;
 const CARD_STORAGE_KEY = 'resty.dashboard.cards.v2';
+interface CardStylePreset {
+  id: string;
+  name: string;
+}
 const CARD_LIMITS: Record<CardId, { minW: number; minH: number; initial: LayoutItem }> = {
   status: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: 0, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
   next: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: BASE_SPAN, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
@@ -173,6 +178,16 @@ const CARD_LIMITS: Record<CardId, { minW: number; minH: number; initial: LayoutI
     minH: BASE_SPAN,
     initial: { x: BASE_SPAN * 2, y: BASE_SPAN, w: BASE_SPAN * 2, h: BASE_SPAN },
   },
+};
+const CARD_STYLE_PRESETS: Record<CardId, CardStylePreset[]> = {
+  status: [],
+  next: [],
+  day: [],
+  week: [],
+  month: [],
+  year: [],
+  tips: [],
+  clock: [],
 };
 const clampLayout = (type: CardId, candidate: LayoutItem): LayoutItem => {
   const limits = CARD_LIMITS[type];
@@ -263,6 +278,7 @@ const createInitialInstances = (): CardInstance[] =>
     instanceId: `${type}-${index}`,
     type,
     layout: { ...CARD_LIMITS[type].initial },
+    styleId: null,
   }));
 
 const createCardInstance = (type: CardId, existing: CardInstance[]): CardInstance => {
@@ -274,6 +290,7 @@ const createCardInstance = (type: CardId, existing: CardInstance[]): CardInstanc
     instanceId: `${type}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`,
     type,
     layout: clampLayout(type, slot),
+    styleId: null,
   };
 };
 
@@ -283,6 +300,7 @@ const cardsEqual = (a: CardInstance[], b: CardInstance[]) => {
     const lhs = a[i];
     const rhs = b[i];
     if (lhs.instanceId !== rhs.instanceId || lhs.type !== rhs.type) return false;
+    if ((lhs.styleId ?? null) !== (rhs.styleId ?? null)) return false;
     const la = lhs.layout;
     const lb = rhs.layout;
     if (la.x !== lb.x || la.y !== lb.y || la.w !== lb.w || la.h !== lb.h) return false;
@@ -305,6 +323,7 @@ const loadPersistedCards = (): CardInstance[] | null => {
         instanceId: item.instanceId,
         type,
         layout: clampLayout(type, item.layout),
+        styleId: item.styleId ?? null,
       });
     }
     return sanitized.length ? sanitized : null;
@@ -324,6 +343,7 @@ const migrateLegacyLayout = (): CardInstance[] | null => {
     return fallback.map((card) => ({
       ...card,
       layout: clampLayout(card.type, parsed?.[card.type] ?? card.layout),
+      styleId: null,
     }));
   } catch (error) {
     console.warn('Failed to migrate legacy dashboard layout:', error);
@@ -726,6 +746,19 @@ export function Dashboard() {
     });
   }, []);
 
+  const handleSelectStyle = useCallback((instanceId: string, styleId: string | null) => {
+    setCardInstances((prev) =>
+      prev.map((card) =>
+        card.instanceId === instanceId
+          ? {
+              ...card,
+              styleId,
+            }
+          : card
+      )
+    );
+  }, []);
+
   useEffect(() => {
     if (!isAddMenuOpen) return;
     const handleClick = (event: MouseEvent) => {
@@ -934,6 +967,9 @@ export function Dashboard() {
     const removeLabel = isZh
       ? `移除 ${cardLabels[card.type]}`
       : `Remove ${cardLabels[card.type]}`;
+    const noStyleLabel = isZh ? '暂无更多样式' : 'No additional styles';
+    const resetStyleLabel = isZh ? '恢复默认样式' : 'Use default style';
+    const styleButtonLabel = isZh ? '自定义卡片样式' : 'Customize card style';
     return (
       <DraggableCard
         key={card.instanceId}
@@ -945,6 +981,12 @@ export function Dashboard() {
         onChange={attemptUpdate}
         onRemove={handleRemoveCard}
         removeLabel={removeLabel}
+        styleOptions={CARD_STYLE_PRESETS[card.type]}
+        selectedStyleId={card.styleId ?? null}
+        onSelectStyle={handleSelectStyle}
+        noStyleLabel={noStyleLabel}
+        resetStyleLabel={resetStyleLabel}
+        styleButtonLabel={styleButtonLabel}
       >
         {config.render(delay)}
       </DraggableCard>
@@ -1003,6 +1045,12 @@ interface DraggableCardProps {
   onChange: (id: string, candidate: LayoutItem) => boolean;
   onRemove: (id: string) => void;
   removeLabel: string;
+  styleOptions: CardStylePreset[];
+  selectedStyleId: string | null;
+  onSelectStyle: (id: string, styleId: string | null) => void;
+  noStyleLabel: string;
+  resetStyleLabel: string;
+  styleButtonLabel: string;
 }
 
 function DraggableCard({
@@ -1013,10 +1061,33 @@ function DraggableCard({
   onChange,
   onRemove,
   removeLabel,
+  styleOptions,
+  selectedStyleId,
+  onSelectStyle,
+  noStyleLabel,
+  resetStyleLabel,
+  styleButtonLabel,
   minW,
   minH,
 }: DraggableCardProps) {
   const [mode, setMode] = useState<'idle' | 'dragging' | 'resizing'>('idle');
+  const [styleMenuOpen, setStyleMenuOpen] = useState(false);
+  const styleMenuRef = useRef<HTMLDivElement | null>(null);
+  const styleButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!styleMenuOpen) return;
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (styleMenuRef.current?.contains(target)) return;
+      if (styleButtonRef.current?.contains(target)) return;
+      setStyleMenuOpen(false);
+    };
+    window.addEventListener('mousedown', handleClick);
+    return () => {
+      window.removeEventListener('mousedown', handleClick);
+    };
+  }, [styleMenuOpen]);
 
   const applyWithBounds = useCallback(
     (candidate: LayoutItem) => {
@@ -1171,6 +1242,59 @@ function DraggableCard({
       >
         ×
       </button>
+      <button
+        ref={styleButtonRef}
+        type="button"
+        className="card-style-button"
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setStyleMenuOpen((open) => !open);
+        }}
+        onPointerDown={(event) => {
+          event.stopPropagation();
+        }}
+        aria-haspopup="true"
+        aria-expanded={styleMenuOpen}
+        aria-label={styleButtonLabel}
+      >
+        🎨
+      </button>
+      {styleMenuOpen && (
+        <div className="card-style-menu" ref={styleMenuRef} role="menu">
+          {styleOptions.length ? (
+            <>
+              <button
+                type="button"
+                className={`card-style-menu-item${selectedStyleId ? '' : ' is-active'}`}
+                onClick={() => {
+                  onSelectStyle(id, null);
+                  setStyleMenuOpen(false);
+                }}
+                role="menuitem"
+              >
+                {resetStyleLabel}
+              </button>
+              {styleOptions.map((style) => (
+                <button
+                  key={style.id}
+                  type="button"
+                  className={`card-style-menu-item${selectedStyleId === style.id ? ' is-active' : ''}`}
+                  onClick={() => {
+                    onSelectStyle(id, style.id);
+                    setStyleMenuOpen(false);
+                  }}
+                  role="menuitem"
+                >
+                  {style.name}
+                </button>
+              ))}
+            </>
+          ) : (
+            <div className="card-style-menu-empty">{noStyleLabel}</div>
+          )}
+        </div>
+      )}
       {children}
       <div className="card-resize-handle" aria-hidden="true" onPointerDown={handleResizeStart} />
     </div>
