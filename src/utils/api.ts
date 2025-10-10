@@ -113,30 +113,14 @@ export async function isAutostartEnabled(): Promise<boolean> {
   }
 }
 
-/** 启用开机自启（兼容不同命令命名）。 */
+/** 启用开机自启。 */
 export async function enableAutostart(): Promise<void> {
-  try {
-    await invoke('plugin:autostart|enable');
-  } catch (_) {
-    try {
-      await invoke('plugin:autostart|enable');
-    } catch (err) {
-      console.error('enableAutostart failed:', err);
-    }
-  }
+  await invoke('plugin:autostart|enable');
 }
 
-/** 禁用开机自启（兼容不同命令命名）。 */
+/** 禁用开机自启。 */
 export async function disableAutostart(): Promise<void> {
-  try {
-    await invoke('plugin:autostart|disable');
-  } catch (_) {
-    try {
-      await invoke('plugin:autostart|disable');
-    } catch (err) {
-      console.error('disableAutostart failed:', err);
-    }
-  }
+  await invoke('plugin:autostart|disable');
 }
 
 /** 根据布尔值同步开机自启状态。 */
