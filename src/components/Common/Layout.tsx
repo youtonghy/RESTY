@@ -1,6 +1,6 @@
 import { ReactNode, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { open } from '@tauri-apps/plugin-opener';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { useAppStore } from '../../store';
 import { Navigation } from './Navigation';
 import { WindowControls } from './WindowControls';
@@ -21,10 +21,14 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
   const handleOpenWebsite = useCallback(async () => {
     if (!updateManifest) return;
     const target = updateManifest.downloadUrl || updateManifest.website;
+    if (!target) return;
     try {
-      await open(target);
+      await openUrl(target);
     } catch (error) {
       console.error('Failed to open update page:', error);
+      if (typeof window !== 'undefined') {
+        window.open(target, '_blank', 'noopener,noreferrer');
+      }
     }
   }, [updateManifest]);
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { open, revealItemInDir } from '@tauri-apps/plugin-opener';
+import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
 import * as api from '../utils/api';
@@ -94,9 +94,12 @@ export function Settings() {
 
   const handleOpenWebsite = async () => {
     try {
-      await open('https://resty.tokisantike.net');
+      await openUrl('https://resty.tokisantike.net');
     } catch (error) {
       console.error('Failed to open RESTY website:', error);
+      if (typeof window !== 'undefined') {
+        window.open('https://resty.tokisantike.net', '_blank', 'noopener,noreferrer');
+      }
     }
   };
 
