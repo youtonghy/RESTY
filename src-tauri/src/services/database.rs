@@ -109,25 +109,30 @@ impl DatabaseService {
     /// Save settings to database
     /// 同步写入内存缓存与 `settings.json`。
     pub async fn save_settings(&self, settings: &Settings) -> AppResult<()> {
+        let mut normalized = settings.clone();
+        normalized.minimize_to_tray = true;
+        normalized.close_to_tray = true;
+
         // Update in-memory settings
         let mut stored_settings = self
             .settings
             .lock()
             .map_err(|e| AppError::DatabaseError(format!("Failed to lock settings: {}", e)))?;
-        *stored_settings = settings.clone();
+        *stored_settings = normalized.clone();
         drop(stored_settings);
 
         // Persist to file
-        let json = serde_json::to_string_pretty(settings)
-            .map_err(|e| AppError::DatabaseError(format!("Failed to serialize settings: {}", e)))?;
+        let json = serde_json::to_string_pretty(&normalized).map_err(|e| {
+            AppError::DatabaseError(format!("Failed to serialize settings: {}", e))
+        })?;
 
         std::fs::write(self.settings_file(), json).map_err(|e| {
             AppError::DatabaseError(format!("Failed to write settings file: {}", e))
         })?;
 
         // Ensure rest music directory exists when settings change
-        if !settings.rest_music_directory.trim().is_empty() {
-            let target = PathBuf::from(&settings.rest_music_directory);
+        if !normalized.rest_music_directory.trim().is_empty() {
+            let target = PathBuf::from(&normalized.rest_music_directory);
             if let Err(e) = std::fs::create_dir_all(&target) {
                 return Err(AppError::DatabaseError(format!(
                     "Failed to create rest music directory: {}",
@@ -149,6 +154,14 @@ impl DatabaseService {
                 .map_err(|e| AppError::DatabaseError(format!("Failed to lock settings: {}", e)))?;
 
             let mut persist_flag = false;
+            if !settings.minimize_to_tray {
+                settings.minimize_to_tray = true;
+                persist_flag = true;
+            }
+            if !settings.close_to_tray {
+                settings.close_to_tray = true;
+                persist_flag = true;
+            }
             if settings.rest_music_directory.trim().is_empty() {
                 settings.rest_music_directory = rest_music_directory_default();
                 persist_flag = true;

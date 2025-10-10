@@ -18,9 +18,12 @@ export const useAppStore = create<AppStore>((set) => ({
   // Settings
   settings: DEFAULT_SETTINGS,
   setSettings: (newSettings) =>
-    set((state) => ({
-      settings: { ...state.settings, ...newSettings },
-    })),
+    set((state) => {
+      const merged = { ...state.settings, ...newSettings };
+      merged.minimizeToTray = true;
+      merged.closeToTray = true;
+      return { settings: merged };
+    }),
 
   // Timer
   timerInfo: {

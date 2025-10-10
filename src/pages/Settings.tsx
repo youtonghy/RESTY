@@ -6,13 +6,19 @@ import * as api from '../utils/api';
 import type { Settings as SettingsType } from '../types';
 import './Settings.css';
 
+const enforceTrayDefaults = (settings: SettingsType): SettingsType => ({
+  ...settings,
+  minimizeToTray: true,
+  closeToTray: true,
+});
+
 /**
  * 设置页面：负责从后端加载配置、提供表单编辑与导入导出能力。
  */
 export function Settings() {
   const { t } = useTranslation();
   const { settings, setSettings } = useAppStore();
-  const [localSettings, setLocalSettings] = useState<SettingsType>(settings);
+  const [localSettings, setLocalSettings] = useState<SettingsType>(enforceTrayDefaults(settings));
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -23,8 +29,9 @@ export function Settings() {
   const loadSettings = async () => {
     try {
       const loaded = await api.loadSettings();
-      setSettings(loaded);
-      setLocalSettings(loaded);
+      const normalized = enforceTrayDefaults(loaded);
+      setSettings(normalized);
+      setLocalSettings(normalized);
     } catch (error) {
       console.error('Failed to load settings:', error);
     }
@@ -34,12 +41,13 @@ export function Settings() {
   const saveSettingsAuto = async (next: SettingsType) => {
     setMessage('');
     try {
-      await api.saveSettings(next);
-      setSettings(next);
-      setLocalSettings(next);
+      const normalized = enforceTrayDefaults(next);
+      await api.saveSettings(normalized);
+      setSettings(normalized);
+      setLocalSettings(normalized);
 
       // 同步系统开机自启状态
-      api.setAutostart(next.autostart).catch((err) => {
+      api.setAutostart(normalized.autostart).catch((err) => {
         console.error('Failed to sync autostart:', err);
       });
 
@@ -53,7 +61,7 @@ export function Settings() {
   /** 恢复为上次保存的设置。 */
   const handleReset = () => {
     if (confirm(t('settings.actions.reset'))) {
-      setLocalSettings(settings);
+      setLocalSettings(enforceTrayDefaults(settings));
     }
   };
 
@@ -252,41 +260,6 @@ export function Settings() {
             </label>
           </div>
 
-          <div className="form-group toggle-group">
-            <label className="toggle-row">
-              <span className="toggle-text">{t('settings.system.minimizeToTray')}</span>
-              <span className="switch">
-                <input
-                  type="checkbox"
-                  checked={localSettings.minimizeToTray}
-                  onChange={(e) => {
-                    const next = { ...localSettings, minimizeToTray: e.target.checked };
-                    setLocalSettings(next);
-                    saveSettingsAuto(next);
-                  }}
-                />
-                <span className="slider" />
-              </span>
-            </label>
-          </div>
-
-          <div className="form-group toggle-group">
-            <label className="toggle-row">
-              <span className="toggle-text">{t('settings.system.closeToTray')}</span>
-              <span className="switch">
-                <input
-                  type="checkbox"
-                  checked={localSettings.closeToTray}
-                  onChange={(e) => {
-                    const next = { ...localSettings, closeToTray: e.target.checked };
-                    setLocalSettings(next);
-                    saveSettingsAuto(next);
-                  }}
-                />
-                <span className="slider" />
-              </span>
-            </label>
-          </div>
         </section>
 
         {/* Language Settings */}
