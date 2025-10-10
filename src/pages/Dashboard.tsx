@@ -969,6 +969,8 @@ export function Dashboard() {
       : `Remove ${cardLabels[card.type]}`;
     const noStyleLabel = isZh ? '暂无更多样式' : 'No additional styles';
     const resetStyleLabel = isZh ? '恢复默认样式' : 'Use default style';
+    const styleModalTitle = isZh ? '自定义卡片样式' : 'Customize card style';
+    const styleModalCloseLabel = isZh ? '关闭' : 'Close';
     return (
       <DraggableCard
         key={card.instanceId}
@@ -985,6 +987,8 @@ export function Dashboard() {
         onSelectStyle={handleSelectStyle}
         noStyleLabel={noStyleLabel}
         resetStyleLabel={resetStyleLabel}
+        styleModalTitle={styleModalTitle}
+        styleModalCloseLabel={styleModalCloseLabel}
       >
         {config.render(delay)}
       </DraggableCard>
@@ -1048,6 +1052,8 @@ interface DraggableCardProps {
   onSelectStyle: (id: string, styleId: string | null) => void;
   noStyleLabel: string;
   resetStyleLabel: string;
+  styleModalTitle: string;
+  styleModalCloseLabel: string;
 }
 
 function DraggableCard({
@@ -1063,6 +1069,8 @@ function DraggableCard({
   onSelectStyle,
   noStyleLabel,
   resetStyleLabel,
+  styleModalTitle,
+  styleModalCloseLabel,
   minW,
   minH,
 }: DraggableCardProps) {
@@ -1071,20 +1079,34 @@ function DraggableCard({
   const styleMenuRef = useRef<HTMLDivElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const dragIntentRef = useRef(false);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  const closeStyleMenu = useCallback(() => {
+    setStyleMenuOpen(false);
+    dragIntentRef.current = false;
+  }, []);
 
   useEffect(() => {
     if (!styleMenuOpen) return;
-    const handleClick = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (styleMenuRef.current?.contains(target)) return;
-      if (cardRef.current?.contains(target)) return;
-      setStyleMenuOpen(false);
+    if (typeof window === 'undefined') return;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeStyleMenu();
+      }
     };
-    window.addEventListener('mousedown', handleClick);
+    window.addEventListener('keydown', handleKeyDown);
+    const focusable = styleMenuRef.current?.querySelector<HTMLElement>('button:not([disabled])');
+    focusable?.focus();
     return () => {
-      window.removeEventListener('mousedown', handleClick);
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocusRef.current?.focus?.();
     };
-  }, [styleMenuOpen]);
+  }, [closeStyleMenu, styleMenuOpen]);
 
   const applyWithBounds = useCallback(
     (candidate: LayoutItem) => {
@@ -1114,8 +1136,7 @@ function DraggableCard({
       if (event.button !== 0) return;
       event.preventDefault();
 
-      dragIntentRef.current = false;
-      setStyleMenuOpen(false);
+      closeStyleMenu();
 
       const node = event.currentTarget;
       node.setPointerCapture(event.pointerId);
@@ -1167,7 +1188,7 @@ function DraggableCard({
       node.addEventListener('pointerup', handleEnd, { once: true });
       node.addEventListener('pointercancel', handleEnd, { once: true });
     },
-    [applyWithBounds, item, metrics, mode]
+    [applyWithBounds, closeStyleMenu, item, metrics, mode]
   );
 
   const handleResizeStart = useCallback(
@@ -1256,44 +1277,69 @@ function DraggableCard({
       </button>
       {styleMenuOpen && (
         <div
-          className="card-style-menu"
-          ref={styleMenuRef}
-          role="menu"
+          className="card-style-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={`${id}-style-title`}
+          onClick={closeStyleMenu}
           onPointerDown={(event) => {
             event.stopPropagation();
           }}
         >
-          {styleOptions.length ? (
-            <>
+          <div
+            className="card-style-modal"
+            ref={styleMenuRef}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="card-style-modal-header">
+              <h2 className="card-style-modal-title" id={`${id}-style-title`}>
+                {styleModalTitle}
+              </h2>
               <button
                 type="button"
-                className={`card-style-menu-item${selectedStyleId ? '' : ' is-active'}`}
-                onClick={() => {
-                  onSelectStyle(id, null);
-                  setStyleMenuOpen(false);
+                className="card-style-modal-close"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  closeStyleMenu();
                 }}
-                role="menuitem"
+                aria-label={styleModalCloseLabel}
               >
-                {resetStyleLabel}
+                ×
               </button>
-              {styleOptions.map((style) => (
-                <button
-                  key={style.id}
-                  type="button"
-                  className={`card-style-menu-item${selectedStyleId === style.id ? ' is-active' : ''}`}
-                  onClick={() => {
-                    onSelectStyle(id, style.id);
-                    setStyleMenuOpen(false);
-                  }}
-                  role="menuitem"
-                >
-                  {style.name}
-                </button>
-              ))}
-            </>
-          ) : (
-            <div className="card-style-menu-empty">{noStyleLabel}</div>
-          )}
+            </div>
+            <div className="card-style-modal-body">
+              {styleOptions.length ? (
+                <>
+                  <button
+                    type="button"
+                    className={`card-style-menu-item${selectedStyleId ? '' : ' is-active'}`}
+                    onClick={() => {
+                      onSelectStyle(id, null);
+                      closeStyleMenu();
+                    }}
+                  >
+                    {resetStyleLabel}
+                  </button>
+                  {styleOptions.map((style) => (
+                    <button
+                      key={style.id}
+                      type="button"
+                      className={`card-style-menu-item${selectedStyleId === style.id ? ' is-active' : ''}`}
+                      onClick={() => {
+                        onSelectStyle(id, style.id);
+                        closeStyleMenu();
+                      }}
+                    >
+                      {style.name}
+                    </button>
+                  ))}
+                </>
+              ) : (
+                <div className="card-style-menu-empty">{noStyleLabel}</div>
+              )}
+            </div>
+          </div>
         </div>
       )}
       {children}
