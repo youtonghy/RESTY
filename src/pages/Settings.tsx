@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
@@ -20,6 +20,16 @@ export function Settings() {
   const { settings, setSettings } = useAppStore();
   const [localSettings, setLocalSettings] = useState<SettingsType>(enforceTrayDefaults(settings));
   const [message, setMessage] = useState('');
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) {
+        clearTimeout(toastTimer.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     loadSettings();
@@ -51,7 +61,14 @@ export function Settings() {
         console.error('Failed to sync autostart:', err);
       });
 
-      setMessage(t('notifications.settingsSaved'));
+      if (toastTimer.current) {
+        clearTimeout(toastTimer.current);
+      }
+      setShowSuccessToast(true);
+      toastTimer.current = setTimeout(() => {
+        setShowSuccessToast(false);
+        toastTimer.current = null;
+      }, 2200);
     } catch (error) {
       setMessage(t('errors.saveFailed'));
       console.error('Failed to save settings:', error);
@@ -79,6 +96,11 @@ export function Settings() {
 
   return (
     <div className="page">
+      {showSuccessToast && (
+        <div className="settings-toast" role="status" aria-live="polite">
+          {t('notifications.settingsSaved')}
+        </div>
+      )}
       <div className="container">
         <h1 className="page-title">{t('settings.title')}</h1>
 

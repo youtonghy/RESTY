@@ -18,7 +18,10 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
       <div className="app-titlebar" data-tauri-drag-region>
         <div className="titlebar-left">
           <img className="app-logo" src="/tauri.svg" alt="RESTY logo" aria-hidden="true" />
-          <span className="app-title" title="RESTY">RESTY</span>
+          <div className="app-title-group">
+            <span className="app-title" title="RESTY">RESTY</span>
+            <span className="app-subtitle">Eye Care Reminder</span>
+          </div>
         </div>
         <WindowControls />
       </div>
