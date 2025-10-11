@@ -526,18 +526,18 @@
 }
 
 .fragment-grid {
-  --fragment-cell-size: clamp(16px, 2.2vw, 22px);
-  --fragment-cell-gap: clamp(4px, 1vw, 8px);
+  --fragment-cell-size: clamp(14px, 1.8vw, 20px);
+  --fragment-cell-gap: clamp(3px, 0.8vw, 6px);
   display: grid;
   width: 100%;
   grid-auto-flow: column;
   grid-auto-columns: var(--fragment-cell-size);
-  grid-template-rows: repeat(4, var(--fragment-cell-size));
+  grid-template-rows: repeat(6, var(--fragment-cell-size));
   gap: var(--fragment-cell-gap);
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   padding: var(--spacing-md);
-  min-height: calc(4 * var(--fragment-cell-size) + 3 * var(--fragment-cell-gap));
+  min-height: calc(6 * var(--fragment-cell-size) + 5 * var(--fragment-cell-gap));
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
   justify-content: flex-start;
 }
