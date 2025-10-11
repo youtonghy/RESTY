@@ -17,6 +17,7 @@ export function Analytics() {
   const [weeklyFragments, setWeeklyFragments] = useState<number>(0);
   const [weeklyWorkFragments, setWeeklyWorkFragments] = useState<number>(0);
   const [weeklyRestFragments, setWeeklyRestFragments] = useState<number>(0);
+  const isZh = useMemo(() => i18n.language.startsWith('zh'), [i18n.language]);
 
   useEffect(() => {
     loadAnalytics();
@@ -257,6 +258,35 @@ export function Analytics() {
     [range, displayBounds, i18n.language]
   );
 
+  const restCompletion = useMemo(() => {
+    if (!data) {
+      return {
+        total: 0,
+        gradient: 'conic-gradient(var(--color-border) 0% 100%)',
+        completedPercent: 0,
+        skippedPercent: 0,
+      };
+    }
+    const total = Math.max(data.breakCount, data.completedBreaks + data.skippedBreaks);
+    if (total <= 0) {
+      return {
+        total: 0,
+        gradient: 'conic-gradient(var(--color-border) 0% 100%)',
+        completedPercent: 0,
+        skippedPercent: 0,
+      };
+    }
+    const completedPercent = (data.completedBreaks / total) * 100;
+    const skippedPercent = (data.skippedBreaks / total) * 100;
+    const gradient = `conic-gradient(var(--color-primary) 0% ${completedPercent}%, var(--color-warning) ${completedPercent}% 100%)`;
+    return {
+      total,
+      gradient,
+      completedPercent,
+      skippedPercent,
+    };
+  }, [data]);
+
   /**
    * 构建单条时间轴的线性渐变：
    * - 全宽 0-24h；
@@ -441,41 +471,45 @@ export function Analytics() {
               <section className="card stats-details">
                 <h2 className="card-header">{t('analytics.overview')}</h2>
                 <div className="stats-grid">
-                  <div className="stat-item">
-                    <span className="stat-item-label">
-                      {t('analytics.completionRate')}
-                    </span>
-                    <div className="progress-bar">
-                      <div
-                        className="progress-fill"
-                        style={{ width: `${getCompletionRate()}%` }}
-                      ></div>
+                    <div className="stat-item stat-item-pie">
+                      <div className="stat-item-pie-header">
+                        <span className="stat-item-label">
+                          {t('analytics.completionRate')}
+                        </span>
+                        <span className="stat-item-total">
+                          {data.completedBreaks} / {data.breakCount}
+                        </span>
+                      </div>
+                      <div className="completion-pie">
+                        <div
+                          className={`completion-pie-chart${restCompletion.total === 0 ? ' is-empty' : ''}`}
+                          style={{ background: restCompletion.gradient }}
+                          role="img"
+                          aria-label={t('analytics.completionRate')}
+                        >
+                          <span className="completion-pie-value">{getCompletionRate()}%</span>
+                        </div>
+                        <ul className="completion-pie-legend">
+                          <li className="completion-pie-legend-item">
+                            <span className="completion-pie-dot completed" aria-hidden="true" />
+                            <span>{t('analytics.completionLegend.completed', { defaultValue: isZh ? '已休息' : 'Completed' })}</span>
+                            <span className="completion-pie-count">{data.completedBreaks}</span>
+                          </li>
+                          <li className="completion-pie-legend-item">
+                            <span className="completion-pie-dot skipped" aria-hidden="true" />
+                            <span>{t('analytics.completionLegend.skipped', { defaultValue: isZh ? '跳过' : 'Skipped' })}</span>
+                            <span className="completion-pie-count">{data.skippedBreaks}</span>
+                          </li>
+                        </ul>
+                      </div>
                     </div>
-                    <span className="stat-item-value">
-                      {data.completedBreaks} / {data.breakCount}
-                    </span>
-                  </div>
 
-                  <div className="stat-item">
-                    <span className="stat-item-label">{t('analytics.skippedBreaks')}</span>
-                    <div className="stat-item-value text-warning">
-                      {data.skippedBreaks}
+                    <div className="stat-item">
+                      <span className="stat-item-label">{t('analytics.skippedBreaks')}</span>
+                      <div className="stat-item-value text-warning">
+                        {data.skippedBreaks}
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="stat-item">
-                    <span className="stat-item-label">{t('analytics.averageSession')}</span>
-                    <div className="stat-item-value">
-                      {data.sessions.length > 0
-                        ? formatDuration(
-                            Math.round(
-                              data.sessions.reduce((sum, s) => sum + s.duration, 0) /
-                                data.sessions.length
-                            )
-                          )
-                        : `0${t('common.minutes')}`}
-                    </div>
-                  </div>
                 </div>
               </section>
 
