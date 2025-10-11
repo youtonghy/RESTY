@@ -1324,8 +1324,13 @@ export function Dashboard() {
           <fieldset className="card-style-field">
             <legend className="card-style-field-label">{formatLabel}</legend>
             <div className="card-style-radio-group">
-              <label className="card-style-radio">
+              <label
+                className={`card-style-choice${!use12Hour ? ' is-selected' : ''}`}
+                htmlFor={`${card.instanceId}-clock-format-24`}
+              >
                 <input
+                  id={`${card.instanceId}-clock-format-24`}
+                  className="card-style-choice-input"
                   type="radio"
                   name={`${card.instanceId}-clock-format`}
                   value="24"
@@ -1337,10 +1342,16 @@ export function Dashboard() {
                     }));
                   }}
                 />
-                <span>{option24Label}</span>
+                <span className="card-style-choice-marker" aria-hidden="true" />
+                <span className="card-style-choice-text">{option24Label}</span>
               </label>
-              <label className="card-style-radio">
+              <label
+                className={`card-style-choice${use12Hour ? ' is-selected' : ''}`}
+                htmlFor={`${card.instanceId}-clock-format-12`}
+              >
                 <input
+                  id={`${card.instanceId}-clock-format-12`}
+                  className="card-style-choice-input"
                   type="radio"
                   name={`${card.instanceId}-clock-format`}
                   value="12"
@@ -1352,7 +1363,8 @@ export function Dashboard() {
                     }));
                   }}
                 />
-                <span>{option12Label}</span>
+                <span className="card-style-choice-marker" aria-hidden="true" />
+                <span className="card-style-choice-text">{option12Label}</span>
               </label>
             </div>
           </fieldset>
@@ -1397,8 +1409,14 @@ export function Dashboard() {
             <legend className="card-style-field-label">{scopeLabel}</legend>
             <div className="card-style-radio-group">
               {scopeOptions.map((option) => (
-                <label key={option.value} className="card-style-radio">
+                <label
+                  key={option.value}
+                  className={`card-style-choice${selectedScope === option.value ? ' is-selected' : ''}`}
+                  htmlFor={`${card.instanceId}-progress-scope-${option.value}`}
+                >
                   <input
+                    id={`${card.instanceId}-progress-scope-${option.value}`}
+                    className="card-style-choice-input"
                     type="radio"
                     name={`${card.instanceId}-progress-scope`}
                     value={option.value}
@@ -1410,7 +1428,8 @@ export function Dashboard() {
                       }));
                     }}
                   />
-                  <span>{option.label}</span>
+                  <span className="card-style-choice-marker" aria-hidden="true" />
+                  <span className="card-style-choice-text">{option.label}</span>
                 </label>
               ))}
             </div>
@@ -1449,8 +1468,13 @@ export function Dashboard() {
           <fieldset className="card-style-field">
             <legend className="card-style-field-label">{sourceLabel}</legend>
             <div className="card-style-radio-group">
-              <label className="card-style-radio">
+              <label
+                className={`card-style-choice${selectedSource === 'local' ? ' is-selected' : ''}`}
+                htmlFor={`${card.instanceId}-tips-source-local`}
+              >
                 <input
+                  id={`${card.instanceId}-tips-source-local`}
+                  className="card-style-choice-input"
                   type="radio"
                   name={`${card.instanceId}-tips-source`}
                   value="local"
@@ -1459,10 +1483,16 @@ export function Dashboard() {
                     updateTipsSettings((prevTips) => ({ ...prevTips, source: 'local' }));
                   }}
                 />
-                <span>{localOptionLabel}</span>
+                <span className="card-style-choice-marker" aria-hidden="true" />
+                <span className="card-style-choice-text">{localOptionLabel}</span>
               </label>
-              <label className="card-style-radio">
+              <label
+                className={`card-style-choice${selectedSource === 'hitokoto' ? ' is-selected' : ''}`}
+                htmlFor={`${card.instanceId}-tips-source-hitokoto`}
+              >
                 <input
+                  id={`${card.instanceId}-tips-source-hitokoto`}
+                  className="card-style-choice-input"
                   type="radio"
                   name={`${card.instanceId}-tips-source`}
                   value="hitokoto"
@@ -1471,7 +1501,8 @@ export function Dashboard() {
                     updateTipsSettings((prevTips) => ({ ...prevTips, source: 'hitokoto' }));
                   }}
                 />
-                <span>{hitokotoOptionLabel}</span>
+                <span className="card-style-choice-marker" aria-hidden="true" />
+                <span className="card-style-choice-text">{hitokotoOptionLabel}</span>
               </label>
             </div>
           </fieldset>
