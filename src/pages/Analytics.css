@@ -576,31 +576,6 @@
   gap: var(--spacing-lg);
 }
 
-.fragment-counts {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-}
-
-.fragment-count {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--spacing-sm);
-}
-
-.fragment-count-label {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-}
-
-.fragment-count-value {
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
 .fragment-legend {
   display: flex;
   flex-direction: column;
@@ -614,6 +589,17 @@
   font-size: 0.9rem;
   color: var(--color-text-secondary);
   font-weight: 500;
+}
+
+.fragment-legend-text {
+  flex: 1;
+}
+
+.fragment-legend-count {
+  margin-left: auto;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
 }
 
 .fragment-legend-dot {
@@ -719,12 +705,16 @@
     align-items: center;
     text-align: center;
   }
-  .fragment-count {
-    justify-content: center;
-    gap: var(--spacing-lg);
-  }
   .fragment-legend {
     align-items: center;
+  }
+  .fragment-legend-item {
+    width: 100%;
+    justify-content: center;
+    gap: var(--spacing-md);
+  }
+  .fragment-legend-count {
+    margin-left: 0;
   }
 }
 
