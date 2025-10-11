@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as api from '../utils/api';
 import type { AnalyticsData, AnalyticsQuery, Session } from '../types';
@@ -23,6 +23,7 @@ export function Analytics() {
   const [weeklyRestFragments, setWeeklyRestFragments] = useState<number>(0);
   const [weeklyFragmentCells, setWeeklyFragmentCells] = useState<FragmentCell[]>([]);
   const isZh = useMemo(() => i18n.language.startsWith('zh'), [i18n.language]);
+  const fragmentScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     loadAnalytics();
@@ -44,6 +45,12 @@ export function Analytics() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    const node = fragmentScrollRef.current;
+    if (!node) return;
+    node.scrollLeft = node.scrollWidth;
+  }, [weeklyFragmentCells.length]);
 
   // Real-time: refresh analytics when sessions are upserted (start/finish/skip)
   useEffect(() => {
@@ -557,7 +564,7 @@ export function Analytics() {
                 >
                   <div className="fragment-heatmap">
                     {weeklyFragmentCells.length > 0 ? (
-                      <div className="fragment-grid-wrapper">
+                      <div className="fragment-grid-wrapper" ref={fragmentScrollRef}>
                         <div
                           className="fragment-grid"
                           role="list"
