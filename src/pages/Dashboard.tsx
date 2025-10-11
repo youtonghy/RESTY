@@ -140,8 +140,13 @@ interface ClockCardSettings {
   use12Hour: boolean;
 }
 
+interface TipsCardSettings {
+  source: 'local' | 'hitokoto';
+}
+
 interface CardSettings {
   clock?: ClockCardSettings;
+  tips?: TipsCardSettings;
 }
 
 interface CardInstance {
@@ -214,13 +219,26 @@ const sanitizeClockSettings = (settings: unknown): ClockCardSettings | undefined
   };
 };
 
+const sanitizeTipsSettings = (settings: unknown): TipsCardSettings | undefined => {
+  if (!settings || typeof settings !== 'object') return undefined;
+  const source = (settings as TipsCardSettings).source;
+  if (source === 'hitokoto') {
+    return { source: 'hitokoto' };
+  }
+  return undefined;
+};
+
 const sanitizeCardSettings = (settings: unknown): CardSettings | undefined => {
   if (!settings || typeof settings !== 'object') return undefined;
   const clock = sanitizeClockSettings((settings as CardSettings).clock);
-  if (!clock) {
+  const tips = sanitizeTipsSettings((settings as CardSettings).tips);
+  if (!clock && !tips) {
     return undefined;
   }
-  return { clock };
+  return {
+    ...(clock ? { clock } : undefined),
+    ...(tips ? { tips } : undefined),
+  };
 };
 const CARD_LIMITS: Record<CardId, { minW: number; minH: number; initial: LayoutItem }> = {
   status: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: 0, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
@@ -364,7 +382,11 @@ const settingsEqual = (a?: CardSettings, b?: CardSettings) => {
   const bZone = bc?.timeZone ?? null;
   const aMode = ac?.use12Hour ?? false;
   const bMode = bc?.use12Hour ?? false;
-  return aZone === bZone && aMode === bMode;
+  const at = a?.tips;
+  const bt = b?.tips;
+  const aSource = at?.source ?? 'local';
+  const bSource = bt?.source ?? 'local';
+  return aZone === bZone && aMode === bMode && aSource === bSource;
 };
 
 const cardsEqual = (a: CardInstance[], b: CardInstance[]) => {
@@ -562,6 +584,55 @@ function TipsCard({ tip, delay = 0 }: TipsCardProps) {
   );
 }
 
+interface TipsCardRendererProps {
+  instance: CardInstance;
+  language: string;
+  isZh: boolean;
+  delay?: number;
+}
+
+function TipsCardRenderer({ instance, language, isZh, delay = 0 }: TipsCardRendererProps) {
+  const source = instance.settings?.tips?.source ?? 'local';
+  const [content, setContent] = useState(() =>
+    source === 'hitokoto' ? (isZh ? '加载中…' : 'Loading…') : generateTip(language)
+  );
+
+  useEffect(() => {
+    if (source === 'hitokoto') {
+      let cancelled = false;
+      setContent(isZh ? '加载中…' : 'Loading…');
+      fetch('https://v1.hitokoto.cn/?encode=json')
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('Failed to fetch hitokoto');
+          }
+          return response.json();
+        })
+        .then((data: { hitokoto?: string | null }) => {
+          if (cancelled) return;
+          const text = typeof data?.hitokoto === 'string' && data.hitokoto.trim().length
+            ? data.hitokoto.trim()
+            : isZh
+            ? '暂时没有一言，稍后再试。'
+            : 'No quote available right now.';
+          setContent(text);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setContent(isZh ? '加载失败，稍后再试。' : 'Failed to load. Please try again.');
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setContent(generateTip(language));
+    return undefined;
+  }, [source, language, isZh]);
+
+  return <TipsCard tip={content} delay={delay} />;
+}
+
 interface ClockCardProps {
   time: string;
   date: string;
@@ -589,7 +660,6 @@ export function Dashboard() {
   const isZh = i18n.language.startsWith('zh');
   const { timerInfo, setTimerInfo } = useAppStore();
   const [now, setNow] = useState(() => new Date());
-  const [tip] = useState(() => generateTip(i18n.language));
 
   const [cardInstances, setCardInstances] = useState<CardInstance[]>(() =>
     loadPersistedCards() ?? migrateLegacyLayout() ?? createInitialInstances()
@@ -989,7 +1059,14 @@ export function Dashboard() {
       tips: {
         minW: CARD_LIMITS.tips.minW,
         minH: CARD_LIMITS.tips.minH,
-        render: (_instance, delay: number) => <TipsCard tip={tip} delay={delay} />,
+        render: (instance, delay: number) => (
+          <TipsCardRenderer
+            instance={instance}
+            language={i18n.language}
+            isZh={isZh}
+            delay={delay}
+          />
+        ),
       },
       clock: {
         minW: CARD_LIMITS.clock.minW,
@@ -1038,7 +1115,7 @@ export function Dashboard() {
       percentFormatter,
       statusContent,
       systemTimeZone,
-      tip,
+      isZh,
       weekLabel,
       weekProgress,
       yearLabel,
@@ -1067,7 +1144,7 @@ export function Dashboard() {
         defaultValue: isZh ? '年度进度' : 'Year progress',
       }),
       tips: t('dashboard.cardNames.tips', {
-        defaultValue: isZh ? '护眼贴士' : 'Eye care tips',
+        defaultValue: isZh ? '贴士卡片' : 'Tips card',
       }),
       clock: t('dashboard.cardNames.clock', {
         defaultValue: isZh ? '当前时间' : 'Clock',
@@ -1178,6 +1255,66 @@ export function Dashboard() {
                   }}
                 />
                 <span>{option12Label}</span>
+              </label>
+            </div>
+          </fieldset>
+        </div>
+      );
+    }
+
+    if (card.type === 'tips') {
+      const tipsSettings = card.settings?.tips;
+      const selectedSource = tipsSettings?.source ?? 'local';
+      const sourceLabel = isZh ? '内容来源' : 'Content source';
+      const localOptionLabel = isZh ? '护眼贴士' : 'Eye care tips';
+      const hitokotoOptionLabel = isZh ? '一言' : 'Hitokoto';
+      const tipsDefaults: TipsCardSettings = { source: 'local' };
+
+      const updateTipsSettings = (
+        updater: (prev: TipsCardSettings) => TipsCardSettings
+      ) => {
+        handleUpdateSettings(card.instanceId, (prev) => {
+          const base = prev?.tips ?? tipsDefaults;
+          const next = updater({ ...base });
+          const normalized: TipsCardSettings =
+            next.source === 'hitokoto' ? { source: 'hitokoto' } : { source: 'local' };
+          if (normalized.source === 'local') {
+            if (!prev) return undefined;
+            const { tips: _omit, ...rest } = prev;
+            return Object.keys(rest).length ? rest : undefined;
+          }
+          return { ...(prev ?? {}), tips: normalized };
+        });
+      };
+
+      renderCustomContent = () => (
+        <div className="card-style-custom">
+          <fieldset className="card-style-field">
+            <legend className="card-style-field-label">{sourceLabel}</legend>
+            <div className="card-style-radio-group">
+              <label className="card-style-radio">
+                <input
+                  type="radio"
+                  name={`${card.instanceId}-tips-source`}
+                  value="local"
+                  checked={selectedSource === 'local'}
+                  onChange={() => {
+                    updateTipsSettings((prevTips) => ({ ...prevTips, source: 'local' }));
+                  }}
+                />
+                <span>{localOptionLabel}</span>
+              </label>
+              <label className="card-style-radio">
+                <input
+                  type="radio"
+                  name={`${card.instanceId}-tips-source`}
+                  value="hitokoto"
+                  checked={selectedSource === 'hitokoto'}
+                  onChange={() => {
+                    updateTipsSettings((prevTips) => ({ ...prevTips, source: 'hitokoto' }));
+                  }}
+                />
+                <span>{hitokotoOptionLabel}</span>
               </label>
             </div>
           </fieldset>
