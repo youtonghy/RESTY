@@ -562,34 +562,36 @@ export function Analytics() {
                 <h2 className="card-header">{t('analytics.fragments')}</h2>
                 <div className="fragment-visual">
                   {weeklyFragmentCells.length > 0 ? (
-                    <div
-                      className="fragment-grid"
-                      role="list"
-                      aria-label={t('analytics.fragments', {
-                        defaultValue: isZh ? '片段统计' : 'Fragment statistics',
-                      })}
-                    >
-                      {weeklyFragmentCells.map((fragment, index) => {
-                        const typeLabel = isZh
-                          ? fragment.type === 'work'
-                            ? '工作片段'
-                            : '休息片段'
-                          : fragment.type === 'work'
-                          ? 'Work fragment'
-                          : 'Break fragment';
-                        const timeLabel = fragmentTimeFormatter.format(new Date(fragment.startTime));
-                        const durationLabel = formatDuration(fragment.duration);
-                        const label = `${typeLabel} · ${timeLabel} · ${durationLabel}`;
-                        return (
-                          <span
-                            key={`${fragment.startTime}-${index}`}
-                            className={`fragment-cell fragment-${fragment.type}`}
-                            title={label}
-                            aria-label={label}
-                            role="listitem"
-                          />
-                        );
-                      })}
+                    <div className="fragment-grid-wrapper">
+                      <div
+                        className="fragment-grid"
+                        role="list"
+                        aria-label={t('analytics.fragments', {
+                          defaultValue: isZh ? '片段统计' : 'Fragment statistics',
+                        })}
+                      >
+                        {weeklyFragmentCells.map((fragment, index) => {
+                          const typeLabel = isZh
+                            ? fragment.type === 'work'
+                              ? '工作片段'
+                              : '休息片段'
+                            : fragment.type === 'work'
+                            ? 'Work fragment'
+                            : 'Break fragment';
+                          const timeLabel = fragmentTimeFormatter.format(new Date(fragment.startTime));
+                          const durationLabel = formatDuration(fragment.duration);
+                          const label = `${typeLabel} · ${timeLabel} · ${durationLabel}`;
+                          return (
+                            <span
+                              key={`${fragment.startTime}-${index}`}
+                              className={`fragment-cell fragment-${fragment.type}`}
+                              title={label}
+                              aria-label={label}
+                              role="listitem"
+                            />
+                          );
+                        })}
+                      </div>
                     </div>
                   ) : (
                     <div className="fragment-grid fragment-grid-empty">
