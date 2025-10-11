@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
@@ -29,6 +29,19 @@ export function Settings() {
   const [message, setMessage] = useState('');
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+  const sectionDefs = useMemo(
+    () => [
+      { id: 'timer', label: t('settings.timer.title') },
+      { id: 'reminder', label: t('settings.reminder.title') },
+      { id: 'appearance', label: t('settings.appearance.title') },
+      { id: 'system', label: t('settings.system.title') },
+      { id: 'language', label: t('settings.language.title') },
+      { id: 'about', label: t('settings.about.title') },
+    ],
+    [t]
+  );
+  const [activeSection, setActiveSection] = useState(sectionDefs[0]?.id ?? 'timer');
 
   useEffect(() => {
     return () => {
@@ -41,6 +54,28 @@ export function Settings() {
   useEffect(() => {
     loadSettings();
   }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      let current = sectionDefs[0]?.id ?? 'timer';
+      const offset = 160;
+      sectionDefs.forEach((section) => {
+        const node = sectionRefs.current[section.id];
+        if (!node) return;
+        const top = node.getBoundingClientRect().top;
+        if (top - offset <= 0) {
+          current = section.id;
+        }
+      });
+      setActiveSection((prev) => (prev === current ? prev : current));
+    };
+
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [sectionDefs]);
 
   /** 从后端加载配置并同步全局 store。 */
   const loadSettings = async () => {
@@ -110,6 +145,13 @@ export function Settings() {
     }
   };
 
+  const scrollToSection = (id: string) => {
+    const node = sectionRefs.current[id];
+    if (!node) return;
+    setActiveSection(id);
+    node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   // 已移除导入/导出：改为实时自动保存
 
   return (
@@ -119,11 +161,35 @@ export function Settings() {
           {t('notifications.settingsSaved')}
         </div>
       )}
-      <div className="container">
+      <div className="container settings-container">
         <h1 className="page-title">{t('settings.title')}</h1>
 
-        {/* Timer Settings */}
-        <section className="card settings-section">
+        <div className="settings-layout">
+          <nav
+            className="settings-nav"
+            aria-label={t('settings.navigation.label', { defaultValue: 'Settings sections' })}
+          >
+            {sectionDefs.map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                className={`settings-nav-button${activeSection === section.id ? ' is-active' : ''}`}
+                onClick={() => scrollToSection(section.id)}
+              >
+                {section.label}
+              </button>
+            ))}
+          </nav>
+
+          <div className="settings-content">
+            {/* Timer Settings */}
+            <section
+              id="settings-timer"
+              ref={(node) => {
+                sectionRefs.current.timer = node;
+              }}
+              className="card settings-section"
+            >
           <h2 className="card-header">{t('settings.timer.title')}</h2>
 
           <div className="form-group">
@@ -192,10 +258,16 @@ export function Settings() {
             </label>
             <p className="helper-text">{t('settings.timer.forceBreakDescription')}</p>
           </div>
-        </section>
+            </section>
 
-        {/* Reminder Settings */}
-        <section className="card settings-section">
+            {/* Reminder Settings */}
+            <section
+              id="settings-reminder"
+              ref={(node) => {
+                sectionRefs.current.reminder = node;
+              }}
+              className="card settings-section"
+            >
           <h2 className="card-header">{t('settings.reminder.title')}</h2>
 
           <div className="form-group">
@@ -250,10 +322,16 @@ export function Settings() {
               {localSettings.restMusicDirectory || t('settings.reminder.restMusic.directoryMissing')}
             </button>
           </div>
-        </section>
+            </section>
 
-        {/* Appearance Settings */}
-        <section className="card settings-section">
+            {/* Appearance Settings */}
+            <section
+              id="settings-appearance"
+              ref={(node) => {
+                sectionRefs.current.appearance = node;
+              }}
+              className="card settings-section"
+            >
           <h2 className="card-header">{t('settings.appearance.title')}</h2>
 
           <div className="form-group">
@@ -276,10 +354,16 @@ export function Settings() {
               <option value="auto">{t('settings.appearance.auto')}</option>
             </select>
           </div>
-        </section>
+            </section>
 
-        {/* System Settings */}
-        <section className="card settings-section">
+            {/* System Settings */}
+            <section
+              id="settings-system"
+              ref={(node) => {
+                sectionRefs.current.system = node;
+              }}
+              className="card settings-section"
+            >
           <h2 className="card-header">{t('settings.system.title')}</h2>
 
           <div className="form-group toggle-group">
@@ -300,10 +384,16 @@ export function Settings() {
             </label>
           </div>
 
-        </section>
+            </section>
 
-        {/* Language Settings */}
-        <section className="card settings-section">
+            {/* Language Settings */}
+            <section
+              id="settings-language"
+              ref={(node) => {
+                sectionRefs.current.language = node;
+              }}
+              className="card settings-section"
+            >
           <h2 className="card-header">{t('settings.language.title')}</h2>
 
           <div className="form-group">
@@ -326,10 +416,16 @@ export function Settings() {
               ))}
             </select>
           </div>
-        </section>
+            </section>
 
-        {/* About */}
-        <section className="card settings-section">
+            {/* About */}
+            <section
+              id="settings-about"
+              ref={(node) => {
+                sectionRefs.current.about = node;
+              }}
+              className="card settings-section"
+            >
           <h2 className="card-header">{t('settings.about.title')}</h2>
           <dl className="about-list">
             <div className="about-item">
@@ -355,16 +451,18 @@ export function Settings() {
               </dd>
             </div>
           </dl>
-        </section>
+            </section>
 
-        {/* Actions: 仅保留重置，移除手动保存/导出/导入 */}
-        <div className="settings-actions">
-          <button className="btn btn-secondary" onClick={handleReset}>
-            {t('settings.actions.reset')}
-          </button>
+            {/* Actions: 仅保留重置，移除手动保存/导出/导入 */}
+            <div className="settings-actions">
+              <button className="btn btn-secondary" onClick={handleReset}>
+                {t('settings.actions.reset')}
+              </button>
+            </div>
+
+            {message && <div className="message">{message}</div>}
+          </div>
         </div>
-
-        {message && <div className="message">{message}</div>}
       </div>
     </div>
   );
