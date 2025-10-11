@@ -23,15 +23,6 @@ export function Analytics() {
   const [weeklyRestFragments, setWeeklyRestFragments] = useState<number>(0);
   const [weeklyFragmentCells, setWeeklyFragmentCells] = useState<FragmentCell[]>([]);
   const isZh = useMemo(() => i18n.language.startsWith('zh'), [i18n.language]);
-  const fragmentColumns = useMemo(() => {
-    const columns: FragmentCell[][] = [];
-    weeklyFragmentCells.forEach((cell, index) => {
-      const columnIndex = Math.floor(index / 4);
-      if (!columns[columnIndex]) columns[columnIndex] = [];
-      columns[columnIndex].push(cell);
-    });
-    return columns;
-  }, [weeklyFragmentCells]);
 
   useEffect(() => {
     loadAnalytics();
@@ -573,31 +564,27 @@ export function Analytics() {
                           defaultValue: isZh ? '片段列表' : 'Fragment list',
                         })}
                       >
-                        {fragmentColumns.map((column, columnIndex) => (
-                          <div className="fragment-column" key={`fragment-column-${columnIndex}`}>
-                            {column.map((fragment, index) => {
-                              const typeLabel = isZh
-                                ? fragment.type === 'work'
-                                  ? '工作片段'
-                                  : '休息片段'
-                                : fragment.type === 'work'
-                                ? 'Work fragment'
-                                : 'Break fragment';
-                              const timeLabel = fragmentTimeFormatter.format(new Date(fragment.startTime));
-                              const durationLabel = formatDuration(fragment.duration);
-                              const label = `${typeLabel} · ${timeLabel} · ${durationLabel}`;
-                              return (
-                                <span
-                                  key={`${fragment.startTime}-${columnIndex}-${index}`}
-                                  className={`fragment-cell fragment-${fragment.type}`}
-                                  title={label}
-                                  aria-label={label}
-                                  role="listitem"
-                                />
-                              );
-                            })}
-                          </div>
-                        ))}
+                        {weeklyFragmentCells.map((fragment, index) => {
+                          const typeLabel = isZh
+                            ? fragment.type === 'work'
+                              ? '工作片段'
+                              : '休息片段'
+                            : fragment.type === 'work'
+                            ? 'Work fragment'
+                            : 'Break fragment';
+                          const timeLabel = fragmentTimeFormatter.format(new Date(fragment.startTime));
+                          const durationLabel = formatDuration(fragment.duration);
+                          const label = `${typeLabel} · ${timeLabel} · ${durationLabel}`;
+                          return (
+                            <span
+                              key={`${fragment.startTime}-${index}`}
+                              className={`fragment-cell fragment-${fragment.type}`}
+                              title={label}
+                              aria-label={label}
+                              role="listitem"
+                            />
+                          );
+                        })}
                       </div>
                     </div>
                   ) : (
