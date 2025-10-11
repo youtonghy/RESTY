@@ -560,14 +560,20 @@ export function Analytics() {
               {/* Weekly fragment totals */}
               <section className="card stats-details">
                 <h2 className="card-header">{t('analytics.fragments')}</h2>
-                <div className="fragment-visual">
+                <div
+                  className="fragment-visual"
+                  role="group"
+                  aria-label={t('analytics.fragments', {
+                    defaultValue: isZh ? '片段统计' : 'Fragment statistics',
+                  })}
+                >
                   {weeklyFragmentCells.length > 0 ? (
                     <div className="fragment-grid-wrapper">
                       <div
                         className="fragment-grid"
                         role="list"
-                        aria-label={t('analytics.fragments', {
-                          defaultValue: isZh ? '片段统计' : 'Fragment statistics',
+                        aria-label={t('analytics.fragmentsList', {
+                          defaultValue: isZh ? '片段列表' : 'Fragment list',
                         })}
                       >
                         {weeklyFragmentCells.map((fragment, index) => {

@@ -357,7 +357,7 @@
 
 .details-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
   gap: var(--spacing-xl);
   align-items: stretch;
   margin-bottom: var(--spacing-xl);
@@ -506,7 +506,8 @@
 
 .fragment-grid-wrapper {
   position: relative;
-  flex: 1 1 260px;
+  flex: 0 0 320px;
+  max-width: 360px;
   overflow-x: auto;
   padding-bottom: 8px;
   scrollbar-width: thin;
@@ -528,9 +529,9 @@
 .fragment-grid {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(24px, 1fr);
-  grid-template-rows: repeat(4, 24px);
-  gap: 8px;
+  grid-auto-columns: 18px;
+  grid-template-rows: repeat(4, 18px);
+  gap: 6px;
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   padding: var(--spacing-md);
@@ -548,9 +549,9 @@
 }
 
 .fragment-cell {
-  width: 24px;
-  height: 24px;
-  border-radius: 8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
   background: var(--color-border);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -569,7 +570,7 @@
 }
 
 .fragment-info {
-  flex: 0 1 220px;
+  flex: 0 0 220px;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-lg);
