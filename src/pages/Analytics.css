@@ -499,15 +499,14 @@
 
 .fragment-visual {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: clamp(var(--spacing-lg), 4vw, var(--spacing-xl));
   align-items: stretch;
 }
 
 .fragment-grid-wrapper {
   position: relative;
-  flex: 1 1 0;
-  max-width: none;
+  width: 100%;
   overflow-x: auto;
   padding-bottom: 8px;
   scrollbar-width: thin;
@@ -576,7 +575,6 @@
 
 
 .fragment-heatmap {
-  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   gap: clamp(var(--spacing-md), 2vw, var(--spacing-lg));
@@ -586,8 +584,9 @@
 .fragment-legend {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
   gap: var(--spacing-sm) var(--spacing-lg);
+  align-items: center;
+  justify-content: flex-start;
 }
 
 .fragment-legend-item {
