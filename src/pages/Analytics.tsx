@@ -555,47 +555,47 @@ export function Analytics() {
                     defaultValue: isZh ? '片段统计' : 'Fragment statistics',
                   })}
                 >
-                  {weeklyFragmentCells.length > 0 ? (
-                    <div className="fragment-grid-wrapper">
-                      <div
-                        className="fragment-grid"
-                        role="list"
-                        aria-label={t('analytics.fragmentsList', {
-                          defaultValue: isZh ? '片段列表' : 'Fragment list',
-                        })}
-                      >
-                        {weeklyFragmentCells.map((fragment, index) => {
-                          const typeLabel = isZh
-                            ? fragment.type === 'work'
-                              ? '工作片段'
-                              : '休息片段'
-                            : fragment.type === 'work'
-                            ? 'Work fragment'
-                            : 'Break fragment';
-                          const timeLabel = fragmentTimeFormatter.format(new Date(fragment.startTime));
-                          const durationLabel = formatDuration(fragment.duration);
-                          const label = `${typeLabel} · ${timeLabel} · ${durationLabel}`;
-                          return (
-                            <span
-                              key={`${fragment.startTime}-${index}`}
-                              className={`fragment-cell fragment-${fragment.type}`}
-                              title={label}
-                              aria-label={label}
-                              role="listitem"
-                            />
-                          );
+                  <div className="fragment-heatmap">
+                    {weeklyFragmentCells.length > 0 ? (
+                      <div className="fragment-grid-wrapper">
+                        <div
+                          className="fragment-grid"
+                          role="list"
+                          aria-label={t('analytics.fragmentsList', {
+                            defaultValue: isZh ? '片段列表' : 'Fragment list',
+                          })}
+                        >
+                          {weeklyFragmentCells.map((fragment, index) => {
+                            const typeLabel = isZh
+                              ? fragment.type === 'work'
+                                ? '工作片段'
+                                : '休息片段'
+                              : fragment.type === 'work'
+                              ? 'Work fragment'
+                              : 'Break fragment';
+                            const timeLabel = fragmentTimeFormatter.format(new Date(fragment.startTime));
+                            const durationLabel = formatDuration(fragment.duration);
+                            const label = `${typeLabel} · ${timeLabel} · ${durationLabel}`;
+                            return (
+                              <span
+                                key={`${fragment.startTime}-${index}`}
+                                className={`fragment-cell fragment-${fragment.type}`}
+                                title={label}
+                                aria-label={label}
+                                role="listitem"
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="fragment-grid fragment-grid-empty">
+                        {t('analytics.fragmentsEmpty', {
+                          defaultValue: isZh ? '本周暂无片段' : 'No fragments this week',
                         })}
                       </div>
-                    </div>
-                  ) : (
-                    <div className="fragment-grid fragment-grid-empty">
-                      {t('analytics.fragmentsEmpty', {
-                        defaultValue: isZh ? '本周暂无片段' : 'No fragments this week',
-                      })}
-                    </div>
-                  )}
+                    )}
 
-                  <div className="fragment-info">
                     <div className="fragment-legend">
                       <div className="fragment-legend-item">
                         <span className="fragment-legend-dot work" aria-hidden="true" />

@@ -574,11 +574,12 @@
   background: var(--color-success);
 }
 
-.fragment-info {
-  flex: 0 0 220px;
+
+.fragment-heatmap {
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-lg);
+  gap: clamp(var(--spacing-md), 2vw, var(--spacing-lg));
 }
 
 .fragment-legend {
@@ -701,14 +702,6 @@
   .fragment-visual {
     flex-direction: column;
     align-items: center;
-  }
-  .fragment-grid-wrapper {
-    width: 100%;
-  }
-  .fragment-info {
-    width: 100%;
-    align-items: center;
-    text-align: center;
   }
   .fragment-legend {
     align-items: center;
