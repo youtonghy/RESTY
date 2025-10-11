@@ -5,6 +5,11 @@ import type { AnalyticsData, AnalyticsQuery, Session } from '../types';
 import './Analytics.css';
 
 type TimeRange = 'today' | 'week' | 'month' | 'custom';
+type FragmentCell = {
+  type: 'work' | 'break';
+  startTime: string;
+  duration: number;
+};
 
 /**
  * 数据统计页面：按日期区间加载会话数据，展示工作/休息统计与时间轴。
@@ -17,6 +22,7 @@ export function Analytics() {
   const [weeklyFragments, setWeeklyFragments] = useState<number>(0);
   const [weeklyWorkFragments, setWeeklyWorkFragments] = useState<number>(0);
   const [weeklyRestFragments, setWeeklyRestFragments] = useState<number>(0);
+  const [weeklyFragmentCells, setWeeklyFragmentCells] = useState<FragmentCell[]>([]);
   const isZh = useMemo(() => i18n.language.startsWith('zh'), [i18n.language]);
 
   useEffect(() => {
@@ -33,8 +39,10 @@ export function Analytics() {
         setWeeklyFragments(countFragments(weekData.sessions));
         setWeeklyWorkFragments(countWorkFragments(weekData.sessions));
         setWeeklyRestFragments(countRestFragments(weekData.sessions));
+        setWeeklyFragmentCells(buildFragmentCells(weekData.sessions));
       } catch (e) {
         console.error('Failed to load weekly fragments:', e);
+        setWeeklyFragmentCells([]);
       }
     })();
   }, []);
@@ -52,6 +60,7 @@ export function Analytics() {
           setWeeklyFragments(countFragments(weekData.sessions));
           setWeeklyWorkFragments(countWorkFragments(weekData.sessions));
           setWeeklyRestFragments(countRestFragments(weekData.sessions));
+          setWeeklyFragmentCells(buildFragmentCells(weekData.sessions));
         } catch (e) {
           console.warn('Failed to refresh fragments after session-upserted:', e);
         }
@@ -128,6 +137,30 @@ export function Analytics() {
   /** 仅计算休息片段数量（排除跳过的休息） */
   const countRestFragments = (sessions: Session[]) =>
     sessions.reduce((acc, s) => (s.type === 'break' && !s.isSkipped ? acc + 1 : acc), 0);
+
+  const buildFragmentCells = (sessions: Session[]): FragmentCell[] => {
+    const sorted = [...sessions].sort(
+      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+    );
+    return sorted.reduce<FragmentCell[]>((acc, session) => {
+      const duration =
+        typeof session.duration === 'number'
+          ? session.duration
+          : Math.max(
+              0,
+              Math.floor(
+                (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) /
+                  1000
+              )
+            );
+      if (session.type === 'work') {
+        acc.push({ type: 'work', startTime: session.startTime, duration });
+      } else if (session.type === 'break' && !session.isSkipped) {
+        acc.push({ type: 'break', startTime: session.startTime, duration });
+      }
+      return acc;
+    }, []);
+  };
 
   /** 将秒数格式化为“小时+分钟”文案。 */
   const formatDuration = (seconds: number): string => {
@@ -286,6 +319,17 @@ export function Analytics() {
       skippedPercent,
     };
   }, [data]);
+
+  const fragmentTimeFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(i18n.language, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    [i18n.language]
+  );
 
   /**
    * 构建单条时间轴的线性渐变：
@@ -516,18 +560,84 @@ export function Analytics() {
               {/* Weekly fragment totals */}
               <section className="card stats-details">
                 <h2 className="card-header">{t('analytics.fragments')}</h2>
-                <div className="stats-grid">
-                  <div className="stat-item">
-                    <span className="stat-item-label">{t('analytics.totalFragmentsWeek')}</span>
-                    <div className="stat-item-value">{weeklyFragments}</div>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-item-label">{t('analytics.workFragmentsWeek')}</span>
-                    <div className="stat-item-value">{weeklyWorkFragments}</div>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-item-label">{t('analytics.breakFragmentsWeek')}</span>
-                    <div className="stat-item-value">{weeklyRestFragments}</div>
+                <div className="fragment-visual">
+                  {weeklyFragmentCells.length > 0 ? (
+                    <div
+                      className="fragment-grid"
+                      role="list"
+                      aria-label={t('analytics.fragments', {
+                        defaultValue: isZh ? '片段统计' : 'Fragment statistics',
+                      })}
+                    >
+                      {weeklyFragmentCells.map((fragment, index) => {
+                        const typeLabel = isZh
+                          ? fragment.type === 'work'
+                            ? '工作片段'
+                            : '休息片段'
+                          : fragment.type === 'work'
+                          ? 'Work fragment'
+                          : 'Break fragment';
+                        const timeLabel = fragmentTimeFormatter.format(new Date(fragment.startTime));
+                        const durationLabel = formatDuration(fragment.duration);
+                        const label = `${typeLabel} · ${timeLabel} · ${durationLabel}`;
+                        return (
+                          <span
+                            key={`${fragment.startTime}-${index}`}
+                            className={`fragment-cell fragment-${fragment.type}`}
+                            title={label}
+                            aria-label={label}
+                            role="listitem"
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="fragment-grid fragment-grid-empty">
+                      {t('analytics.fragmentsEmpty', {
+                        defaultValue: isZh ? '本周暂无片段' : 'No fragments this week',
+                      })}
+                    </div>
+                  )}
+
+                  <div className="fragment-info">
+                    <div className="fragment-counts">
+                      <div className="fragment-count">
+                        <span className="fragment-count-label">
+                          {t('analytics.totalFragmentsWeek')}
+                        </span>
+                        <span className="fragment-count-value">{weeklyFragments}</span>
+                      </div>
+                      <div className="fragment-count">
+                        <span className="fragment-count-label">
+                          {t('analytics.workFragmentsWeek')}
+                        </span>
+                        <span className="fragment-count-value">{weeklyWorkFragments}</span>
+                      </div>
+                      <div className="fragment-count">
+                        <span className="fragment-count-label">
+                          {t('analytics.breakFragmentsWeek')}
+                        </span>
+                        <span className="fragment-count-value">{weeklyRestFragments}</span>
+                      </div>
+                    </div>
+                    <div className="fragment-legend">
+                      <div className="fragment-legend-item">
+                        <span className="fragment-legend-dot work" aria-hidden="true" />
+                        <span>
+                          {t('analytics.fragmentsLegend.work', {
+                            defaultValue: isZh ? '工作片段' : 'Work fragment',
+                          })}
+                        </span>
+                      </div>
+                      <div className="fragment-legend-item">
+                        <span className="fragment-legend-dot break" aria-hidden="true" />
+                        <span>
+                          {t('analytics.fragmentsLegend.break', {
+                            defaultValue: isZh ? '休息片段' : 'Break fragment',
+                          })}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </section>

@@ -497,6 +497,117 @@
   color: var(--color-warning);
 }
 
+.fragment-visual {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(var(--spacing-lg), 4vw, var(--spacing-xl));
+  align-items: stretch;
+}
+
+.fragment-grid {
+  flex: 1 1 240px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18px, 1fr));
+  gap: 8px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  min-height: 96px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.fragment-grid-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.fragment-cell {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  background: var(--color-border);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fragment-cell:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.18);
+}
+
+.fragment-cell.fragment-work {
+  background: var(--color-primary);
+}
+
+.fragment-cell.fragment-break {
+  background: var(--color-success);
+}
+
+.fragment-info {
+  flex: 0 1 220px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.fragment-counts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.fragment-count {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.fragment-count-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.fragment-count-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.fragment-legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.fragment-legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.fragment-legend-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+
+.fragment-legend-dot.work {
+  background: var(--color-primary);
+}
+
+.fragment-legend-dot.break {
+  background: var(--color-success);
+}
+
 .progress-bar {
   height: 8px;
   background: var(--color-surface-hover);
@@ -572,6 +683,25 @@
     width: 100%;
     justify-content: center;
     gap: var(--spacing-md);
+  }
+  .fragment-visual {
+    flex-direction: column;
+    align-items: center;
+  }
+  .fragment-grid {
+    width: 100%;
+  }
+  .fragment-info {
+    width: 100%;
+    align-items: center;
+    text-align: center;
+  }
+  .fragment-count {
+    justify-content: center;
+    gap: var(--spacing-lg);
+  }
+  .fragment-legend {
+    align-items: center;
   }
 }
 
