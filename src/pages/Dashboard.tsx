@@ -126,7 +126,9 @@ const generateTip = (language: string): string => {
   return pool[randomIndex];
 };
 
-type CardId = 'status' | 'next' | 'day' | 'week' | 'month' | 'year' | 'tips' | 'clock';
+type CardId = 'status' | 'next' | 'progress' | 'tips' | 'clock';
+
+type ProgressScope = 'day' | 'week' | 'month' | 'year';
 
 interface LayoutItem {
   x: number;
@@ -144,9 +146,14 @@ interface TipsCardSettings {
   source: 'local' | 'hitokoto';
 }
 
+interface ProgressCardSettings {
+  scope: ProgressScope;
+}
+
 interface CardSettings {
   clock?: ClockCardSettings;
   tips?: TipsCardSettings;
+  progress?: ProgressCardSettings;
 }
 
 interface CardInstance {
@@ -169,7 +176,7 @@ interface GridMetrics {
 const GRID_COLUMNS = 12;
 const BASE_SPAN = 2;
 const FALLBACK_TRACK_SIZE = 120;
-const CARD_ORDER: CardId[] = ['status', 'next', 'day', 'week', 'month', 'year', 'tips', 'clock'];
+const CARD_ORDER: CardId[] = ['status', 'next', 'progress', 'tips', 'clock'];
 const MAX_GRID_ROWS = 120;
 const CARD_STORAGE_KEY = 'resty.dashboard.cards.v2';
 interface CardStylePreset {
@@ -228,25 +235,37 @@ const sanitizeTipsSettings = (settings: unknown): TipsCardSettings | undefined =
   return undefined;
 };
 
+const sanitizeProgressSettings = (settings: unknown): ProgressCardSettings | undefined => {
+  if (!settings || typeof settings !== 'object') return undefined;
+  const scope = (settings as ProgressCardSettings).scope;
+  if (scope === 'day' || scope === 'week' || scope === 'month' || scope === 'year') {
+    return { scope };
+  }
+  return undefined;
+};
+
 const sanitizeCardSettings = (settings: unknown): CardSettings | undefined => {
   if (!settings || typeof settings !== 'object') return undefined;
   const clock = sanitizeClockSettings((settings as CardSettings).clock);
   const tips = sanitizeTipsSettings((settings as CardSettings).tips);
-  if (!clock && !tips) {
+  const progress = sanitizeProgressSettings((settings as CardSettings).progress);
+  if (!clock && !tips && !progress) {
     return undefined;
   }
   return {
     ...(clock ? { clock } : undefined),
     ...(tips ? { tips } : undefined),
+    ...(progress ? { progress } : undefined),
   };
 };
 const CARD_LIMITS: Record<CardId, { minW: number; minH: number; initial: LayoutItem }> = {
   status: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: 0, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
   next: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: BASE_SPAN, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
-  day: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: BASE_SPAN * 2, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
-  week: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: BASE_SPAN * 3, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
-  month: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: BASE_SPAN * 4, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
-  year: { minW: BASE_SPAN, minH: BASE_SPAN, initial: { x: BASE_SPAN * 5, y: 0, w: BASE_SPAN, h: BASE_SPAN } },
+  progress: {
+    minW: BASE_SPAN,
+    minH: BASE_SPAN,
+    initial: { x: BASE_SPAN * 2, y: 0, w: BASE_SPAN, h: BASE_SPAN },
+  },
   tips: {
     minW: BASE_SPAN * 2,
     minH: BASE_SPAN,
@@ -261,13 +280,28 @@ const CARD_LIMITS: Record<CardId, { minW: number; minH: number; initial: LayoutI
 const CARD_STYLE_PRESETS: Record<CardId, CardStylePreset[]> = {
   status: [],
   next: [],
-  day: [],
-  week: [],
-  month: [],
-  year: [],
+  progress: [],
   tips: [],
   clock: [],
 };
+const PROGRESS_PRESETS: Array<{ scope: ProgressScope; layout: LayoutItem }> = [
+  {
+    scope: 'day',
+    layout: { x: BASE_SPAN * 2, y: 0, w: BASE_SPAN, h: BASE_SPAN },
+  },
+  {
+    scope: 'week',
+    layout: { x: BASE_SPAN * 3, y: 0, w: BASE_SPAN, h: BASE_SPAN },
+  },
+  {
+    scope: 'month',
+    layout: { x: BASE_SPAN * 4, y: 0, w: BASE_SPAN, h: BASE_SPAN },
+  },
+  {
+    scope: 'year',
+    layout: { x: BASE_SPAN * 5, y: 0, w: BASE_SPAN, h: BASE_SPAN },
+  },
+];
 const clampLayout = (type: CardId, candidate: LayoutItem): LayoutItem => {
   const limits = CARD_LIMITS[type];
 
@@ -352,26 +386,69 @@ const resolveInstances = (
   }));
 };
 
-const createInitialInstances = (): CardInstance[] =>
-  CARD_ORDER.map((type, index) => ({
-    instanceId: `${type}-${index}`,
-    type,
-    layout: { ...CARD_LIMITS[type].initial },
-    styleId: null,
-    settings: undefined,
-  }));
+const createInitialInstances = (): CardInstance[] => {
+  const instances: CardInstance[] = [
+    {
+      instanceId: 'status-0',
+      type: 'status',
+      layout: { ...CARD_LIMITS.status.initial },
+      styleId: null,
+      settings: undefined,
+    },
+    {
+      instanceId: 'next-0',
+      type: 'next',
+      layout: { ...CARD_LIMITS.next.initial },
+      styleId: null,
+      settings: undefined,
+    },
+  ];
+
+  PROGRESS_PRESETS.forEach((preset, index) => {
+    instances.push({
+      instanceId: `progress-${index}`,
+      type: 'progress',
+      layout: clampLayout('progress', preset.layout),
+      styleId: null,
+      settings: { progress: { scope: preset.scope } },
+    });
+  });
+
+  instances.push(
+    {
+      instanceId: 'tips-0',
+      type: 'tips',
+      layout: { ...CARD_LIMITS.tips.initial },
+      styleId: null,
+      settings: undefined,
+    },
+    {
+      instanceId: 'clock-0',
+      type: 'clock',
+      layout: { ...CARD_LIMITS.clock.initial },
+      styleId: null,
+      settings: undefined,
+    }
+  );
+
+  return instances;
+};
 
 const createCardInstance = (type: CardId, existing: CardInstance[]): CardInstance => {
   const limits = CARD_LIMITS[type];
   const occupied = existing.map((item) => item.layout);
   const preferred = limits.initial;
   const slot = findSlot(limits.initial.w, limits.initial.h, preferred.x, preferred.y, occupied);
+  let settings: CardSettings | undefined;
+  if (type === 'progress') {
+    settings = { progress: { scope: 'day' } };
+  }
   return {
     instanceId: `${type}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`,
     type,
     layout: clampLayout(type, slot),
     styleId: null,
-    settings: undefined,
+    settings,
   };
 };
 
@@ -386,7 +463,11 @@ const settingsEqual = (a?: CardSettings, b?: CardSettings) => {
   const bt = b?.tips;
   const aSource = at?.source ?? 'local';
   const bSource = bt?.source ?? 'local';
-  return aZone === bZone && aMode === bMode && aSource === bSource;
+  const ap = a?.progress;
+  const bp = b?.progress;
+  const aScope = ap?.scope ?? null;
+  const bScope = bp?.scope ?? null;
+  return aZone === bZone && aMode === bMode && aSource === bSource && aScope === bScope;
 };
 
 const cardsEqual = (a: CardInstance[], b: CardInstance[]) => {
@@ -413,9 +494,22 @@ const loadPersistedCards = (): CardInstance[] | null => {
     const sanitized: CardInstance[] = [];
     for (const item of parsed) {
       if (!item || !item.instanceId || typeof item.type !== 'string') continue;
-      const type = item.type as CardId;
+      let rawType = item.type as CardId | ProgressScope;
+      let inferredScope: ProgressScope | undefined;
+      if (rawType === 'day' || rawType === 'week' || rawType === 'month' || rawType === 'year') {
+        inferredScope = rawType;
+        rawType = 'progress';
+      }
+      const type = rawType as CardId;
       if (!CARD_LIMITS[type]) continue;
-      const settings = sanitizeCardSettings((item as CardInstance).settings);
+      let settings = sanitizeCardSettings((item as CardInstance).settings);
+      if (inferredScope) {
+        const scope = settings?.progress?.scope ?? inferredScope;
+        settings = {
+          ...(settings ?? {}),
+          progress: { scope },
+        };
+      }
       sanitized.push({
         instanceId: item.instanceId,
         type,
@@ -436,13 +530,18 @@ const migrateLegacyLayout = (): CardInstance[] | null => {
   try {
     const raw = window.localStorage.getItem('resty.dashboard.layout.v1');
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<Record<CardId, LayoutItem>>;
+    const parsed = JSON.parse(raw) as Partial<Record<CardId | ProgressScope, LayoutItem>>;
     const fallback = createInitialInstances();
     return fallback.map((card) => ({
       ...card,
-      layout: clampLayout(card.type, parsed?.[card.type] ?? card.layout),
+      layout: clampLayout(
+        card.type,
+        card.type === 'progress'
+          ? parsed?.[(card.settings?.progress?.scope ?? 'day') as CardId | ProgressScope] ?? card.layout
+          : parsed?.[card.type] ?? card.layout
+      ),
       styleId: null,
-      settings: undefined,
+      settings: card.type === 'progress' ? card.settings : undefined,
     }));
   } catch (error) {
     console.warn('Failed to migrate legacy dashboard layout:', error);
@@ -631,6 +730,26 @@ function TipsCardRenderer({ instance, language, isZh, delay = 0 }: TipsCardRende
   }, [source, language, isZh]);
 
   return <TipsCard tip={content} delay={delay} />;
+}
+
+interface ProgressCardRendererProps {
+  instance: CardInstance;
+  scopes: Record<ProgressScope, { value: number; formatted: string; label: string; info?: string }>;
+  delay?: number;
+}
+
+function ProgressCardRenderer({ instance, scopes, delay = 0 }: ProgressCardRendererProps) {
+  const scope = instance.settings?.progress?.scope ?? 'day';
+  const config = scopes[scope] ?? scopes.day;
+  return (
+    <PercentCard
+      value={config.value}
+      formatted={config.formatted}
+      label={config.label}
+      info={config.info}
+      delay={delay}
+    />
+  );
 }
 
 interface ClockCardProps {
@@ -862,6 +981,44 @@ export function Dashboard() {
 
   const dayInfo = timeFormatter.format(now);
 
+  const progressScopeData = useMemo(
+    () => ({
+      day: {
+        value: dayProgress,
+        formatted: percentFormatter.format(dayProgress),
+        label: dayLabel,
+        info: dayInfo,
+      },
+      week: {
+        value: weekProgress,
+        formatted: percentFormatter.format(weekProgress),
+        label: weekLabel,
+      },
+      month: {
+        value: monthProgress,
+        formatted: percentFormatter.format(monthProgress),
+        label: monthLabel,
+      },
+      year: {
+        value: yearProgress,
+        formatted: percentFormatter.format(yearProgress),
+        label: yearLabel,
+      },
+    }),
+    [
+      dayProgress,
+      dayLabel,
+      dayInfo,
+      monthLabel,
+      monthProgress,
+      percentFormatter,
+      weekLabel,
+      weekProgress,
+      yearLabel,
+      yearProgress,
+    ]
+  );
+
   const attemptUpdate = useCallback((instanceId: string, candidate: LayoutItem) => {
     let applied = false;
     setCardInstances((prev) => {
@@ -1007,53 +1164,11 @@ export function Dashboard() {
           <NextSlotCard primary={nextPrimary} secondary={nextSecondary} delay={delay} />
         ),
       },
-      day: {
-        minW: CARD_LIMITS.day.minW,
-        minH: CARD_LIMITS.day.minH,
-        render: (_instance, delay: number) => (
-          <PercentCard
-            value={dayProgress}
-            formatted={percentFormatter.format(dayProgress)}
-            label={dayLabel}
-            info={dayInfo}
-            delay={delay}
-          />
-        ),
-      },
-      week: {
-        minW: CARD_LIMITS.week.minW,
-        minH: CARD_LIMITS.week.minH,
-        render: (_instance, delay: number) => (
-          <PercentCard
-            value={weekProgress}
-            formatted={percentFormatter.format(weekProgress)}
-            label={weekLabel}
-            delay={delay}
-          />
-        ),
-      },
-      month: {
-        minW: CARD_LIMITS.month.minW,
-        minH: CARD_LIMITS.month.minH,
-        render: (_instance, delay: number) => (
-          <PercentCard
-            value={monthProgress}
-            formatted={percentFormatter.format(monthProgress)}
-            label={monthLabel}
-            delay={delay}
-          />
-        ),
-      },
-      year: {
-        minW: CARD_LIMITS.year.minW,
-        minH: CARD_LIMITS.year.minH,
-        render: (_instance, delay: number) => (
-          <PercentCard
-            value={yearProgress}
-            formatted={percentFormatter.format(yearProgress)}
-            label={yearLabel}
-            delay={delay}
-          />
+      progress: {
+        minW: CARD_LIMITS.progress.minW,
+        minH: CARD_LIMITS.progress.minH,
+        render: (instance, delay: number) => (
+          <ProgressCardRenderer instance={instance} scopes={progressScopeData} delay={delay} />
         ),
       },
       tips: {
@@ -1104,22 +1219,14 @@ export function Dashboard() {
     }),
     [
       dayInfo,
-      dayLabel,
-      dayProgress,
       i18n.language,
-      monthLabel,
-      monthProgress,
       nextPrimary,
       nextSecondary,
       now,
-      percentFormatter,
+      progressScopeData,
       statusContent,
       systemTimeZone,
       isZh,
-      weekLabel,
-      weekProgress,
-      yearLabel,
-      yearProgress,
     ]
   );
 
@@ -1131,17 +1238,8 @@ export function Dashboard() {
       next: t('dashboard.cardNames.next', {
         defaultValue: isZh ? '下次节奏' : 'Next session',
       }),
-      day: t('dashboard.cardNames.day', {
-        defaultValue: isZh ? '今日进度' : "Today's progress",
-      }),
-      week: t('dashboard.cardNames.week', {
-        defaultValue: isZh ? '本周进度' : 'Weekly progress',
-      }),
-      month: t('dashboard.cardNames.month', {
-        defaultValue: isZh ? '本月进度' : 'Monthly progress',
-      }),
-      year: t('dashboard.cardNames.year', {
-        defaultValue: isZh ? '年度进度' : 'Year progress',
+      progress: t('dashboard.cardNames.progress', {
+        defaultValue: isZh ? '进度卡片' : 'Progress card',
       }),
       tips: t('dashboard.cardNames.tips', {
         defaultValue: isZh ? '贴士卡片' : 'Tips card',
@@ -1256,6 +1354,65 @@ export function Dashboard() {
                 />
                 <span>{option12Label}</span>
               </label>
+            </div>
+          </fieldset>
+        </div>
+      );
+    }
+
+    if (card.type === 'progress') {
+      const progressSettings = card.settings?.progress;
+      const selectedScope = progressSettings?.scope ?? 'day';
+      const scopeLabel = isZh ? '统计范围' : 'Scope';
+      const progressDefaults: ProgressCardSettings = { scope: 'day' };
+      const scopeOptions: Array<{ value: ProgressScope; label: string }> = [
+        { value: 'day', label: dayLabel },
+        { value: 'week', label: weekLabel },
+        { value: 'month', label: monthLabel },
+        { value: 'year', label: yearLabel },
+      ];
+
+      const updateProgressSettings = (
+        updater: (prev: ProgressCardSettings) => ProgressCardSettings
+      ) => {
+        handleUpdateSettings(card.instanceId, (prev) => {
+          const base = prev?.progress ?? progressDefaults;
+          const next = updater({ ...base });
+          const normalized: ProgressCardSettings =
+            next.scope === 'week' || next.scope === 'month' || next.scope === 'year'
+              ? { scope: next.scope }
+              : { scope: 'day' };
+          if (normalized.scope === 'day') {
+            if (!prev) return undefined;
+            const { progress: _omit, ...rest } = prev;
+            return Object.keys(rest).length ? rest : undefined;
+          }
+          return { ...(prev ?? {}), progress: normalized };
+        });
+      };
+
+      renderCustomContent = () => (
+        <div className="card-style-custom">
+          <fieldset className="card-style-field">
+            <legend className="card-style-field-label">{scopeLabel}</legend>
+            <div className="card-style-radio-group">
+              {scopeOptions.map((option) => (
+                <label key={option.value} className="card-style-radio">
+                  <input
+                    type="radio"
+                    name={`${card.instanceId}-progress-scope`}
+                    value={option.value}
+                    checked={selectedScope === option.value}
+                    onChange={() => {
+                      updateProgressSettings((prevProgress) => ({
+                        ...prevProgress,
+                        scope: option.value,
+                      }));
+                    }}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
             </div>
           </fieldset>
         </div>
