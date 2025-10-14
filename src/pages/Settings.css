@@ -62,10 +62,85 @@
 .settings-content {
   display: flex;
   flex-direction: column;
+  gap: clamp(var(--spacing-lg), 4vw, calc(var(--spacing-xl) + var(--spacing-sm)));
 }
 
 .settings-section {
-  margin-bottom: var(--spacing-lg);
+  margin: 0;
+}
+
+.settings-card {
+  position: relative;
+  z-index: 0;
+  padding: clamp(var(--spacing-lg), 4vw, calc(var(--spacing-xl) + var(--spacing-sm)));
+  border-radius: var(--radius-xl, 24px);
+  background-color: var(--color-surface);
+  border: 1px solid rgba(59, 130, 246, 0.14);
+  box-shadow: var(--shadow-md), 0 18px 40px -30px rgba(15, 23, 42, 0.45);
+  overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.settings-card::before,
+.settings-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+.settings-card::before {
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.18),
+    rgba(59, 130, 246, 0.04) 45%,
+    rgba(59, 130, 246, 0)
+  );
+  opacity: 0.55;
+}
+
+.settings-card::after {
+  background: radial-gradient(circle at 12% 0%, rgba(255, 255, 255, 0.38), transparent 55%);
+  opacity: 0.55;
+}
+
+.settings-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.settings-card:hover,
+.settings-card:focus-within {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg), 0 22px 48px -28px rgba(15, 23, 42, 0.55);
+  border-color: rgba(59, 130, 246, 0.24);
+}
+
+.settings-card:hover::before,
+.settings-card:focus-within::before {
+  opacity: 0.85;
+}
+
+.settings-card:hover::after,
+.settings-card:focus-within::after {
+  opacity: 0.75;
+}
+
+[data-theme='dark'] .settings-card {
+  border-color: rgba(59, 130, 246, 0.22);
+  box-shadow: var(--shadow-md), 0 24px 48px -30px rgba(0, 0, 0, 0.7);
+}
+
+[data-theme='dark'] .settings-card::after {
+  background: radial-gradient(circle at 12% 0%, rgba(59, 130, 246, 0.32), transparent 55%);
+}
+
+[data-theme='dark'] .settings-card:hover,
+[data-theme='dark'] .settings-card:focus-within {
+  box-shadow: var(--shadow-lg), 0 24px 56px -28px rgba(0, 0, 0, 0.7);
+  border-color: rgba(59, 130, 246, 0.38);
 }
 
 .form-group {
@@ -277,5 +352,9 @@
 
   .settings-nav-button:hover {
     transform: translateY(-1px);
+  }
+
+  .settings-card {
+    padding: var(--spacing-lg);
   }
 }

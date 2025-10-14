@@ -188,95 +188,95 @@ export function Settings() {
               ref={(node) => {
                 sectionRefs.current.timer = node;
               }}
-              className="card settings-section"
+              className="settings-card settings-section"
             >
-          <h2 className="card-header">{t('settings.timer.title')}</h2>
+              <h2 className="card-header">{t('settings.timer.title')}</h2>
 
-          <div className="form-group">
-            <label htmlFor="workDuration">{t('settings.timer.workDuration')}</label>
-            <input
-              id="workDuration"
-              type="number"
-              className="input"
-              value={localSettings.workDuration}
-              onChange={(e) => {
-                const value = parseInt(e.target.value);
-                setLocalSettings({ ...localSettings, workDuration: value });
-              }}
-              onBlur={(e) => {
-                let value = parseInt(e.target.value);
-                if (Number.isNaN(value)) value = localSettings.workDuration;
-                value = Math.max(1, Math.min(120, value));
-                const next = { ...localSettings, workDuration: value };
-                setLocalSettings(next);
-                saveSettingsAuto(next);
-              }}
-              min={1}
-              max={120}
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="breakDuration">{t('settings.timer.breakDuration')}</label>
-            <input
-              id="breakDuration"
-              type="number"
-              className="input"
-              value={localSettings.breakDuration}
-              onChange={(e) => {
-                const value = parseInt(e.target.value);
-                setLocalSettings({ ...localSettings, breakDuration: value });
-              }}
-              onBlur={(e) => {
-                let value = parseInt(e.target.value);
-                if (Number.isNaN(value)) value = localSettings.breakDuration;
-                value = Math.max(1, Math.min(120, value));
-                const next = { ...localSettings, breakDuration: value };
-                setLocalSettings(next);
-                saveSettingsAuto(next);
-              }}
-              min={1}
-              max={120}
-            />
-          </div>
-
-          <div className="form-group toggle-group">
-            <label className="toggle-row">
-              <span className="toggle-text">{t('settings.timer.enableForceBreak')}</span>
-              <span className="switch">
+              <div className="form-group">
+                <label htmlFor="workDuration">{t('settings.timer.workDuration')}</label>
                 <input
-                  type="checkbox"
-                  checked={localSettings.enableForceBreak}
+                  id="workDuration"
+                  type="number"
+                  className="input"
+                  value={localSettings.workDuration}
                   onChange={(e) => {
-                    const next = { ...localSettings, enableForceBreak: e.target.checked };
+                    const value = parseInt(e.target.value);
+                    setLocalSettings({ ...localSettings, workDuration: value });
+                  }}
+                  onBlur={(e) => {
+                    let value = parseInt(e.target.value);
+                    if (Number.isNaN(value)) value = localSettings.workDuration;
+                    value = Math.max(1, Math.min(120, value));
+                    const next = { ...localSettings, workDuration: value };
                     setLocalSettings(next);
                     saveSettingsAuto(next);
                   }}
+                  min={1}
+                  max={120}
                 />
-                <span className="slider" />
-              </span>
-            </label>
-            <p className="helper-text">{t('settings.timer.forceBreakDescription')}</p>
-          </div>
+              </div>
 
-          <div className="form-group toggle-group">
-            <label className="toggle-row">
-              <span className="toggle-text">{t('settings.timer.flowMode')}</span>
-              <span className="switch">
+              <div className="form-group">
+                <label htmlFor="breakDuration">{t('settings.timer.breakDuration')}</label>
                 <input
-                  type="checkbox"
-                  checked={localSettings.flowModeEnabled}
+                  id="breakDuration"
+                  type="number"
+                  className="input"
+                  value={localSettings.breakDuration}
                   onChange={(e) => {
-                    const next = { ...localSettings, flowModeEnabled: e.target.checked };
+                    const value = parseInt(e.target.value);
+                    setLocalSettings({ ...localSettings, breakDuration: value });
+                  }}
+                  onBlur={(e) => {
+                    let value = parseInt(e.target.value);
+                    if (Number.isNaN(value)) value = localSettings.breakDuration;
+                    value = Math.max(1, Math.min(120, value));
+                    const next = { ...localSettings, breakDuration: value };
                     setLocalSettings(next);
                     saveSettingsAuto(next);
                   }}
+                  min={1}
+                  max={120}
                 />
-                <span className="slider" />
-              </span>
-            </label>
-            <p className="helper-text">{t('settings.timer.flowModeDescription')}</p>
-          </div>
+              </div>
+
+              <div className="form-group toggle-group">
+                <label className="toggle-row">
+                  <span className="toggle-text">{t('settings.timer.enableForceBreak')}</span>
+                  <span className="switch">
+                    <input
+                      type="checkbox"
+                      checked={localSettings.enableForceBreak}
+                      onChange={(e) => {
+                        const next = { ...localSettings, enableForceBreak: e.target.checked };
+                        setLocalSettings(next);
+                        saveSettingsAuto(next);
+                      }}
+                    />
+                    <span className="slider" />
+                  </span>
+                </label>
+                <p className="helper-text">{t('settings.timer.forceBreakDescription')}</p>
+              </div>
+
+              <div className="form-group toggle-group">
+                <label className="toggle-row">
+                  <span className="toggle-text">{t('settings.timer.flowMode')}</span>
+                  <span className="switch">
+                    <input
+                      type="checkbox"
+                      checked={localSettings.flowModeEnabled}
+                      onChange={(e) => {
+                        const next = { ...localSettings, flowModeEnabled: e.target.checked };
+                        setLocalSettings(next);
+                        saveSettingsAuto(next);
+                      }}
+                    />
+                    <span className="slider" />
+                  </span>
+                </label>
+                <p className="helper-text">{t('settings.timer.flowModeDescription')}</p>
+              </div>
             </section>
 
             {/* Reminder Settings */}
@@ -285,62 +285,62 @@ export function Settings() {
               ref={(node) => {
                 sectionRefs.current.reminder = node;
               }}
-              className="card settings-section"
+              className="settings-card settings-section"
             >
-          <h2 className="card-header">{t('settings.reminder.title')}</h2>
+              <h2 className="card-header">{t('settings.reminder.title')}</h2>
 
-          <div className="form-group">
-            <label htmlFor="reminderMode">{t('settings.reminder.mode')}</label>
-            <select
-              id="reminderMode"
-              className="input"
-              value={localSettings.reminderMode}
-              onChange={(e) => {
-                const next = {
-                  ...localSettings,
-                  reminderMode: e.target.value as 'fullscreen' | 'floating',
-                } as SettingsType;
-                setLocalSettings(next);
-                saveSettingsAuto(next);
-              }}
-            >
-              <option value="fullscreen">{t('settings.reminder.fullscreen')}</option>
-              <option value="floating">{t('settings.reminder.floating')}</option>
-            </select>
-          </div>
-
-          <h3 className="card-subtitle">{t('settings.reminder.restMusic.title')}</h3>
-
-          <div className="form-group toggle-group">
-            <label className="toggle-row">
-              <span className="toggle-text">{t('settings.reminder.restMusic.enable')}</span>
-              <span className="switch">
-                <input
-                  type="checkbox"
-                  checked={localSettings.restMusicEnabled}
+              <div className="form-group">
+                <label htmlFor="reminderMode">{t('settings.reminder.mode')}</label>
+                <select
+                  id="reminderMode"
+                  className="input"
+                  value={localSettings.reminderMode}
                   onChange={(e) => {
-                    const next = { ...localSettings, restMusicEnabled: e.target.checked };
+                    const next = {
+                      ...localSettings,
+                      reminderMode: e.target.value as 'fullscreen' | 'floating',
+                    } as SettingsType;
                     setLocalSettings(next);
                     saveSettingsAuto(next);
                   }}
-                />
-                <span className="slider" />
-              </span>
-            </label>
-            <p className="helper-text">{t('settings.reminder.restMusic.description')}</p>
-          </div>
+                >
+                  <option value="fullscreen">{t('settings.reminder.fullscreen')}</option>
+                  <option value="floating">{t('settings.reminder.floating')}</option>
+                </select>
+              </div>
 
-          <div className="form-group">
-            <label>{t('settings.reminder.restMusic.directory')}</label>
-            <button
-              type="button"
-              className="link-button directory-display"
-              onClick={handleOpenMusicDirectory}
-              disabled={!localSettings.restMusicDirectory}
-            >
-              {localSettings.restMusicDirectory || t('settings.reminder.restMusic.directoryMissing')}
-            </button>
-          </div>
+              <h3 className="card-subtitle">{t('settings.reminder.restMusic.title')}</h3>
+
+              <div className="form-group toggle-group">
+                <label className="toggle-row">
+                  <span className="toggle-text">{t('settings.reminder.restMusic.enable')}</span>
+                  <span className="switch">
+                    <input
+                      type="checkbox"
+                      checked={localSettings.restMusicEnabled}
+                      onChange={(e) => {
+                        const next = { ...localSettings, restMusicEnabled: e.target.checked };
+                        setLocalSettings(next);
+                        saveSettingsAuto(next);
+                      }}
+                    />
+                    <span className="slider" />
+                  </span>
+                </label>
+                <p className="helper-text">{t('settings.reminder.restMusic.description')}</p>
+              </div>
+
+              <div className="form-group">
+                <label>{t('settings.reminder.restMusic.directory')}</label>
+                <button
+                  type="button"
+                  className="link-button directory-display"
+                  onClick={handleOpenMusicDirectory}
+                  disabled={!localSettings.restMusicDirectory}
+                >
+                  {localSettings.restMusicDirectory || t('settings.reminder.restMusic.directoryMissing')}
+                </button>
+              </div>
             </section>
 
             {/* Appearance Settings */}
@@ -349,30 +349,30 @@ export function Settings() {
               ref={(node) => {
                 sectionRefs.current.appearance = node;
               }}
-              className="card settings-section"
+              className="settings-card settings-section"
             >
-          <h2 className="card-header">{t('settings.appearance.title')}</h2>
+              <h2 className="card-header">{t('settings.appearance.title')}</h2>
 
-          <div className="form-group">
-            <label htmlFor="theme">{t('settings.appearance.theme')}</label>
-            <select
-              id="theme"
-              className="input"
-              value={localSettings.theme}
-              onChange={(e) => {
-                const next = {
-                  ...localSettings,
-                  theme: e.target.value as 'light' | 'dark' | 'auto',
-                } as SettingsType;
-                setLocalSettings(next);
-                saveSettingsAuto(next);
-              }}
-            >
-              <option value="light">{t('settings.appearance.light')}</option>
-              <option value="dark">{t('settings.appearance.dark')}</option>
-              <option value="auto">{t('settings.appearance.auto')}</option>
-            </select>
-          </div>
+              <div className="form-group">
+                <label htmlFor="theme">{t('settings.appearance.theme')}</label>
+                <select
+                  id="theme"
+                  className="input"
+                  value={localSettings.theme}
+                  onChange={(e) => {
+                    const next = {
+                      ...localSettings,
+                      theme: e.target.value as 'light' | 'dark' | 'auto',
+                    } as SettingsType;
+                    setLocalSettings(next);
+                    saveSettingsAuto(next);
+                  }}
+                >
+                  <option value="light">{t('settings.appearance.light')}</option>
+                  <option value="dark">{t('settings.appearance.dark')}</option>
+                  <option value="auto">{t('settings.appearance.auto')}</option>
+                </select>
+              </div>
             </section>
 
             {/* System Settings */}
@@ -381,28 +381,27 @@ export function Settings() {
               ref={(node) => {
                 sectionRefs.current.system = node;
               }}
-              className="card settings-section"
+              className="settings-card settings-section"
             >
-          <h2 className="card-header">{t('settings.system.title')}</h2>
+              <h2 className="card-header">{t('settings.system.title')}</h2>
 
-          <div className="form-group toggle-group">
-            <label className="toggle-row">
-              <span className="toggle-text">{t('settings.system.autostart')}</span>
-              <span className="switch">
-                <input
-                  type="checkbox"
-                  checked={localSettings.autostart}
-                  onChange={(e) => {
-                    const next = { ...localSettings, autostart: e.target.checked };
-                    setLocalSettings(next);
-                    saveSettingsAuto(next);
-                  }}
-                />
-                <span className="slider" />
-              </span>
-            </label>
-          </div>
-
+              <div className="form-group toggle-group">
+                <label className="toggle-row">
+                  <span className="toggle-text">{t('settings.system.autostart')}</span>
+                  <span className="switch">
+                    <input
+                      type="checkbox"
+                      checked={localSettings.autostart}
+                      onChange={(e) => {
+                        const next = { ...localSettings, autostart: e.target.checked };
+                        setLocalSettings(next);
+                        saveSettingsAuto(next);
+                      }}
+                    />
+                    <span className="slider" />
+                  </span>
+                </label>
+              </div>
             </section>
 
             {/* Language Settings */}
@@ -411,30 +410,30 @@ export function Settings() {
               ref={(node) => {
                 sectionRefs.current.language = node;
               }}
-              className="card settings-section"
+              className="settings-card settings-section"
             >
-          <h2 className="card-header">{t('settings.language.title')}</h2>
+              <h2 className="card-header">{t('settings.language.title')}</h2>
 
-          <div className="form-group">
-            <label htmlFor="language">{t('settings.language.select')}</label>
-            <select
-              id="language"
-              className="input"
-              value={localSettings.language}
-              onChange={(e) => {
-                const newLang = e.target.value as Language;
-                const next = { ...localSettings, language: newLang } as SettingsType;
-                setLocalSettings(next);
-                saveSettingsAuto(next);
-              }}
-            >
-              {LANGUAGE_OPTIONS.map(({ value, labelKey }) => (
-                <option key={value} value={value}>
-                  {t(labelKey)}
-                </option>
-              ))}
-            </select>
-          </div>
+              <div className="form-group">
+                <label htmlFor="language">{t('settings.language.select')}</label>
+                <select
+                  id="language"
+                  className="input"
+                  value={localSettings.language}
+                  onChange={(e) => {
+                    const newLang = e.target.value as Language;
+                    const next = { ...localSettings, language: newLang } as SettingsType;
+                    setLocalSettings(next);
+                    saveSettingsAuto(next);
+                  }}
+                >
+                  {LANGUAGE_OPTIONS.map(({ value, labelKey }) => (
+                    <option key={value} value={value}>
+                      {t(labelKey)}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </section>
 
             {/* About */}
@@ -443,33 +442,33 @@ export function Settings() {
               ref={(node) => {
                 sectionRefs.current.about = node;
               }}
-              className="card settings-section"
+              className="settings-card settings-section"
             >
-          <h2 className="card-header">{t('settings.about.title')}</h2>
-          <dl className="about-list">
-            <div className="about-item">
-              <dt className="about-label">{t('settings.about.software')}</dt>
-              <dd className="about-value">{t('app.name')}</dd>
-            </div>
-            <div className="about-item">
-              <dt className="about-label">{t('settings.about.author')}</dt>
-              <dd className="about-value">youtonghy</dd>
-            </div>
-            <div className="about-item">
-              <dt className="about-label">{t('settings.about.website')}</dt>
-              <dd className="about-value">
-                <button type="button" className="link-button" onClick={handleOpenWebsite}>
-                  https://resty.tokisantike.net
-                </button>
-              </dd>
-            </div>
-            <div className="about-item">
-              <dt className="about-label">{t('settings.about.version')}</dt>
-              <dd className="about-value">
-                {appVersion ?? t('settings.about.versionUnknown')}
-              </dd>
-            </div>
-          </dl>
+              <h2 className="card-header">{t('settings.about.title')}</h2>
+              <dl className="about-list">
+                <div className="about-item">
+                  <dt className="about-label">{t('settings.about.software')}</dt>
+                  <dd className="about-value">{t('app.name')}</dd>
+                </div>
+                <div className="about-item">
+                  <dt className="about-label">{t('settings.about.author')}</dt>
+                  <dd className="about-value">youtonghy</dd>
+                </div>
+                <div className="about-item">
+                  <dt className="about-label">{t('settings.about.website')}</dt>
+                  <dd className="about-value">
+                    <button type="button" className="link-button" onClick={handleOpenWebsite}>
+                      https://resty.tokisantike.net
+                    </button>
+                  </dd>
+                </div>
+                <div className="about-item">
+                  <dt className="about-label">{t('settings.about.version')}</dt>
+                  <dd className="about-value">
+                    {appVersion ?? t('settings.about.versionUnknown')}
+                  </dd>
+                </div>
+              </dl>
             </section>
 
             {/* Actions: 仅保留重置，移除手动保存/导出/导入 */}
