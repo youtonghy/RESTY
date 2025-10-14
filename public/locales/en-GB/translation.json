@@ -10,7 +10,9 @@
       "workDuration": "Work Duration (minutes)",
       "breakDuration": "Break Duration (minutes)",
       "enableForceBreak": "Force break mode",
-      "forceBreakDescription": "Prevent skipping during break time"
+      "forceBreakDescription": "Prevent skipping during break time",
+      "flowMode": "Flow mode",
+      "flowModeDescription": "Stay in continuous work sessions until you stop manually"
     },
     "reminder": {
       "title": "Reminder Settings",

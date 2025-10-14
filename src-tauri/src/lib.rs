@@ -57,6 +57,7 @@ pub fn run() {
                     Arc::clone(&db_clone),
                     settings.work_duration,
                     settings.break_duration,
+                    settings.flow_mode_enabled,
                 );
 
                 // Start the ticker

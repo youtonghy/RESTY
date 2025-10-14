@@ -22,6 +22,7 @@ struct TimerServiceState {
     total_minutes: u32,
     work_duration: u32,
     break_duration: u32,
+    flow_mode: bool,
     phase_end_time: Option<chrono::DateTime<Utc>>,
     current_session_id: Option<String>,
     current_session_start: Option<chrono::DateTime<Utc>>,
@@ -38,6 +39,7 @@ impl TimerService {
         db: Arc<tokio::sync::Mutex<DatabaseService>>,
         work_duration: u32,
         break_duration: u32,
+        flow_mode: bool,
     ) -> Arc<Self> {
         Arc::new(Self {
             state: Arc::new(Mutex::new(TimerServiceState {
@@ -47,6 +49,7 @@ impl TimerService {
                 total_minutes: 0,
                 work_duration,
                 break_duration,
+                flow_mode,
                 phase_end_time: None,
                 current_session_id: None,
                 current_session_start: None,
@@ -217,6 +220,7 @@ impl TimerService {
             }
         }
 
+        let flow_mode = state.flow_mode;
         let should_auto_cycle = timer_finished && state.auto_cycle;
         // Evaluate whether break suppression is active; clear if expired
         let suppress_breaks_active = if let Some(until) = state.suppress_breaks_until {
@@ -244,7 +248,7 @@ impl TimerService {
                 match next_phase {
                     TimerPhase::Work => {
                         // Work finished
-                        if suppress_breaks_active {
+                        if suppress_breaks_active || flow_mode {
                             // Skip break: immediately start another work session
                             self.start_work()?;
                         } else {
@@ -275,7 +279,7 @@ impl TimerService {
             remaining_minutes: state.remaining_minutes,
             total_minutes: state.total_minutes,
             next_transition_time: state.phase_end_time,
-            next_break_time,
+            next_break_time: if state.flow_mode { None } else { next_break_time },
         }
     }
 
@@ -284,6 +288,26 @@ impl TimerService {
         let mut state = self.state.lock().unwrap();
         state.work_duration = work_duration;
         state.break_duration = break_duration;
+    }
+
+    /// Update flow mode toggle based on settings.
+    pub fn update_flow_mode(&self, enabled: bool) -> AppResult<()> {
+        let mut state = self.state.lock().unwrap();
+        if state.flow_mode == enabled {
+            return Ok(());
+        }
+        state.flow_mode = enabled;
+        let should_switch_to_work = enabled && matches!(state.phase, TimerPhase::Break);
+        drop(state);
+
+        if should_switch_to_work {
+            let session = self.skip()?;
+            self.persist_session_finish(session);
+        } else {
+            self.emit_timer_update()?;
+        }
+
+        Ok(())
     }
 
 

@@ -17,6 +17,7 @@ export interface Settings {
   workDuration: number; // in minutes
   breakDuration: number; // in minutes
   enableForceBreak: boolean;
+  flowModeEnabled: boolean;
 
   // Reminder settings
   reminderMode: ReminderMode;
@@ -128,6 +129,7 @@ export const DEFAULT_SETTINGS: Settings = {
   workDuration: 25,
   breakDuration: 5,
   enableForceBreak: false,
+  flowModeEnabled: false,
   reminderMode: 'fullscreen',
   floatingPosition: 'top-right',
   opacity: 95,

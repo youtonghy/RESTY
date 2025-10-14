@@ -30,6 +30,10 @@ pub async fn save_settings(settings: Settings, state: State<'_, AppState>) -> Re
     state
         .timer_service
         .update_durations(settings.work_duration, settings.break_duration);
+    state
+        .timer_service
+        .update_flow_mode(settings.flow_mode_enabled)
+        .map_err(|e| e.to_string())?;
     // Save to database
     let db = state.database_service.lock().await;
     db.save_settings(&settings).await.map_err(|e| e.to_string())
@@ -150,6 +154,14 @@ pub async fn import_config(
         .map_err(|e| AppError::ImportFailed(e.to_string()).to_string())?;
 
     validate_settings(&settings)?;
+
+    state
+        .timer_service
+        .update_durations(settings.work_duration, settings.break_duration);
+    state
+        .timer_service
+        .update_flow_mode(settings.flow_mode_enabled)
+        .map_err(|e| e.to_string())?;
 
     let db = state.database_service.lock().await;
     db.save_settings(&settings)

@@ -10,7 +10,9 @@
       "workDuration": "工作時長（分鐘）",
       "breakDuration": "休息時長（分鐘）",
       "enableForceBreak": "強制休息模式",
-      "forceBreakDescription": "休息期間禁止跳過"
+      "forceBreakDescription": "休息期間禁止跳過",
+      "flowMode": "心流模式",
+      "flowModeDescription": "開啟後持續工作，不再提醒休息，需手動結束"
     },
     "reminder": {
       "title": "提醒設定",

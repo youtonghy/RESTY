@@ -19,6 +19,10 @@ fn default_rest_music_directory() -> String {
     rest_music_directory_default()
 }
 
+fn default_flow_mode() -> bool {
+    false
+}
+
 /// Theme preference
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -85,6 +89,8 @@ pub struct Settings {
     pub work_duration: u32,  // in minutes
     pub break_duration: u32, // in minutes
     pub enable_force_break: bool,
+    #[serde(default = "default_flow_mode")]
+    pub flow_mode_enabled: bool,
 
     // Reminder settings
     pub reminder_mode: ReminderMode,
@@ -118,6 +124,7 @@ impl Default for Settings {
             work_duration: 25,
             break_duration: 5,
             enable_force_break: false,
+            flow_mode_enabled: default_flow_mode(),
             reminder_mode: ReminderMode::Fullscreen,
             floating_position: FloatingPosition::TopRight,
             opacity: 95,

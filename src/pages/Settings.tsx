@@ -258,6 +258,25 @@ export function Settings() {
             </label>
             <p className="helper-text">{t('settings.timer.forceBreakDescription')}</p>
           </div>
+
+          <div className="form-group toggle-group">
+            <label className="toggle-row">
+              <span className="toggle-text">{t('settings.timer.flowMode')}</span>
+              <span className="switch">
+                <input
+                  type="checkbox"
+                  checked={localSettings.flowModeEnabled}
+                  onChange={(e) => {
+                    const next = { ...localSettings, flowModeEnabled: e.target.checked };
+                    setLocalSettings(next);
+                    saveSettingsAuto(next);
+                  }}
+                />
+                <span className="slider" />
+              </span>
+            </label>
+            <p className="helper-text">{t('settings.timer.flowModeDescription')}</p>
+          </div>
             </section>
 
             {/* Reminder Settings */}

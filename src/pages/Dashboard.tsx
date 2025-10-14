@@ -777,7 +777,7 @@ function ClockCard({ time, date, timezone, delay = 0 }: ClockCardProps) {
 export function Dashboard() {
   const { t, i18n } = useTranslation();
   const isZh = i18n.language.startsWith('zh');
-  const { timerInfo, setTimerInfo } = useAppStore();
+  const { timerInfo, setTimerInfo, settings } = useAppStore();
   const [now, setNow] = useState(() => new Date());
 
   const [cardInstances, setCardInstances] = useState<CardInstance[]>(() =>
@@ -837,6 +837,10 @@ export function Dashboard() {
 
   // 计算“下次休息”的时间：优先使用后端提供的 nextBreakTime（已考虑抑制逻辑），否则回退到占位日程中的下一段 break
   const nextBreakSlot = useMemo<NextSlot | null>(() => {
+    if (settings.flowModeEnabled) {
+      return null;
+    }
+
     const raw = timerInfo.nextBreakTime as unknown as string | null | undefined;
     if (raw) {
       const start = new Date(raw);
@@ -851,7 +855,7 @@ export function Dashboard() {
     return upcomingBreak
       ? { type: 'break', start: upcomingBreak.start, source: 'schedule' }
       : null;
-  }, [timerInfo, placeholderSlots, now]);
+  }, [timerInfo, placeholderSlots, now, settings.flowModeEnabled]);
 
   const dayProgress = useMemo(() => {
     const start = new Date(now);
