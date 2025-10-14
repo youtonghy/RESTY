@@ -17,7 +17,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
+            Some(vec![]),
         ))
         // Intercept main window close to minimize instead of exiting
         .on_window_event(|window, event| {
