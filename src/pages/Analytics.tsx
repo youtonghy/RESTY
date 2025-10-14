@@ -439,25 +439,25 @@ export function Analytics() {
         {data && (
           <>
             <section className="stats-overview">
-              <div className="stat-card">
+              <div className="stat-card analytics-card">
                 <div className="stat-icon work">💼</div>
                 <div className="stat-value">{formatDuration(computedTotals.work)}</div>
                 <div className="stat-label">{t('analytics.totalWork')}</div>
               </div>
 
-              <div className="stat-card">
+              <div className="stat-card analytics-card">
                 <div className="stat-icon break">☕</div>
                 <div className="stat-value">{formatDuration(computedTotals.rest)}</div>
                 <div className="stat-label">{t('analytics.totalBreak')}</div>
               </div>
 
-              <div className="stat-card">
+              <div className="stat-card analytics-card">
                 <div className="stat-icon count">📊</div>
                 <div className="stat-value">{data.breakCount}</div>
                 <div className="stat-label">{t('analytics.breakCount')}</div>
               </div>
 
-              <div className="stat-card">
+              <div className="stat-card analytics-card">
                 <div className="stat-icon rate">✅</div>
                 <div className="stat-value">{getCompletionRate()}%</div>
                 <div className="stat-label">{t('analytics.completionRate')}</div>
@@ -465,7 +465,7 @@ export function Analytics() {
             </section>
 
             {/* Session Timeline - Single Bar with Scale */}
-            <section className="card timeline-section">
+            <section className="analytics-card timeline-section">
               <h2 className="card-header">{t('analytics.timeline')}</h2>
 
               <div className="horizontal-timeline-container">
@@ -507,7 +507,7 @@ export function Analytics() {
 
             {/* Overview + Fragments side-by-side */}
             <div className="details-row">
-              <section className="card stats-details">
+              <section className="analytics-card stats-details">
                 <h2 className="card-header">{t('analytics.overview')}</h2>
                 <div className="stats-grid">
                     <div className="stat-item stat-item-pie">
@@ -553,7 +553,7 @@ export function Analytics() {
               </section>
 
               {/* Weekly fragment totals */}
-              <section className="card stats-details">
+              <section className="analytics-card stats-details">
                 <h2 className="card-header">{t('analytics.fragments')}</h2>
                 <div
                   className="fragment-visual"
