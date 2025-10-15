@@ -6,11 +6,18 @@ import * as api from '../utils/api';
 import type { Language, Settings as SettingsType } from '../types';
 import './Settings.css';
 
-const enforceTrayDefaults = (settings: SettingsType): SettingsType => ({
-  ...settings,
-  minimizeToTray: true,
-  closeToTray: true,
-});
+const enforceTrayDefaults = (settings: SettingsType): SettingsType => {
+  const normalized: SettingsType = {
+    ...settings,
+    minimizeToTray: true,
+    closeToTray: true,
+    silentAutostart: settings.silentAutostart ?? false,
+  };
+  if (!normalized.autostart) {
+    normalized.silentAutostart = false;
+  }
+  return normalized;
+};
 
 const LANGUAGE_OPTIONS: Array<{ value: Language; labelKey: string }> = [
   { value: 'en-US', labelKey: 'settings.language.options.enUS' },
@@ -393,7 +400,12 @@ export function Settings() {
                       type="checkbox"
                       checked={localSettings.autostart}
                       onChange={(e) => {
-                        const next = { ...localSettings, autostart: e.target.checked };
+                        const enabled = e.target.checked;
+                        const next = {
+                          ...localSettings,
+                          autostart: enabled,
+                          silentAutostart: enabled ? localSettings.silentAutostart : false,
+                        };
                         setLocalSettings(next);
                         saveSettingsAuto(next);
                       }}
@@ -401,6 +413,29 @@ export function Settings() {
                     <span className="slider" />
                   </span>
                 </label>
+              </div>
+
+              <div className="form-group toggle-group">
+                <label className="toggle-row">
+                  <span className="toggle-text">{t('settings.system.silentAutostart')}</span>
+                  <span className="switch">
+                    <input
+                      type="checkbox"
+                      checked={localSettings.silentAutostart}
+                      disabled={!localSettings.autostart}
+                      onChange={(e) => {
+                        const next = {
+                          ...localSettings,
+                          silentAutostart: e.target.checked,
+                        };
+                        setLocalSettings(next);
+                        saveSettingsAuto(next);
+                      }}
+                    />
+                    <span className="slider" />
+                  </span>
+                </label>
+                <p className="helper-text">{t('settings.system.silentAutostartHint')}</p>
               </div>
             </section>
 

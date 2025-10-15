@@ -41,6 +41,8 @@
     "system": {
       "title": "System",
       "autostart": "Launch on system startup",
+      "silentAutostart": "Silent startup",
+      "silentAutostartHint": "Keep the window hidden and only show the tray icon when autostart runs.",
       "minimizeToTray": "Minimize to system tray",
       "closeToTray": "Close to system tray"
     },

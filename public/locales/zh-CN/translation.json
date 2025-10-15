@@ -41,6 +41,8 @@
     "system": {
       "title": "系统",
       "autostart": "开机自启",
+      "silentAutostart": "静默启动",
+      "silentAutostartHint": "开启后,开机自启时仅在后台运行,不会弹出主窗口。",
       "minimizeToTray": "最小化到托盘",
       "closeToTray": "关闭到托盘"
     },

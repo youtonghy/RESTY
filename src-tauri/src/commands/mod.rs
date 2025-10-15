@@ -22,7 +22,13 @@ pub async fn load_settings(state: State<'_, AppState>) -> Result<Settings, Strin
 
 /// Save application settings
 #[tauri::command]
-pub async fn save_settings(settings: Settings, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn save_settings(
+    mut settings: Settings,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    if !settings.autostart && settings.silent_autostart {
+        settings.silent_autostart = false;
+    }
     // Validate settings
     validate_settings(&settings)?;
 
@@ -150,8 +156,12 @@ pub async fn import_config(
     json_str: String,
     state: State<'_, AppState>,
 ) -> Result<Settings, String> {
-    let settings: Settings = serde_json::from_str(&json_str)
+    let mut settings: Settings = serde_json::from_str(&json_str)
         .map_err(|e| AppError::ImportFailed(e.to_string()).to_string())?;
+
+    if !settings.autostart && settings.silent_autostart {
+        settings.silent_autostart = false;
+    }
 
     validate_settings(&settings)?;
 

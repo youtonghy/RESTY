@@ -17,7 +17,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            Some(vec![]),
+            Some(vec!["--autostart".into()]),
         ))
         // Intercept main window close to minimize instead of exiting
         .on_window_event(|window, event| {
@@ -25,8 +25,9 @@ pub fn run() {
                 // Only affect the main window
                 if window.label() == "main" {
                     api.prevent_close();
-                    // Minimize to taskbar instead of hiding
-                    let _ = window.minimize();
+                    // Hide window and keep app running in tray
+                    let _ = window.hide();
+                    let _ = window.set_skip_taskbar(true);
                 }
             }
         })
@@ -49,7 +50,7 @@ pub fn run() {
 
             // Load settings and create timer service
             let db_clone = Arc::clone(&db_service);
-            let timer_service = tauri::async_runtime::block_on(async move {
+            let (initial_settings, timer_service) = tauri::async_runtime::block_on(async move {
                 let db = db_clone.lock().await;
                 let settings = db.load_settings().await.unwrap_or_default();
                 let timer = TimerService::new(
@@ -66,7 +67,7 @@ pub fn run() {
                 // Auto-start work session when app launches
                 let _ = timer.start_work();
 
-                timer
+                (settings, timer)
             });
 
             // Set up application state
@@ -75,6 +76,16 @@ pub fn run() {
                 timer_service,
                 database_service: db_clone_for_state,
             });
+
+            // Hide window when autostart launches in silent mode
+            let launched_from_autostart = std::env::args().any(|arg| arg == "--autostart");
+            if launched_from_autostart && initial_settings.autostart && initial_settings.silent_autostart
+            {
+                if let Some(main_window) = app.get_webview_window("main") {
+                    let _ = main_window.hide();
+                    let _ = main_window.set_skip_taskbar(true);
+                }
+            }
 
             // Listen for break reminder event
             let app_handle = app.handle().clone();
@@ -168,6 +179,7 @@ pub fn run() {
                             }
                             "settings" => {
                                 if let Some(win) = app.get_webview_window("main") {
+                                    let _ = win.set_skip_taskbar(false);
                                     let _ = win.show();
                                     let _ = win.set_focus();
                                     let _ = win.unminimize();
@@ -189,6 +201,7 @@ pub fn run() {
                                     tauri::tray::MouseButton::Left => {
                                         if let Some(win) = app.get_webview_window("main") {
                                             // Always show and focus (no toggle) to avoid flicker
+                                            let _ = win.set_skip_taskbar(false);
                                             let _ = win.show();
                                             let _ = win.unminimize();
                                             let _ = win.set_focus();

@@ -112,6 +112,9 @@ impl DatabaseService {
         let mut normalized = settings.clone();
         normalized.minimize_to_tray = true;
         normalized.close_to_tray = true;
+        if !normalized.autostart && normalized.silent_autostart {
+            normalized.silent_autostart = false;
+        }
 
         // Update in-memory settings
         let mut stored_settings = self
@@ -164,6 +167,10 @@ impl DatabaseService {
             }
             if settings.rest_music_directory.trim().is_empty() {
                 settings.rest_music_directory = rest_music_directory_default();
+                persist_flag = true;
+            }
+            if settings.silent_autostart && !settings.autostart {
+                settings.silent_autostart = false;
                 persist_flag = true;
             }
 

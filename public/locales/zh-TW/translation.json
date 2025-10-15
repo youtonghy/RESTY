@@ -41,6 +41,8 @@
     "system": {
       "title": "系統",
       "autostart": "開機自動啟動",
+      "silentAutostart": "靜默啟動",
+      "silentAutostartHint": "啟用後，自動啟動時僅在背景執行，不會彈出主視窗。",
       "minimizeToTray": "最小化到系統匣",
       "closeToTray": "關閉到系統匣"
     },

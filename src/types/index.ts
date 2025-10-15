@@ -32,6 +32,7 @@ export interface Settings {
 
   // System
   autostart: boolean;
+  silentAutostart: boolean;
   minimizeToTray: boolean;
   closeToTray: boolean;
 
@@ -138,6 +139,7 @@ export const DEFAULT_SETTINGS: Settings = {
   restMusicDirectory: '',
   theme: 'auto',
   autostart: false,
+  silentAutostart: false,
   minimizeToTray: true,
   closeToTray: true,
   language: 'en-US',

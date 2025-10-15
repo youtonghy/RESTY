@@ -35,6 +35,9 @@ export const useAppStore = create<AppStore>((set) => ({
       const merged = { ...state.settings, ...newSettings };
       merged.minimizeToTray = true;
       merged.closeToTray = true;
+      if (!merged.autostart) {
+        merged.silentAutostart = false;
+      }
       return { settings: merged };
     }),
 

@@ -107,6 +107,8 @@ pub struct Settings {
 
     // System
     pub autostart: bool,
+    #[serde(default)]
+    pub silent_autostart: bool,
     pub minimize_to_tray: bool,
     pub close_to_tray: bool,
 
@@ -133,6 +135,7 @@ impl Default for Settings {
             rest_music_directory: rest_music_directory_default(),
             theme: Theme::Auto,
             autostart: false,
+            silent_autostart: false,
             minimize_to_tray: true,
             close_to_tray: true,
             language: Language::EnglishUnitedStates,
