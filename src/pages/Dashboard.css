@@ -611,6 +611,11 @@
   color: var(--color-success);
 }
 
+.tile-icon--clock {
+  background: rgba(99, 102, 241, 0.2);
+  color: #6366f1;
+}
+
 .tile-icon--paused {
   background: rgba(245, 158, 11, 0.2);
   color: var(--color-warning);
