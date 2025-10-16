@@ -8,22 +8,22 @@
   display: flex;
   /* Align nav buttons to the right on mobile as well */
   justify-content: flex-end;
+  gap: var(--spacing-sm);
   padding: var(--spacing-sm);
   z-index: 1000;
   box-shadow: var(--shadow-md);
 }
 
 .nav-item {
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
   align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-sm) var(--spacing-lg);
+  justify-content: center;
+  padding: var(--spacing-sm);
   border-radius: var(--radius-md);
   text-decoration: none;
   color: var(--color-text-secondary);
   transition: all 0.2s;
-  min-width: 80px;
+  min-width: 56px;
 }
 
 .nav-item:hover {
@@ -37,12 +37,8 @@
 }
 
 .nav-icon {
-  font-size: 1.5rem;
-}
-
-.nav-label {
-  font-size: 0.75rem;
-  font-weight: 500;
+  width: 2.25rem;
+  height: 2.25rem;
 }
 
 /* Desktop styles */
@@ -57,14 +53,5 @@
     gap: var(--spacing-md);
     padding: var(--spacing-md) 0;
     margin-bottom: var(--spacing-lg);
-  }
-
-  .nav-item {
-    flex-direction: row;
-    padding: var(--spacing-sm) var(--spacing-md);
-  }
-
-  .nav-label {
-    font-size: 0.875rem;
   }
 }

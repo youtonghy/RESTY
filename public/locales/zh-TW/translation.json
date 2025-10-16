@@ -3,6 +3,12 @@
     "name": "RESTY",
     "description": "護眼休息提醒應用"
   },
+  "navigation": {
+    "primary": "主導航",
+    "dashboard": "儀表板",
+    "analytics": "統計",
+    "settings": "設定"
+  },
   "settings": {
     "title": "設定",
     "timer": {

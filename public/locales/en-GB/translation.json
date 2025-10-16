@@ -3,6 +3,12 @@
     "name": "RESTY",
     "description": "Eye care reminder application"
   },
+  "navigation": {
+    "primary": "Primary navigation",
+    "dashboard": "Dashboard",
+    "analytics": "Analytics",
+    "settings": "Settings"
+  },
   "settings": {
     "title": "Settings",
     "timer": {
