@@ -9,7 +9,7 @@
   /* Align nav buttons to the right on mobile as well */
   justify-content: flex-end;
   gap: var(--spacing-sm);
-  padding: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-lg);
   z-index: 1000;
   box-shadow: var(--shadow-md);
 }
@@ -74,7 +74,7 @@
     /* Right-align nav buttons on desktop */
     justify-content: flex-end;
     gap: var(--spacing-sm);
-    padding: var(--spacing-sm) 0;
-    margin-bottom: calc(var(--spacing-md) + var(--spacing-xs));
+    padding: var(--spacing-xs) var(--spacing-lg);
+    margin-bottom: calc(var(--spacing-sm) + var(--spacing-xs));
   }
 }

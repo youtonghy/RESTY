@@ -93,12 +93,14 @@
 .layout-content {
   max-width: 1400px;
   margin: 0 auto;
-  padding: calc(var(--spacing-md) + var(--spacing-xs)) var(--spacing-lg);
-  padding-bottom: calc(var(--spacing-md) + 80px); /* Space for bottom nav */
+  padding: var(--spacing-md) 0;
+  padding-bottom: calc(var(--spacing-md) + 64px); /* Space for bottom nav */
+  width: 100%;
 }
 
 .layout-main {
   width: 100%;
+  padding: 0 var(--spacing-lg);
 }
 
 /* Window controls for borderless window */
