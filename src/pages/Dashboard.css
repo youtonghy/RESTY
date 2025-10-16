@@ -629,6 +629,9 @@
 .tile-icon--offline {
   color: var(--color-text-tertiary);
 }
+.tile-icon--neutral {
+  color: var(--color-text-secondary);
+}
 
 .tile-primary {
   font-size: clamp(1.8rem, 3.2vw, 2.9rem);
