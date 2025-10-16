@@ -110,29 +110,29 @@ export function Navigation() {
     <nav className="navigation" aria-label={t('navigation.primary', { defaultValue: 'Primary navigation' })}>
       <Link
         to="/"
-        className={`nav-item ${isActive('/') ? 'active' : ''}`}
+        className={`nav-item nav-item--dashboard ${isActive('/') ? 'active' : ''}`}
         aria-label={dashboardLabel}
         title={dashboardLabel}
       >
-        <DashboardIcon className="nav-icon nav-icon--dashboard" />
+        <DashboardIcon className="nav-icon" />
       </Link>
 
       <Link
         to="/analytics"
-        className={`nav-item ${isActive('/analytics') ? 'active' : ''}`}
+        className={`nav-item nav-item--analytics ${isActive('/analytics') ? 'active' : ''}`}
         aria-label={analyticsLabel}
         title={analyticsLabel}
       >
-        <AnalyticsIcon className="nav-icon nav-icon--analytics" />
+        <AnalyticsIcon className="nav-icon" />
       </Link>
 
       <Link
         to="/settings"
-        className={`nav-item ${isActive('/settings') ? 'active' : ''}`}
+        className={`nav-item nav-item--settings ${isActive('/settings') ? 'active' : ''}`}
         aria-label={settingsLabel}
         title={settingsLabel}
       >
-        <SettingsIcon className="nav-icon nav-icon--settings" />
+        <SettingsIcon className="nav-icon" />
       </Link>
     </nav>
   );

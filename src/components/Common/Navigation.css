@@ -24,6 +24,8 @@
   color: var(--color-text-secondary);
   transition: all 0.2s;
   min-width: 56px;
+  --nav-accent: var(--color-primary);
+  --nav-accent-bg: rgba(59, 130, 246, 0.18);
 }
 
 .nav-item:hover {
@@ -31,31 +33,35 @@
   color: var(--color-text-primary);
 }
 
-.nav-item.active {
-  color: var(--color-primary);
-  background: rgba(59, 130, 246, 0.1);
-}
-
 .nav-icon {
   width: 2.25rem;
   height: 2.25rem;
+  color: var(--nav-accent);
 }
 
-.nav-icon--dashboard {
-  color: var(--color-primary);
+.nav-item--dashboard {
+  --nav-accent: var(--color-primary);
+  --nav-accent-bg: rgba(59, 130, 246, 0.18);
 }
 
-.nav-icon--analytics {
-  color: var(--color-success);
+.nav-item--analytics {
+  --nav-accent: var(--color-success);
+  --nav-accent-bg: rgba(16, 185, 129, 0.18);
 }
 
-.nav-icon--settings {
-  color: var(--color-warning);
+.nav-item--settings {
+  --nav-accent: var(--color-warning);
+  --nav-accent-bg: rgba(245, 158, 11, 0.18);
 }
 
-.nav-item:hover .nav-icon,
-.nav-item.active .nav-icon {
-  color: var(--color-primary);
+.nav-item.active {
+  color: var(--nav-accent);
+  background: var(--nav-accent-bg);
+}
+
+.nav-item.active:hover {
+  color: var(--nav-accent);
+  background: var(--nav-accent-bg);
 }
 
 /* Desktop styles */
