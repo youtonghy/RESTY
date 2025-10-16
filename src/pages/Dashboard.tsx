@@ -147,8 +147,7 @@ interface TipsCardSettings {
 }
 
 interface ProgressCardSettings {
-  scope?: ProgressScope;
-  mode?: 'color' | 'bw';
+  scope: ProgressScope;
 }
 
 interface CardSettings {
@@ -238,29 +237,11 @@ const sanitizeTipsSettings = (settings: unknown): TipsCardSettings | undefined =
 
 const sanitizeProgressSettings = (settings: unknown): ProgressCardSettings | undefined => {
   if (!settings || typeof settings !== 'object') return undefined;
-  const progress = settings as Partial<ProgressCardSettings> & Record<string, unknown>;
-  const scope = progress.scope;
-  const mode = progress.mode;
-
-  let normalizedScope: ProgressScope | undefined;
+  const scope = (settings as ProgressCardSettings).scope;
   if (scope === 'day' || scope === 'week' || scope === 'month' || scope === 'year') {
-    normalizedScope = scope;
+    return { scope };
   }
-
-  let normalizedMode: 'color' | 'bw' | undefined;
-  if (mode === 'color' || mode === 'bw') {
-    normalizedMode = mode;
-  }
-
-  const result: ProgressCardSettings = {};
-  if (normalizedScope && normalizedScope !== 'day') {
-    result.scope = normalizedScope;
-  }
-  if (normalizedMode && normalizedMode !== 'color') {
-    result.mode = normalizedMode;
-  }
-
-  return Object.keys(result).length ? result : undefined;
+  return undefined;
 };
 
 const sanitizeCardSettings = (settings: unknown): CardSettings | undefined => {
@@ -299,7 +280,7 @@ const CARD_LIMITS: Record<CardId, { minW: number; minH: number; initial: LayoutI
 const CARD_STYLE_PRESETS: Record<CardId, CardStylePreset[]> = {
   status: [],
   next: [],
-  progress: [],
+  progress: [{ id: 'progress-research-bw', name: 'progress-research-bw' }],
   tips: [],
   clock: [],
 };
@@ -458,12 +439,16 @@ const createCardInstance = (type: CardId, existing: CardInstance[]): CardInstanc
   const occupied = existing.map((item) => item.layout);
   const preferred = limits.initial;
   const slot = findSlot(limits.initial.w, limits.initial.h, preferred.x, preferred.y, occupied);
+  let settings: CardSettings | undefined;
+  if (type === 'progress') {
+    settings = { progress: { scope: 'day' } };
+  }
   return {
     instanceId: `${type}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`,
     type,
     layout: clampLayout(type, slot),
     styleId: null,
-    settings: undefined,
+    settings,
   };
 };
 
@@ -480,17 +465,9 @@ const settingsEqual = (a?: CardSettings, b?: CardSettings) => {
   const bSource = bt?.source ?? 'local';
   const ap = a?.progress;
   const bp = b?.progress;
-  const aScope = ap?.scope ?? 'day';
-  const bScope = bp?.scope ?? 'day';
-  const aProgressMode = ap?.mode ?? 'color';
-  const bProgressMode = bp?.mode ?? 'color';
-  return (
-    aZone === bZone &&
-    aMode === bMode &&
-    aSource === bSource &&
-    aScope === bScope &&
-    aProgressMode === bProgressMode
-  );
+  const aScope = ap?.scope ?? null;
+  const bScope = bp?.scope ?? null;
+  return aZone === bZone && aMode === bMode && aSource === bSource && aScope === bScope;
 };
 
 const cardsEqual = (a: CardInstance[], b: CardInstance[]) => {
@@ -528,36 +505,16 @@ const loadPersistedCards = (): CardInstance[] | null => {
       let settings = sanitizeCardSettings((item as CardInstance).settings);
       if (inferredScope) {
         const scope = settings?.progress?.scope ?? inferredScope;
-        if (scope === 'day') {
-          if (settings?.progress) {
-            const { progress: _omit, ...restSettings } = settings;
-            settings = Object.keys(restSettings).length ? restSettings : undefined;
-          }
-        } else {
-          settings = {
-            ...(settings ?? {}),
-            progress: { ...(settings?.progress ?? {}), scope },
-          };
-        }
-      }
-      let styleId = item.styleId ?? null;
-      if (type === 'progress' && styleId === 'progress-research-bw') {
-        const existingProgress = settings?.progress ?? {};
-        const migratedProgress: ProgressCardSettings = {
-          ...(existingProgress.scope ? { scope: existingProgress.scope } : {}),
-          mode: 'bw',
-        };
         settings = {
           ...(settings ?? {}),
-          progress: migratedProgress,
+          progress: { scope },
         };
-        styleId = null;
       }
       sanitized.push({
         instanceId: item.instanceId,
         type,
         layout: clampLayout(type, item.layout),
-        styleId,
+        styleId: item.styleId ?? null,
         settings,
       });
     }
@@ -639,7 +596,7 @@ function useFadeInOnScroll<T extends HTMLElement>(delay: number) {
 interface FeatureCardProps {
   primary: string;
   label: string;
-  icon?: ReactNode;
+  icon?: string;
   delay?: number;
   children?: ReactNode;
   progress?: number; // 0..1 (optional) — when provided, card background fills as progress
@@ -688,23 +645,14 @@ interface PercentCardProps {
   formatted: string;
   delay?: number;
   className?: string;
-  icon?: ReactNode;
 }
 
-function PercentCard({
-  value,
-  label,
-  info,
-  formatted,
-  delay = 0,
-  className,
-  icon = '⏱',
-}: PercentCardProps) {
+function PercentCard({ value, label, info, formatted, delay = 0, className }: PercentCardProps) {
   return (
     <FeatureCard
       primary={formatted}
       label={joinParts([label, info])}
-      icon={icon}
+      icon="⏱"
       progress={clamp01(value)}
       delay={delay}
       className={className}
@@ -795,10 +743,8 @@ interface ProgressCardRendererProps {
 function ProgressCardRenderer({ instance, scopes, delay = 0 }: ProgressCardRendererProps) {
   const scope = instance.settings?.progress?.scope ?? 'day';
   const config = scopes[scope] ?? scopes.day;
-  const legacyMonochrome = instance.styleId === 'progress-research-bw';
-  const displayMode = instance.settings?.progress?.mode ?? (legacyMonochrome ? 'bw' : 'color');
-  const className = displayMode === 'bw' ? 'tile-card--progress-bw' : undefined;
-  const icon = displayMode === 'bw' ? null : '⏱';
+  const styleId = instance.styleId ?? null;
+  const className = styleId === 'progress-research-bw' ? 'tile-card--progress-research-bw' : undefined;
   return (
     <PercentCard
       value={config.value}
@@ -807,7 +753,6 @@ function ProgressCardRenderer({ instance, scopes, delay = 0 }: ProgressCardRende
       info={config.info}
       delay={delay}
       className={className}
-      icon={icon}
     />
   );
 }
@@ -1041,18 +986,6 @@ export function Dashboard() {
   });
   const yearLabel = t('dashboard.progress.year.label', {
     defaultValue: isZh ? '今年进度' : 'Year progress',
-  });
-  const scopeGroupLabel = t('dashboard.progress.scope.label', {
-    defaultValue: isZh ? '统计范围' : 'Scope',
-  });
-  const displayModeLabel = t('dashboard.progress.displayMode.label', {
-    defaultValue: isZh ? '显示样式' : 'Display mode',
-  });
-  const displayModeColor = t('dashboard.progress.displayMode.color', {
-    defaultValue: isZh ? '彩色显示' : 'Color display',
-  });
-  const displayModeMonochrome = t('dashboard.progress.displayMode.monochrome', {
-    defaultValue: isZh ? '黑白显示' : 'Monochrome display',
   });
 
   const dayInfo = timeFormatter.format(now);
@@ -1327,6 +1260,27 @@ export function Dashboard() {
     [t, isZh]
   );
 
+  const researchStyleName = useMemo(
+    () =>
+      t('dashboard.progress.styles.researchBw', {
+        defaultValue: isZh ? '研究黑白模式' : 'Research monochrome mode',
+      }),
+    [t, isZh]
+  );
+
+  const localizedStyleOptions = useMemo(
+    () => ({
+      status: CARD_STYLE_PRESETS.status.map((preset) => ({ ...preset })),
+      next: CARD_STYLE_PRESETS.next.map((preset) => ({ ...preset })),
+      progress: CARD_STYLE_PRESETS.progress.map((preset) =>
+        preset.id === 'progress-research-bw' ? { ...preset, name: researchStyleName } : { ...preset }
+      ),
+      tips: CARD_STYLE_PRESETS.tips.map((preset) => ({ ...preset })),
+      clock: CARD_STYLE_PRESETS.clock.map((preset) => ({ ...preset })),
+    }),
+    [researchStyleName]
+  );
+
   const renderedCards = cardInstances.map((card, index) => {
     const config = cardCatalog[card.type];
     if (!config) return null;
@@ -1450,10 +1404,9 @@ export function Dashboard() {
 
     if (card.type === 'progress') {
       const progressSettings = card.settings?.progress;
-      const legacyMode = card.styleId === 'progress-research-bw' ? 'bw' : 'color';
       const selectedScope = progressSettings?.scope ?? 'day';
-      const selectedMode = progressSettings?.mode ?? legacyMode;
-      const progressDefaults: ProgressCardSettings = { scope: 'day', mode: 'color' };
+      const scopeLabel = isZh ? '统计范围' : 'Scope';
+      const progressDefaults: ProgressCardSettings = { scope: 'day' };
       const scopeOptions: Array<{ value: ProgressScope; label: string }> = [
         { value: 'day', label: dayLabel },
         { value: 'week', label: weekLabel },
@@ -1465,20 +1418,13 @@ export function Dashboard() {
         updater: (prev: ProgressCardSettings) => ProgressCardSettings
       ) => {
         handleUpdateSettings(card.instanceId, (prev) => {
-          const base: ProgressCardSettings = {
-            ...progressDefaults,
-            ...(prev?.progress ?? {}),
-          };
+          const base = prev?.progress ?? progressDefaults;
           const next = updater({ ...base });
-          const normalized: ProgressCardSettings = {};
-          if (next.scope === 'week' || next.scope === 'month' || next.scope === 'year') {
-            normalized.scope = next.scope;
-          }
-          if (next.mode === 'bw') {
-            normalized.mode = 'bw';
-          }
-          const hasCustom = Object.keys(normalized).length > 0;
-          if (!hasCustom) {
+          const normalized: ProgressCardSettings =
+            next.scope === 'week' || next.scope === 'month' || next.scope === 'year'
+              ? { scope: next.scope }
+              : { scope: 'day' };
+          if (normalized.scope === 'day') {
             if (!prev) return undefined;
             const { progress: _omit, ...rest } = prev;
             return Object.keys(rest).length ? rest : undefined;
@@ -1490,7 +1436,7 @@ export function Dashboard() {
       renderCustomContent = () => (
         <div className="card-style-custom">
           <fieldset className="card-style-field">
-            <legend className="card-style-field-label">{scopeGroupLabel}</legend>
+            <legend className="card-style-field-label">{scopeLabel}</legend>
             <div className="card-style-radio-group">
               {scopeOptions.map((option) => (
                 <label
@@ -1510,68 +1456,12 @@ export function Dashboard() {
                         ...prevProgress,
                         scope: option.value,
                       }));
-                      if (card.styleId) {
-                        onSelectStyle(card.instanceId, null);
-                      }
                     }}
                   />
                   <span className="card-style-choice-marker" aria-hidden="true" />
                   <span className="card-style-choice-text">{option.label}</span>
                 </label>
               ))}
-            </div>
-          </fieldset>
-          <fieldset className="card-style-field">
-            <legend className="card-style-field-label">{displayModeLabel}</legend>
-            <div className="card-style-radio-group">
-              <label
-                className={`card-style-choice${selectedMode !== 'bw' ? ' is-selected' : ''}`}
-                htmlFor={`${card.instanceId}-progress-display-color`}
-              >
-                <input
-                  id={`${card.instanceId}-progress-display-color`}
-                  className="card-style-choice-input"
-                  type="radio"
-                  name={`${card.instanceId}-progress-display`}
-                  value="color"
-                  checked={selectedMode !== 'bw'}
-                  onChange={() => {
-                    updateProgressSettings((prevProgress) => ({
-                      ...prevProgress,
-                      mode: 'color',
-                    }));
-                    if (card.styleId) {
-                      onSelectStyle(card.instanceId, null);
-                    }
-                  }}
-                />
-                <span className="card-style-choice-marker" aria-hidden="true" />
-                <span className="card-style-choice-text">{displayModeColor}</span>
-              </label>
-              <label
-                className={`card-style-choice${selectedMode === 'bw' ? ' is-selected' : ''}`}
-                htmlFor={`${card.instanceId}-progress-display-bw`}
-              >
-                <input
-                  id={`${card.instanceId}-progress-display-bw`}
-                  className="card-style-choice-input"
-                  type="radio"
-                  name={`${card.instanceId}-progress-display`}
-                  value="bw"
-                  checked={selectedMode === 'bw'}
-                  onChange={() => {
-                    updateProgressSettings((prevProgress) => ({
-                      ...prevProgress,
-                      mode: 'bw',
-                    }));
-                    if (card.styleId) {
-                      onSelectStyle(card.instanceId, null);
-                    }
-                  }}
-                />
-                <span className="card-style-choice-marker" aria-hidden="true" />
-                <span className="card-style-choice-text">{displayModeMonochrome}</span>
-              </label>
             </div>
           </fieldset>
         </div>
@@ -1661,7 +1551,7 @@ export function Dashboard() {
         onChange={attemptUpdate}
         onRemove={handleRemoveCard}
         removeLabel={removeLabel}
-        styleOptions={CARD_STYLE_PRESETS[card.type]}
+        styleOptions={localizedStyleOptions[card.type]}
         selectedStyleId={card.styleId ?? null}
         onSelectStyle={handleSelectStyle}
         noStyleLabel={noStyleLabel}
