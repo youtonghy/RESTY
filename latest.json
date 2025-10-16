@@ -1,8 +1,8 @@
 {
-  "name": "RESTY",
-  "version": "0.1.2",
-  "author": "youtonghy",
-  "website": "https://resty.tokisantike.net",
-  "downloadUrl": "https://resty.tokisantike.net",
-  "notes": "Eye care reminder application initial release."
+    "name": "RESTY",
+    "version": "0.1.3",
+    "author": "youtonghy",
+    "website": "https://resty.tokisantike.net",
+    "downloadUrl": "https://resty.tokisantike.net",
+    "notes": "Eye care reminder application initial release."
 }
