@@ -7,7 +7,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, SVGProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
 import type { TimerPhase } from '../types';
@@ -592,11 +592,53 @@ function useFadeInOnScroll<T extends HTMLElement>(delay: number) {
 
 // Title component removed per simplification
 
+const WorkFocusIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    width="100%"
+    height="100%"
+    stroke="currentColor"
+    strokeWidth={1.5}
+    aria-hidden="true"
+    focusable="false"
+    {...props}
+  >
+    <path d="M3 7.4V3.6C3 3.26863 3.26863 3 3.6 3H9.4C9.73137 3 10 3.26863 10 3.6V7.4C10 7.73137 9.73137 8 9.4 8H3.6C3.26863 8 3 7.73137 3 7.4Z" />
+    <path d="M14 20.4V16.6C14 16.2686 14.2686 16 14.6 16H20.4C20.7314 16 21 16.2686 21 16.6V20.4C21 20.7314 20.7314 21 20.4 21H14.6C14.2686 21 14 20.7314 14 20.4Z" />
+    <path d="M14 12.4V3.6C14 3.26863 14.2686 3 14.6 3H20.4C20.7314 3 21 3.26863 21 3.6V12.4C21 12.7314 20.7314 13 20.4 13H14.6C14.2686 13 14 12.7314 14 12.4Z" />
+    <path d="M3 20.4V11.6C3 11.2686 3.26863 11 3.6 11H9.4C9.73137 11 10 11.2686 10 11.6V20.4C10 20.7314 9.73137 21 9.4 21H3.6C3.26863 21 3 20.7314 3 20.4Z" />
+  </svg>
+);
+
+const BreakFocusIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    width="100%"
+    height="100%"
+    stroke="currentColor"
+    strokeWidth={1.5}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    focusable="false"
+    {...props}
+  >
+    <path d="M3 15C5.48276 15 7.34483 12 7.34483 12C7.34483 12 9.2069 15 11.6897 15C14.1724 15 16.6552 12 16.6552 12C16.6552 12 19.1379 15 21 15" />
+    <path d="M3 20C5.48276 20 7.34483 17 7.34483 17C7.34483 17 9.2069 20 11.6897 20C14.1724 20 16.6552 17 16.6552 17C16.6552 17 19.1379 20 21 20" />
+    <path d="M19 10C19 6.13401 15.866 3 12 3C8.13401 3 5 6.13401 5 10" />
+  </svg>
+);
+
 
 interface FeatureCardProps {
   primary: string;
   label: string;
-  icon?: string;
+  icon?: ReactNode;
+  iconTone?: 'focus' | 'break' | 'paused' | 'idle' | 'offline' | 'neutral';
   delay?: number;
   children?: ReactNode;
   progress?: number; // 0..1 (optional) — when provided, card background fills as progress
@@ -604,7 +646,7 @@ interface FeatureCardProps {
   style?: CSSProperties;
 }
 
-function FeatureCard({ primary, label, icon, delay = 0, children, progress, className, style }: FeatureCardProps) {
+function FeatureCard({ primary, label, icon, iconTone, delay = 0, children, progress, className, style }: FeatureCardProps) {
   const ref = useFadeInOnScroll<HTMLElement>(delay);
   const classes = [
     `tile-card`,
@@ -626,7 +668,10 @@ function FeatureCard({ primary, label, icon, delay = 0, children, progress, clas
     <section ref={ref} className={classes} style={computedStyle} tabIndex={0} role="listitem">
       <div className="tile-primary-row">
         {icon && (
-          <span className="tile-icon" aria-hidden="true">
+          <span
+            className={['tile-icon', iconTone ? `tile-icon--${iconTone}` : undefined].filter(Boolean).join(' ')}
+            aria-hidden="true"
+          >
             {icon}
           </span>
         )}
@@ -902,14 +947,20 @@ export function Dashboard() {
     [i18n.language]
   );
 
-  const statusContent = useMemo(() => {
+  const statusContent = useMemo((): {
+    primary: string;
+    label: string;
+    icon: ReactNode;
+    tone?: FeatureCardProps['iconTone'];
+  } => {
     if (timerInfo.state === 'running' && timerInfo.phase === 'work') {
       return {
         primary: t('dashboard.status.work.primary', { defaultValue: isZh ? '工作中' : 'In focus' }),
         label: t('dashboard.status.work.label', {
           defaultValue: isZh ? '保持专注，完成当下任务。' : 'Deep focus in progress.',
         }),
-        icon: '🔵',
+        icon: <WorkFocusIcon />,
+        tone: 'focus',
       };
     }
     if (timerInfo.state === 'running' && timerInfo.phase === 'break') {
@@ -918,7 +969,8 @@ export function Dashboard() {
         label: t('dashboard.status.break.label', {
           defaultValue: isZh ? '舒展肩颈，喝口水补充能量。' : 'Loosen up and hydrate.',
         }),
-        icon: '🟢',
+        icon: <BreakFocusIcon />,
+        tone: 'break',
       };
     }
     if (timerInfo.state === 'paused') {
@@ -928,6 +980,7 @@ export function Dashboard() {
           defaultValue: isZh ? '随时继续，别忘记调整状态。' : 'Ready to resume when you are.',
         }),
         icon: '🟡',
+        tone: 'paused',
       };
     }
     if (timerInfo.state === 'stopped' && timerInfo.phase === 'idle') {
@@ -937,6 +990,7 @@ export function Dashboard() {
           defaultValue: isZh ? '下一段节奏尚未开始。' : 'Awaiting the next rhythm.',
         }),
         icon: '⚪',
+        tone: 'idle',
       };
     }
     return {
@@ -945,6 +999,7 @@ export function Dashboard() {
         defaultValue: isZh ? '番茄钟静默，随时准备启动。' : 'Pomodoro is standing by.',
       }),
       icon: '⚫',
+      tone: 'offline',
     };
   }, [t, timerInfo.state, timerInfo.phase, isZh]);
 
@@ -1157,6 +1212,7 @@ export function Dashboard() {
             primary={statusContent.primary}
             label={statusContent.label}
             icon={statusContent.icon}
+            iconTone={statusContent.tone}
             delay={delay}
           />
         ),

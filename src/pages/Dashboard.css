@@ -587,12 +587,43 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 46px;
-  height: 46px;
+  width: clamp(46px, 8vw, 59px);
+  height: clamp(46px, 8vw, 59px);
   border-radius: 16px;
   background: rgba(94, 160, 255, 0.16);
+  color: var(--color-primary);
+  font-size: clamp(1.6rem, 2.4vw, 2.2rem);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.tile-icon svg {
+  width: 70%;
+  height: 70%;
+}
+
+.tile-icon--focus {
+  background: rgba(59, 130, 246, 0.18);
+  color: var(--color-primary);
+}
+
+.tile-icon--break {
+  background: rgba(16, 185, 129, 0.18);
+  color: var(--color-success);
+}
+
+.tile-icon--paused {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--color-warning);
+}
+
+.tile-icon--idle {
+  background: rgba(148, 163, 184, 0.18);
   color: var(--color-text-secondary);
-  font-size: 1.4rem;
+}
+
+.tile-icon--offline {
+  background: rgba(75, 85, 99, 0.2);
+  color: var(--color-text-tertiary);
 }
 
 .tile-primary {
