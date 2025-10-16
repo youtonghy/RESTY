@@ -653,12 +653,33 @@ const ClockIcon = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+const ProgressIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    width="100%"
+    height="100%"
+    stroke="currentColor"
+    strokeWidth={1.5}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    focusable="false"
+    {...props}
+  >
+    <path d="M12 6V12H18" />
+    <path d="M21.8883 10.5C21.1645 5.68874 17.013 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C16.1006 22 19.6248 19.5318 21.1679 16" />
+    <path d="M17 16H21.4C21.7314 16 22 16.2686 22 16.6V21" />
+  </svg>
+);
+
 
 interface FeatureCardProps {
   primary: string;
   label: string;
   icon?: ReactNode;
-  iconTone?: 'focus' | 'break' | 'paused' | 'idle' | 'offline' | 'clock' | 'neutral';
+  iconTone?: 'focus' | 'break' | 'paused' | 'idle' | 'offline' | 'clock' | 'progress' | 'neutral';
   delay?: number;
   children?: ReactNode;
   progress?: number; // 0..1 (optional) — when provided, card background fills as progress
@@ -716,7 +737,8 @@ function PercentCard({ value, label, info, formatted, delay = 0 }: PercentCardPr
     <FeatureCard
       primary={formatted}
       label={joinParts([label, info])}
-      icon="⏱"
+      icon={<ProgressIcon />}
+      iconTone="progress"
       progress={clamp01(value)}
       delay={delay}
     />

@@ -616,6 +616,11 @@
   color: #6366f1;
 }
 
+.tile-icon--progress {
+  background: rgba(139, 92, 246, 0.2);
+  color: #8b5cf6;
+}
+
 .tile-icon--paused {
   background: rgba(245, 158, 11, 0.2);
   color: var(--color-warning);
