@@ -587,52 +587,43 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: clamp(46px, 8vw, 59px);
-  height: clamp(46px, 8vw, 59px);
-  border-radius: 16px;
-  background: rgba(94, 160, 255, 0.16);
-  color: var(--color-primary);
+  width: clamp(44px, 7.5vw, 56px);
+  height: clamp(44px, 7.5vw, 56px);
+  color: var(--color-text-secondary);
   font-size: clamp(1.6rem, 2.4vw, 2.2rem);
-  transition: background 0.2s ease, color 0.2s ease;
+  transition: color 0.2s ease;
 }
 
 .tile-icon svg {
-  width: 70%;
-  height: 70%;
+  width: 100%;
+  height: 100%;
 }
 
 .tile-icon--focus {
-  background: rgba(59, 130, 246, 0.18);
   color: var(--color-primary);
 }
 
 .tile-icon--break {
-  background: rgba(16, 185, 129, 0.18);
   color: var(--color-success);
 }
 
 .tile-icon--clock {
-  background: rgba(99, 102, 241, 0.2);
   color: #6366f1;
 }
 
 .tile-icon--progress {
-  background: rgba(139, 92, 246, 0.2);
   color: #8b5cf6;
 }
 
 .tile-icon--paused {
-  background: rgba(245, 158, 11, 0.2);
   color: var(--color-warning);
 }
 
 .tile-icon--idle {
-  background: rgba(148, 163, 184, 0.18);
   color: var(--color-text-secondary);
 }
 
 .tile-icon--offline {
-  background: rgba(75, 85, 99, 0.2);
   color: var(--color-text-tertiary);
 }
 
