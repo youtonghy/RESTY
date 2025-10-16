@@ -180,7 +180,9 @@ export function Settings() {
               <button
                 key={section.id}
                 type="button"
-                className={`settings-nav-button${activeSection === section.id ? ' is-active' : ''}`}
+                className={`settings-nav-button settings-nav-button--${section.id}${
+                  activeSection === section.id ? ' is-active' : ''
+                }`}
                 onClick={() => scrollToSection(section.id)}
               >
                 {section.label}

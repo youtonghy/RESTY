@@ -45,18 +45,57 @@
   font-weight: 500;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  --nav-hover-bg: rgba(94, 160, 255, 0.12);
+  --nav-active-bg: rgba(94, 160, 255, 0.18);
+  --nav-active-shadow: inset 0 0 0 1px rgba(94, 160, 255, 0.4);
 }
 
 .settings-nav-button:hover {
-  background: rgba(94, 160, 255, 0.12);
+  background: var(--nav-hover-bg);
   color: var(--color-text-primary);
   transform: translateX(4px);
 }
 
 .settings-nav-button.is-active {
-  background: rgba(94, 160, 255, 0.18);
+  background: var(--nav-active-bg);
   color: var(--color-text-primary);
-  box-shadow: inset 0 0 0 1px rgba(94, 160, 255, 0.4);
+  box-shadow: var(--nav-active-shadow);
+}
+
+.settings-nav-button--timer {
+  --nav-hover-bg: rgba(59, 130, 246, 0.12);
+  --nav-active-bg: rgba(59, 130, 246, 0.2);
+  --nav-active-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.35);
+}
+
+.settings-nav-button--reminder {
+  --nav-hover-bg: rgba(16, 185, 129, 0.12);
+  --nav-active-bg: rgba(16, 185, 129, 0.2);
+  --nav-active-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.35);
+}
+
+.settings-nav-button--appearance {
+  --nav-hover-bg: rgba(139, 92, 246, 0.12);
+  --nav-active-bg: rgba(139, 92, 246, 0.22);
+  --nav-active-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.32);
+}
+
+.settings-nav-button--system {
+  --nav-hover-bg: rgba(245, 158, 11, 0.14);
+  --nav-active-bg: rgba(245, 158, 11, 0.24);
+  --nav-active-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.32);
+}
+
+.settings-nav-button--language {
+  --nav-hover-bg: rgba(236, 72, 153, 0.12);
+  --nav-active-bg: rgba(236, 72, 153, 0.2);
+  --nav-active-shadow: inset 0 0 0 1px rgba(236, 72, 153, 0.32);
+}
+
+.settings-nav-button--about {
+  --nav-hover-bg: rgba(6, 182, 212, 0.12);
+  --nav-active-bg: rgba(6, 182, 212, 0.2);
+  --nav-active-shadow: inset 0 0 0 1px rgba(6, 182, 212, 0.32);
 }
 
 .settings-content {
