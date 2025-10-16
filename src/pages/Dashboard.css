@@ -547,10 +547,13 @@
   inset: 0;
   right: auto;
   width: calc(var(--progress, 0) * 100%);
-  background: linear-gradient(90deg, #b06cff 0%, #5ea0ff 45%, #24e1c6 100%);
-  box-shadow: 0 0 16px rgba(94, 160, 255, 0.35);
-  opacity: 0.22; /* subtle tint to keep text readable */
-  transition: width 0.4s ease;
+  background: var(
+    --progress-gradient,
+    linear-gradient(90deg, #b06cff 0%, #5ea0ff 45%, #24e1c6 100%)
+  );
+  box-shadow: 0 0 16px var(--progress-glow, rgba(94, 160, 255, 0.35));
+  opacity: 0.28; /* subtle tint to keep text readable */
+  transition: width 0.4s ease, background 0.4s ease;
 }
 
 .tile-card:hover {
@@ -612,7 +615,7 @@
 }
 
 .tile-icon--progress {
-  color: #8b5cf6;
+  color: var(--progress-icon-color, #8b5cf6);
 }
 
 .tile-icon--paused {

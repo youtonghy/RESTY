@@ -129,6 +129,61 @@ const generateTip = (language: string): string => {
 type CardId = 'status' | 'next' | 'progress' | 'tips' | 'clock';
 
 type ProgressScope = 'day' | 'week' | 'month' | 'year';
+type ProgressPalette = 'warm' | 'cool';
+
+const PROGRESS_TONE_RANGES: Record<ProgressPalette, { min: number; max: number }> = {
+  warm: { min: 8, max: 48 },
+  cool: { min: 180, max: 240 },
+};
+
+const createSeededRandom = (seed: string) => {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return () => {
+    h += 0x6d2b79f5;
+    let t = Math.imul(h ^ (h >>> 15), 1 | h);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+const clampHue = (value: number) => {
+  let hue = value % 360;
+  if (hue < 0) hue += 360;
+  return hue;
+};
+
+const toHsl = (hue: number, saturation: number, lightness: number) =>
+  `hsl(${Math.round(hue)}, ${Math.round(saturation)}%, ${Math.round(lightness)}%)`;
+
+const toHsla = (hue: number, saturation: number, lightness: number, alpha: number) =>
+  `hsla(${Math.round(hue)}, ${Math.round(saturation)}%, ${Math.round(lightness)}%, ${alpha.toFixed(
+    2
+  )})`;
+
+const generateProgressGradient = (seed: string, tone: ProgressPalette) => {
+  const rng = createSeededRandom(`${tone}:${seed}`);
+  const range = PROGRESS_TONE_RANGES[tone];
+  const baseHue = range.min + rng() * (range.max - range.min);
+  const accentHue = clampHue(baseHue + (rng() - 0.5) * 14);
+  const baseSaturation = 70 + rng() * 12; // 70-82
+  const accentSaturation = Math.min(100, baseSaturation + (rng() - 0.5) * 10);
+  const baseLightness = 52 + rng() * 12; // 52-64
+  const accentLightness = Math.min(92, baseLightness + (rng() - 0.2) * 16);
+
+  const colorStart = toHsl(baseHue, baseSaturation, baseLightness);
+  const colorEnd = toHsl(accentHue, accentSaturation, accentLightness);
+  const glow = toHsla(accentHue, (baseSaturation + accentSaturation) / 2, accentLightness, 0.32);
+
+  return {
+    gradient: `linear-gradient(90deg, ${colorStart} 0%, ${colorEnd} 100%)`,
+    glow,
+    accent: colorEnd,
+  };
+};
 
 interface LayoutItem {
   x: number;
@@ -148,6 +203,7 @@ interface TipsCardSettings {
 
 interface ProgressCardSettings {
   scope: ProgressScope;
+  palette?: ProgressPalette;
 }
 
 interface CardSettings {
@@ -237,11 +293,13 @@ const sanitizeTipsSettings = (settings: unknown): TipsCardSettings | undefined =
 
 const sanitizeProgressSettings = (settings: unknown): ProgressCardSettings | undefined => {
   if (!settings || typeof settings !== 'object') return undefined;
-  const scope = (settings as ProgressCardSettings).scope;
-  if (scope === 'day' || scope === 'week' || scope === 'month' || scope === 'year') {
-    return { scope };
-  }
-  return undefined;
+  const raw = settings as ProgressCardSettings;
+  const scope =
+    raw.scope === 'week' || raw.scope === 'month' || raw.scope === 'year' || raw.scope === 'day'
+      ? raw.scope
+      : 'day';
+  const palette: ProgressPalette = raw.palette === 'warm' ? 'warm' : 'cool';
+  return { scope, palette };
 };
 
 const sanitizeCardSettings = (settings: unknown): CardSettings | undefined => {
@@ -410,7 +468,7 @@ const createInitialInstances = (): CardInstance[] => {
       type: 'progress',
       layout: clampLayout('progress', preset.layout),
       styleId: null,
-      settings: { progress: { scope: preset.scope } },
+      settings: { progress: { scope: preset.scope, palette: 'cool' } },
     });
   });
 
@@ -441,7 +499,7 @@ const createCardInstance = (type: CardId, existing: CardInstance[]): CardInstanc
   const slot = findSlot(limits.initial.w, limits.initial.h, preferred.x, preferred.y, occupied);
   let settings: CardSettings | undefined;
   if (type === 'progress') {
-    settings = { progress: { scope: 'day' } };
+    settings = { progress: { scope: 'day', palette: 'cool' } };
   }
   return {
     instanceId: `${type}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`,
@@ -467,7 +525,15 @@ const settingsEqual = (a?: CardSettings, b?: CardSettings) => {
   const bp = b?.progress;
   const aScope = ap?.scope ?? null;
   const bScope = bp?.scope ?? null;
-  return aZone === bZone && aMode === bMode && aSource === bSource && aScope === bScope;
+  const aPalette = ap?.palette ?? 'cool';
+  const bPalette = bp?.palette ?? 'cool';
+  return (
+    aZone === bZone &&
+    aMode === bMode &&
+    aSource === bSource &&
+    aScope === bScope &&
+    aPalette === bPalette
+  );
 };
 
 const cardsEqual = (a: CardInstance[], b: CardInstance[]) => {
@@ -505,9 +571,10 @@ const loadPersistedCards = (): CardInstance[] | null => {
       let settings = sanitizeCardSettings((item as CardInstance).settings);
       if (inferredScope) {
         const scope = settings?.progress?.scope ?? inferredScope;
+        const palette: ProgressPalette = settings?.progress?.palette === 'warm' ? 'warm' : 'cool';
         settings = {
           ...(settings ?? {}),
-          progress: { scope },
+          progress: { scope, palette },
         };
       }
       sanitized.push({
@@ -730,9 +797,21 @@ interface PercentCardProps {
   info?: string;
   formatted: string;
   delay?: number;
+  gradient?: string;
+  glow?: string;
+  accent?: string;
 }
 
-function PercentCard({ value, label, info, formatted, delay = 0 }: PercentCardProps) {
+function PercentCard({ value, label, info, formatted, delay = 0, gradient, glow, accent }: PercentCardProps) {
+  const progressStyle =
+    gradient || glow || accent
+      ? ({
+          ...(gradient ? { ['--progress-gradient' as any]: gradient } : null),
+          ...(glow ? { ['--progress-glow' as any]: glow } : null),
+          ...(accent ? { ['--progress-icon-color' as any]: accent } : null),
+        } as CSSProperties)
+      : undefined;
+
   return (
     <FeatureCard
       primary={formatted}
@@ -741,6 +820,7 @@ function PercentCard({ value, label, info, formatted, delay = 0 }: PercentCardPr
       iconTone="progress"
       progress={clamp01(value)}
       delay={delay}
+      style={progressStyle}
     />
   );
 }
@@ -826,7 +906,13 @@ interface ProgressCardRendererProps {
 }
 
 function ProgressCardRenderer({ instance, scopes, delay = 0 }: ProgressCardRendererProps) {
-  const scope = instance.settings?.progress?.scope ?? 'day';
+  const progressSettings = instance.settings?.progress;
+  const scope = progressSettings?.scope ?? 'day';
+  const palette: ProgressPalette = progressSettings?.palette === 'warm' ? 'warm' : 'cool';
+  const gradientTheme = useMemo(
+    () => generateProgressGradient(instance.instanceId, palette),
+    [instance.instanceId, palette]
+  );
   const config = scopes[scope] ?? scopes.day;
   return (
     <PercentCard
@@ -835,6 +921,9 @@ function ProgressCardRenderer({ instance, scopes, delay = 0 }: ProgressCardRende
       label={config.label}
       info={config.info}
       delay={delay}
+      gradient={gradientTheme.gradient}
+      glow={gradientTheme.glow}
+      accent={gradientTheme.accent}
     />
   );
 }
@@ -1478,13 +1567,19 @@ export function Dashboard() {
     if (card.type === 'progress') {
       const progressSettings = card.settings?.progress;
       const selectedScope = progressSettings?.scope ?? 'day';
+      const selectedPalette: ProgressPalette = progressSettings?.palette === 'warm' ? 'warm' : 'cool';
       const scopeLabel = isZh ? '统计范围' : 'Scope';
-      const progressDefaults: ProgressCardSettings = { scope: 'day' };
+      const paletteLabel = isZh ? '色调' : 'Tone';
+      const progressDefaults: ProgressCardSettings = { scope: 'day', palette: 'cool' };
       const scopeOptions: Array<{ value: ProgressScope; label: string }> = [
         { value: 'day', label: dayLabel },
         { value: 'week', label: weekLabel },
         { value: 'month', label: monthLabel },
         { value: 'year', label: yearLabel },
+      ];
+      const paletteOptions: Array<{ value: ProgressPalette; label: string }> = [
+        { value: 'cool', label: isZh ? '冷色调' : 'Cool' },
+        { value: 'warm', label: isZh ? '暖色调' : 'Warm' },
       ];
 
       const updateProgressSettings = (
@@ -1493,11 +1588,19 @@ export function Dashboard() {
         handleUpdateSettings(card.instanceId, (prev) => {
           const base = prev?.progress ?? progressDefaults;
           const next = updater({ ...base });
-          const normalized: ProgressCardSettings =
+          const normalizedScope: ProgressScope =
             next.scope === 'week' || next.scope === 'month' || next.scope === 'year'
-              ? { scope: next.scope }
-              : { scope: 'day' };
-          if (normalized.scope === 'day') {
+              ? next.scope
+              : 'day';
+          const normalizedPalette: ProgressPalette = next.palette === 'warm' ? 'warm' : 'cool';
+          const normalized: ProgressCardSettings = {
+            scope: normalizedScope,
+            palette: normalizedPalette,
+          };
+          const isDefault =
+            normalized.scope === progressDefaults.scope &&
+            (normalized.palette ?? 'cool') === progressDefaults.palette;
+          if (isDefault) {
             if (!prev) return undefined;
             const { progress: _omit, ...rest } = prev;
             return Object.keys(rest).length ? rest : undefined;
@@ -1528,6 +1631,35 @@ export function Dashboard() {
                       updateProgressSettings((prevProgress) => ({
                         ...prevProgress,
                         scope: option.value,
+                      }));
+                    }}
+                  />
+                  <span className="card-style-choice-marker" aria-hidden="true" />
+                  <span className="card-style-choice-text">{option.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <fieldset className="card-style-field">
+            <legend className="card-style-field-label">{paletteLabel}</legend>
+            <div className="card-style-radio-group">
+              {paletteOptions.map((option) => (
+                <label
+                  key={option.value}
+                  className={`card-style-choice${selectedPalette === option.value ? ' is-selected' : ''}`}
+                  htmlFor={`${card.instanceId}-progress-palette-${option.value}`}
+                >
+                  <input
+                    id={`${card.instanceId}-progress-palette-${option.value}`}
+                    className="card-style-choice-input"
+                    type="radio"
+                    name={`${card.instanceId}-progress-palette`}
+                    value={option.value}
+                    checked={selectedPalette === option.value}
+                    onChange={() => {
+                      updateProgressSettings((prevProgress) => ({
+                        ...prevProgress,
+                        palette: option.value,
                       }));
                     }}
                   />
