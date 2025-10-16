@@ -104,43 +104,50 @@
 /* Window controls for borderless window */
 .window-controls {
   display: flex;
-  gap: 10px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--color-border);
-  background: rgba(148, 163, 184, 0.08);
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.16);
+  gap: 8px;
+  padding: 0;
+  align-items: center;
+  background: transparent;
+  border: none;
+  box-shadow: none;
   -webkit-app-region: no-drag;
 }
 
 .window-button {
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  color: #ffffff;
-  background: transparent; /* overridden by variants */
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--window-button-color, #d1d5db);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
   border: none;
+  padding: 0;
+  display: inline-block;
   outline: none;
   cursor: pointer;
-  transition: background 0.12s ease, transform 0.06s ease;
+  transition: transform 0.08s ease, box-shadow 0.15s ease, filter 0.12s ease;
   -webkit-app-region: no-drag;
 }
 
-.window-button svg { pointer-events: none; }
-.window-button:active { transform: translateY(1px); }
+.window-button:hover {
+  filter: saturate(1.05) brightness(1.05);
+}
+
+.window-button:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.45);
+  outline-offset: 2px;
+}
+
+.window-button:active {
+  transform: scale(0.9);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
 
 /* Variants: color-coded square buttons */
-.window-button.minimize { background: #f59e0b; }
-.window-button.minimize:hover { background: #d97706; }
+.window-button.minimize { --window-button-color: #facc15; }
 
-.window-button.fullscreen { background: #10b981; }
-.window-button.fullscreen:hover { background: #059669; }
+.window-button.fullscreen { --window-button-color: #22c55e; }
 
-.window-button.close { background: #ef4444; }
-.window-button.close:hover { background: #dc2626; }
+.window-button.close { --window-button-color: #f87171; }
 
 .titlebar-left {
   flex: 1 1 auto;
