@@ -1,7 +1,7 @@
 .range-selector {
   display: flex;
   gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-xl);
+  margin-bottom: calc(var(--spacing-lg) + var(--spacing-xs));
   background: var(--color-surface);
   padding: var(--spacing-xs);
   border-radius: var(--radius-md);
@@ -33,7 +33,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--spacing-lg);
-  margin-bottom: var(--spacing-xl);
+  margin-bottom: calc(var(--spacing-lg) + var(--spacing-sm));
 }
 
 .analytics-card {

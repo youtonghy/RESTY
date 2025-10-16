@@ -73,8 +73,8 @@
     box-shadow: none;
     /* Right-align nav buttons on desktop */
     justify-content: flex-end;
-    gap: var(--spacing-md);
-    padding: var(--spacing-md) 0;
-    margin-bottom: var(--spacing-lg);
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) 0;
+    margin-bottom: calc(var(--spacing-md) + var(--spacing-xs));
   }
 }
