@@ -553,42 +553,37 @@
   transition: width 0.4s ease;
 }
 
-.tile-card--progress-research-bw {
+.tile-card--progress-bw {
   background: #f9fafb;
   border-color: rgba(15, 23, 42, 0.12);
   color: #0f172a;
+  isolation: isolate;
 }
 
-.tile-card--progress-research-bw .tile-icon {
+.tile-card--progress-bw .tile-icon {
   background: rgba(15, 23, 42, 0.12);
   color: #0f172a;
 }
 
-.tile-card--progress-research-bw .tile-primary,
-.tile-card--progress-research-bw .tile-label {
-  color: #0f172a;
+.tile-card--progress-bw .tile-primary-row {
+  justify-content: center;
 }
 
-.tile-card--progress-research-bw.has-progress::after {
+.tile-card--progress-bw .tile-label {
+  font-weight: 600;
+}
+
+.tile-card--progress-bw.has-progress::after {
   background: #0f172a;
   opacity: 1;
   box-shadow: none;
 }
 
-@supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .tile-card--progress-research-bw .tile-primary,
-  .tile-card--progress-research-bw .tile-label {
-    background-image: linear-gradient(
-      90deg,
-      #ffffff 0%,
-      #ffffff calc(var(--progress, 0) * 100%),
-      #0f172a calc(var(--progress, 0) * 100%),
-      #0f172a 100%
-    );
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
+@supports (mix-blend-mode: difference) {
+  .tile-card--progress-bw .tile-primary,
+  .tile-card--progress-bw .tile-label {
+    color: #ffffff;
+    mix-blend-mode: difference;
   }
 }
 
