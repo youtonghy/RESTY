@@ -70,14 +70,34 @@
 .stat-icon {
   font-size: 2.5rem;
   margin-bottom: var(--spacing-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  margin-inline: auto;
+  color: var(--color-text-primary);
+}
+
+.stat-icon svg {
+  width: 1em;
+  height: 1em;
 }
 
 .stat-icon.work {
-  filter: grayscale(20%);
+  color: var(--color-primary);
 }
 
 .stat-icon.break {
-  filter: hue-rotate(20deg);
+  color: var(--color-success);
+}
+
+.stat-icon.count {
+  color: var(--color-warning);
+}
+
+.stat-icon.rate {
+  color: var(--color-primary);
 }
 
 .stat-value {

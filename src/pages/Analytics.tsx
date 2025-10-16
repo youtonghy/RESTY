@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type SVGProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as api from '../utils/api';
 import type { AnalyticsData, AnalyticsQuery, Session } from '../types';
@@ -10,6 +10,82 @@ type FragmentCell = {
   startTime: string;
   duration: number;
 };
+
+const TotalWorkIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    width="1em"
+    height="1em"
+    strokeWidth={1.5}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    stroke="currentColor"
+    {...props}
+  >
+    <path d="M3 13C6.6 5 17.4 5 21 13" />
+    <path d="M12 17C10.3431 17 9 15.6569 9 14C9 12.3431 10.3431 11 12 11C13.6569 11 15 12.3431 15 14C15 15.6569 13.6569 17 12 17Z" />
+  </svg>
+);
+
+const TotalBreakIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    width="1em"
+    height="1em"
+    strokeWidth={1.5}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    stroke="currentColor"
+    {...props}
+  >
+    <path d="M19.5 16L17.0248 12.6038" />
+    <path d="M12 17.5V14" />
+    <path d="M4.5 16L6.96895 12.6124" />
+    <path d="M3 8C6.6 16 17.4 16 21 8" />
+  </svg>
+);
+
+const BreakCountIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    width="1em"
+    height="1em"
+    strokeWidth={1.5}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    stroke="currentColor"
+    {...props}
+  >
+    <path d="M12 11.5V16.5" />
+    <path d="M12 7.51L12.01 7.49889" />
+    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" />
+  </svg>
+);
+
+const CompletionIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    width="1em"
+    height="1em"
+    strokeWidth={1.5}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    stroke="currentColor"
+    {...props}
+  >
+    <path d="M1.5 12.5L5.57574 16.5757C5.81005 16.8101 6.18995 16.8101 6.42426 16.5757L9 14" />
+    <path d="M16 7L12 11" />
+    <path d="M7 12L11.5757 16.5757C11.8101 16.8101 12.1899 16.8101 12.4243 16.5757L22 7" />
+  </svg>
+);
 
 /**
  * 数据统计页面：按日期区间加载会话数据，展示工作/休息统计与时间轴。
@@ -440,25 +516,33 @@ export function Analytics() {
           <>
             <section className="stats-overview">
               <div className="stat-card analytics-card">
-                <div className="stat-icon work">💼</div>
+                <div className="stat-icon work">
+                  <TotalWorkIcon aria-hidden="true" />
+                </div>
                 <div className="stat-value">{formatDuration(computedTotals.work)}</div>
                 <div className="stat-label">{t('analytics.totalWork')}</div>
               </div>
 
               <div className="stat-card analytics-card">
-                <div className="stat-icon break">☕</div>
+                <div className="stat-icon break">
+                  <TotalBreakIcon aria-hidden="true" />
+                </div>
                 <div className="stat-value">{formatDuration(computedTotals.rest)}</div>
                 <div className="stat-label">{t('analytics.totalBreak')}</div>
               </div>
 
               <div className="stat-card analytics-card">
-                <div className="stat-icon count">📊</div>
+                <div className="stat-icon count">
+                  <BreakCountIcon aria-hidden="true" />
+                </div>
                 <div className="stat-value">{data.breakCount}</div>
                 <div className="stat-label">{t('analytics.breakCount')}</div>
               </div>
 
               <div className="stat-card analytics-card">
-                <div className="stat-icon rate">✅</div>
+                <div className="stat-icon rate">
+                  <CompletionIcon aria-hidden="true" />
+                </div>
                 <div className="stat-value">{getCompletionRate()}%</div>
                 <div className="stat-label">{t('analytics.completionRate')}</div>
               </div>
