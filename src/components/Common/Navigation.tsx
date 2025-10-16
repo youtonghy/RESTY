@@ -114,7 +114,7 @@ export function Navigation() {
         aria-label={dashboardLabel}
         title={dashboardLabel}
       >
-        <DashboardIcon className="nav-icon" />
+        <DashboardIcon className="nav-icon nav-icon--dashboard" />
       </Link>
 
       <Link
@@ -123,7 +123,7 @@ export function Navigation() {
         aria-label={analyticsLabel}
         title={analyticsLabel}
       >
-        <AnalyticsIcon className="nav-icon" />
+        <AnalyticsIcon className="nav-icon nav-icon--analytics" />
       </Link>
 
       <Link
@@ -132,7 +132,7 @@ export function Navigation() {
         aria-label={settingsLabel}
         title={settingsLabel}
       >
-        <SettingsIcon className="nav-icon" />
+        <SettingsIcon className="nav-icon nav-icon--settings" />
       </Link>
     </nav>
   );

@@ -41,6 +41,23 @@
   height: 2.25rem;
 }
 
+.nav-icon--dashboard {
+  color: var(--color-primary);
+}
+
+.nav-icon--analytics {
+  color: var(--color-success);
+}
+
+.nav-icon--settings {
+  color: var(--color-warning);
+}
+
+.nav-item:hover .nav-icon,
+.nav-item.active .nav-icon {
+  color: var(--color-primary);
+}
+
 /* Desktop styles */
 @media (min-width: 769px) {
   .navigation {
