@@ -280,7 +280,7 @@ const CARD_LIMITS: Record<CardId, { minW: number; minH: number; initial: LayoutI
 const CARD_STYLE_PRESETS: Record<CardId, CardStylePreset[]> = {
   status: [],
   next: [],
-  progress: [],
+  progress: [{ id: 'progress-research-bw', name: 'progress-research-bw' }],
   tips: [],
   clock: [],
 };
@@ -644,9 +644,10 @@ interface PercentCardProps {
   info?: string;
   formatted: string;
   delay?: number;
+  className?: string;
 }
 
-function PercentCard({ value, label, info, formatted, delay = 0 }: PercentCardProps) {
+function PercentCard({ value, label, info, formatted, delay = 0, className }: PercentCardProps) {
   return (
     <FeatureCard
       primary={formatted}
@@ -654,6 +655,7 @@ function PercentCard({ value, label, info, formatted, delay = 0 }: PercentCardPr
       icon="⏱"
       progress={clamp01(value)}
       delay={delay}
+      className={className}
     />
   );
 }
@@ -741,6 +743,8 @@ interface ProgressCardRendererProps {
 function ProgressCardRenderer({ instance, scopes, delay = 0 }: ProgressCardRendererProps) {
   const scope = instance.settings?.progress?.scope ?? 'day';
   const config = scopes[scope] ?? scopes.day;
+  const styleId = instance.styleId ?? null;
+  const className = styleId === 'progress-research-bw' ? 'tile-card--progress-research-bw' : undefined;
   return (
     <PercentCard
       value={config.value}
@@ -748,6 +752,7 @@ function ProgressCardRenderer({ instance, scopes, delay = 0 }: ProgressCardRende
       label={config.label}
       info={config.info}
       delay={delay}
+      className={className}
     />
   );
 }
@@ -1255,6 +1260,27 @@ export function Dashboard() {
     [t, isZh]
   );
 
+  const researchStyleName = useMemo(
+    () =>
+      t('dashboard.progress.styles.researchBw', {
+        defaultValue: isZh ? '研究黑白模式' : 'Research monochrome mode',
+      }),
+    [t, isZh]
+  );
+
+  const localizedStyleOptions = useMemo(
+    () => ({
+      status: CARD_STYLE_PRESETS.status.map((preset) => ({ ...preset })),
+      next: CARD_STYLE_PRESETS.next.map((preset) => ({ ...preset })),
+      progress: CARD_STYLE_PRESETS.progress.map((preset) =>
+        preset.id === 'progress-research-bw' ? { ...preset, name: researchStyleName } : { ...preset }
+      ),
+      tips: CARD_STYLE_PRESETS.tips.map((preset) => ({ ...preset })),
+      clock: CARD_STYLE_PRESETS.clock.map((preset) => ({ ...preset })),
+    }),
+    [researchStyleName]
+  );
+
   const renderedCards = cardInstances.map((card, index) => {
     const config = cardCatalog[card.type];
     if (!config) return null;
@@ -1525,7 +1551,7 @@ export function Dashboard() {
         onChange={attemptUpdate}
         onRemove={handleRemoveCard}
         removeLabel={removeLabel}
-        styleOptions={CARD_STYLE_PRESETS[card.type]}
+        styleOptions={localizedStyleOptions[card.type]}
         selectedStyleId={card.styleId ?? null}
         onSelectStyle={handleSelectStyle}
         noStyleLabel={noStyleLabel}

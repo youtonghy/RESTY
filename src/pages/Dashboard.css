@@ -553,6 +553,45 @@
   transition: width 0.4s ease;
 }
 
+.tile-card--progress-research-bw {
+  background: #f9fafb;
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+}
+
+.tile-card--progress-research-bw .tile-icon {
+  background: rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+}
+
+.tile-card--progress-research-bw .tile-primary,
+.tile-card--progress-research-bw .tile-label {
+  color: #0f172a;
+}
+
+.tile-card--progress-research-bw.has-progress::after {
+  background: #0f172a;
+  opacity: 1;
+  box-shadow: none;
+}
+
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .tile-card--progress-research-bw .tile-primary,
+  .tile-card--progress-research-bw .tile-label {
+    background-image: linear-gradient(
+      90deg,
+      #ffffff 0%,
+      #ffffff calc(var(--progress, 0) * 100%),
+      #0f172a calc(var(--progress, 0) * 100%),
+      #0f172a 100%
+    );
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
 .tile-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
