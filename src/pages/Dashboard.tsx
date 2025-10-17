@@ -895,9 +895,9 @@ function TipsCardRenderer({ instance, language, isZh, delay = 0 }: TipsCardRende
 
   useEffect(() => {
     if (source === 'hitokoto') {
-      let cancelled = false;
+      const controller = new AbortController();
       setContent(isZh ? '加载中…' : 'Loading…');
-      fetch('https://v1.hitokoto.cn/?encode=json')
+      fetch('https://v1.hitokoto.cn/?encode=json', { signal: controller.signal })
         .then((response) => {
           if (!response.ok) {
             throw new Error('Failed to fetch hitokoto');
@@ -905,7 +905,7 @@ function TipsCardRenderer({ instance, language, isZh, delay = 0 }: TipsCardRende
           return response.json();
         })
         .then((data: { hitokoto?: string | null }) => {
-          if (cancelled) return;
+          if (controller.signal.aborted) return;
           const text = typeof data?.hitokoto === 'string' && data.hitokoto.trim().length
             ? data.hitokoto.trim()
             : isZh
@@ -913,12 +913,15 @@ function TipsCardRenderer({ instance, language, isZh, delay = 0 }: TipsCardRende
             : 'No quote available right now.';
           setContent(text);
         })
-        .catch(() => {
-          if (cancelled) return;
+        .catch((error: unknown) => {
+          if (controller.signal.aborted) return;
           setContent(isZh ? '加载失败，稍后再试。' : 'Failed to load. Please try again.');
+          if (error instanceof Error && error.name !== 'AbortError') {
+            console.warn('Hitokoto fetch failed:', error);
+          }
         });
       return () => {
-        cancelled = true;
+        controller.abort();
       };
     }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type SVGProps } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type SVGProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as api from '../utils/api';
 import type { AnalyticsData, AnalyticsQuery, Session } from '../types';
@@ -87,6 +87,41 @@ const CompletionIcon = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+type TimelineBounds = { start: number; end: number };
+type TimeScaleMark = {
+  key: string;
+  left: number;
+  label: string;
+  position: 'start' | 'middle' | 'end';
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const getDisplayBounds = (range: TimeRange): TimelineBounds => {
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+
+  const start = new Date(end);
+  switch (range) {
+    case 'today':
+      start.setHours(0, 0, 0, 0);
+      break;
+    case 'week':
+      start.setDate(start.getDate() - 6);
+      start.setHours(0, 0, 0, 0);
+      break;
+    case 'month':
+      start.setMonth(start.getMonth() - 1);
+      start.setHours(0, 0, 0, 0);
+      break;
+    default:
+      start.setHours(0, 0, 0, 0);
+      break;
+  }
+
+  return { start: start.getTime(), end: end.getTime() };
+};
+
 /**
  * 数据统计页面：按日期区间加载会话数据，展示工作/休息统计与时间轴。
  */
@@ -100,27 +135,63 @@ export function Analytics() {
   const [weeklyFragmentCells, setWeeklyFragmentCells] = useState<FragmentCell[]>([]);
   const isZh = useMemo(() => i18n.language.startsWith('zh'), [i18n.language]);
   const fragmentScrollRef = useRef<HTMLDivElement | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(
+    () => () => {
+      isMountedRef.current = false;
+    },
+    []
+  );
+
+  const displayBounds = useMemo<TimelineBounds>(() => getDisplayBounds(range), [range]);
+  const analyticsQuery = useMemo<AnalyticsQuery>(
+    () => createAnalyticsQuery(displayBounds),
+    [displayBounds]
+  );
+
+  const loadAnalytics = useCallback(async () => {
+    if (!isMountedRef.current) return;
+    setLoading(true);
+    try {
+      const result = await api.getAnalytics(analyticsQuery);
+      if (!isMountedRef.current) return;
+      setData(result);
+    } catch (error) {
+      console.error('Failed to load analytics:', error);
+    } finally {
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [analyticsQuery]);
+
+  const loadWeeklyFragments = useCallback(async () => {
+    const weekBounds = getDisplayBounds('week');
+    const weekData = await api.getAnalytics(createAnalyticsQuery(weekBounds));
+    if (!isMountedRef.current) return;
+    setWeeklyWorkFragments(countWorkFragments(weekData.sessions));
+    setWeeklyRestFragments(countRestFragments(weekData.sessions));
+    setWeeklyFragmentCells(buildFragmentCells(weekData.sessions));
+  }, []);
 
   useEffect(() => {
-    loadAnalytics();
-  }, [range]);
+    void loadAnalytics();
+  }, [loadAnalytics]);
 
   // Load weekly fragment counts once (or when day changes)
   useEffect(() => {
-    // fire and forget; independent of current range selection
-    (async () => {
+    void (async () => {
       try {
-        const weekQuery = getQueryForRange('week');
-        const weekData = await api.getAnalytics(weekQuery);
-        setWeeklyWorkFragments(countWorkFragments(weekData.sessions));
-        setWeeklyRestFragments(countRestFragments(weekData.sessions));
-        setWeeklyFragmentCells(buildFragmentCells(weekData.sessions));
-      } catch (e) {
-        console.error('Failed to load weekly fragments:', e);
-        setWeeklyFragmentCells([]);
+        await loadWeeklyFragments();
+      } catch (error) {
+        console.error('Failed to load weekly fragments:', error);
+        if (isMountedRef.current) {
+          setWeeklyFragmentCells([]);
+        }
       }
     })();
-  }, []);
+  }, [loadWeeklyFragments]);
 
   useEffect(() => {
     const node = fragmentScrollRef.current;
@@ -130,108 +201,33 @@ export function Analytics() {
 
   // Real-time: refresh analytics when sessions are upserted (start/finish/skip)
   useEffect(() => {
+    let active = true;
     let unlisten: (() => void) | undefined;
-    (async () => {
-      unlisten = await api.onSessionUpserted(async () => {
-        // Refresh current range data
-        await loadAnalytics();
-        // Also refresh weekly fragments in background
-        try {
-          const weekData = await api.getAnalytics(getQueryForRange('week'));
-          setWeeklyWorkFragments(countWorkFragments(weekData.sessions));
-          setWeeklyRestFragments(countRestFragments(weekData.sessions));
-          setWeeklyFragmentCells(buildFragmentCells(weekData.sessions));
-        } catch (e) {
-          console.warn('Failed to refresh fragments after session-upserted:', e);
-        }
-      });
-    })();
+
+    const subscribe = async () => {
+      try {
+        unlisten = await api.onSessionUpserted(() => {
+          if (!active) return;
+          void loadAnalytics();
+          loadWeeklyFragments().catch((error) => {
+            console.warn('Failed to refresh fragments after session update:', error);
+            if (isMountedRef.current) {
+              setWeeklyFragmentCells([]);
+            }
+          });
+        });
+      } catch (error) {
+        console.error('Failed to subscribe to session updates:', error);
+      }
+    };
+
+    void subscribe();
 
     return () => {
+      active = false;
       if (unlisten) unlisten();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range]);
-
-  /** 根据当前选择的时间范围获取统计数据。 */
-  const loadAnalytics = async () => {
-    setLoading(true);
-    try {
-      const query = getQueryForRange(range);
-      const result = await api.getAnalytics(query);
-      setData(result);
-    } catch (error) {
-      console.error('Failed to load analytics:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /** 将时间范围转换为后端需要的查询参数。 */
-  const getQueryForRange = (range: TimeRange): AnalyticsQuery => {
-    const bounds = getDisplayBounds(range);
-    return {
-      startDate: new Date(bounds.start).toISOString(),
-      endDate: new Date(bounds.end).toISOString(),
-    };
-  };
-
-  const getDisplayBounds = (range: TimeRange) => {
-    const end = new Date();
-    end.setHours(23, 59, 59, 999);
-
-    const start = new Date(end);
-    switch (range) {
-      case 'today':
-        start.setHours(0, 0, 0, 0);
-        break;
-      case 'week':
-        start.setDate(start.getDate() - 6);
-        start.setHours(0, 0, 0, 0);
-        break;
-      case 'month':
-        start.setMonth(start.getMonth() - 1);
-        start.setHours(0, 0, 0, 0);
-        break;
-      default:
-        start.setHours(0, 0, 0, 0);
-        break;
-    }
-
-    return { start: start.getTime(), end: end.getTime() };
-  };
-
-  /** 仅计算工作片段数量 */
-  const countWorkFragments = (sessions: Session[]) =>
-    sessions.reduce((acc, s) => (s.type === 'work' ? acc + 1 : acc), 0);
-
-  /** 仅计算休息片段数量（排除跳过的休息） */
-  const countRestFragments = (sessions: Session[]) =>
-    sessions.reduce((acc, s) => (s.type === 'break' && !s.isSkipped ? acc + 1 : acc), 0);
-
-  const buildFragmentCells = (sessions: Session[]): FragmentCell[] => {
-    const sorted = [...sessions].sort(
-      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-    );
-    return sorted.reduce<FragmentCell[]>((acc, session) => {
-      const duration =
-        typeof session.duration === 'number'
-          ? session.duration
-          : Math.max(
-              0,
-              Math.floor(
-                (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) /
-                  1000
-              )
-            );
-      if (session.type === 'work') {
-        acc.push({ type: 'work', startTime: session.startTime, duration });
-      } else if (session.type === 'break' && !session.isSkipped) {
-        acc.push({ type: 'break', startTime: session.startTime, duration });
-      }
-      return acc;
-    }, []);
-  };
+  }, [loadAnalytics, loadWeeklyFragments]);
 
   /** 将秒数格式化为“小时+分钟”文案。 */
   const formatDuration = (seconds: number): string => {
@@ -244,21 +240,7 @@ export function Analytics() {
     return `${minutes}${t('common.minutes')}`;
   };
 
-  /** 计算休息完成率（已完成/总次数）。 */
-  const getCompletionRate = (): number => {
-    if (!data || data.breakCount === 0) return 0;
-    return Math.round((data.completedBreaks / data.breakCount) * 100);
-  };
-
-  type TimelineBounds = { start: number; end: number };
-  type TimeScaleMark = {
-    key: string;
-    left: number;
-    label: string;
-    position: 'start' | 'middle' | 'end';
-  };
-
-  const displayBounds = useMemo<TimelineBounds>(() => getDisplayBounds(range), [range]);
+  const completionRate = useMemo(() => computeCompletionRate(data), [data]);
 
   const timelineSessions = useMemo(() => {
     if (!data) return [] as Session[];
@@ -272,90 +254,6 @@ export function Analytics() {
       .filter((s) => !(s.type === 'break' && s.isSkipped))
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   }, [data, displayBounds]);
-
-  const generateTimeScale = (
-    selectedRange: TimeRange,
-    bounds: TimelineBounds,
-    language: string
-  ): TimeScaleMark[] => {
-    const marks: TimeScaleMark[] = [];
-    const total = bounds.end - bounds.start;
-    if (total <= 0) return marks;
-
-    const clampToBounds = (timestamp: number) =>
-      Math.min(bounds.end, Math.max(bounds.start, timestamp));
-    const computeLeft = (timestamp: number) =>
-      ((clampToBounds(timestamp) - bounds.start) / total) * 100;
-
-    const DAY_MS = 24 * 60 * 60 * 1000;
-    const dateFormatter = new Intl.DateTimeFormat(language, {
-      month: 'numeric',
-      day: 'numeric',
-    });
-
-    if (selectedRange === 'today' || selectedRange === 'custom') {
-      const HOURS_STEP = 2;
-      const HOURS_TOTAL = 24;
-      for (let h = 0; h <= HOURS_TOTAL; h += HOURS_STEP) {
-        const timestamp = bounds.start + h * 60 * 60 * 1000;
-        marks.push({
-          key: `hour-${h}`,
-          left: computeLeft(timestamp),
-          label: `${String(h).padStart(2, '0')}:00`,
-          position: h === 0 ? 'start' : h === HOURS_TOTAL ? 'end' : 'middle',
-        });
-      }
-      return marks;
-    }
-
-    if (selectedRange === 'week') {
-      const totalDays = Math.max(1, Math.ceil(total / DAY_MS));
-      for (let d = 0; d <= totalDays; d++) {
-        const timestamp = bounds.start + d * DAY_MS;
-        marks.push({
-          key: `day-${d}`,
-          left: computeLeft(timestamp),
-          label: dateFormatter.format(new Date(clampToBounds(timestamp))),
-          position: d === 0 ? 'start' : d === totalDays ? 'end' : 'middle',
-        });
-      }
-      return marks;
-    }
-
-    if (selectedRange === 'month') {
-      const totalDays = Math.max(1, Math.ceil(total / DAY_MS));
-      const approxSegments = 6;
-      const interval = Math.max(1, Math.round(totalDays / approxSegments));
-
-      marks.push({
-        key: 'day-0',
-        left: computeLeft(bounds.start),
-        label: dateFormatter.format(new Date(bounds.start)),
-        position: 'start',
-      });
-
-      for (let d = interval; d < totalDays; d += interval) {
-        const timestamp = bounds.start + d * DAY_MS;
-        marks.push({
-          key: `day-${d}`,
-          left: computeLeft(timestamp),
-          label: dateFormatter.format(new Date(clampToBounds(timestamp))),
-          position: 'middle',
-        });
-      }
-
-      marks.push({
-        key: `day-${totalDays}`,
-        left: computeLeft(bounds.end),
-        label: dateFormatter.format(new Date(bounds.end)),
-        position: 'end',
-      });
-
-      return marks;
-    }
-
-    return marks;
-  };
 
   const timeScaleMarks = useMemo(
     () => generateTimeScale(range, displayBounds, i18n.language),
@@ -457,9 +355,8 @@ export function Analytics() {
    */
   const computedTotals = useMemo(() => {
     if (!data) return { work: 0, rest: 0 };
-    const { startDate, endDate } = getQueryForRange(range);
-    const R0 = new Date(startDate).getTime();
-    const R1 = new Date(endDate).getTime();
+    const R0 = displayBounds.start;
+    const R1 = displayBounds.end;
     let work = 0;
     let rest = 0;
     for (const s of data.sessions) {
@@ -472,7 +369,7 @@ export function Analytics() {
       else if (s.type === 'break' && !s.isSkipped) rest += seconds;
     }
     return { work, rest };
-  }, [data, range]);
+  }, [data, displayBounds]);
 
   if (loading) {
     return (
@@ -543,7 +440,7 @@ export function Analytics() {
                 <div className="stat-icon rate">
                   <CompletionIcon aria-hidden="true" />
                 </div>
-                <div className="stat-value">{getCompletionRate()}%</div>
+                <div className="stat-value">{completionRate}%</div>
                 <div className="stat-label">{t('analytics.completionRate')}</div>
               </div>
             </section>
@@ -610,7 +507,7 @@ export function Analytics() {
                           role="img"
                           aria-label={t('analytics.completionRate')}
                         >
-                          <span className="completion-pie-value">{getCompletionRate()}%</span>
+                          <span className="completion-pie-value">{completionRate}%</span>
                         </div>
                         <ul className="completion-pie-legend">
                           <li className="completion-pie-legend-item">

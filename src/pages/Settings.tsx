@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
@@ -36,6 +36,7 @@ export function Settings() {
   const [message, setMessage] = useState('');
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const sectionDefs = useMemo(
     () => [
@@ -51,15 +52,13 @@ export function Settings() {
   const [activeSection, setActiveSection] = useState(sectionDefs[0]?.id ?? 'timer');
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       if (toastTimer.current) {
         clearTimeout(toastTimer.current);
       }
     };
-  }, []);
-
-  useEffect(() => {
-    loadSettings();
   }, []);
 
   useEffect(() => {
@@ -85,63 +84,77 @@ export function Settings() {
   }, [sectionDefs]);
 
   /** 从后端加载配置并同步全局 store。 */
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       const loaded = await api.loadSettings();
+      if (!isMountedRef.current) return;
       const normalized = enforceTrayDefaults(loaded);
       setSettings(normalized);
       setLocalSettings(normalized);
     } catch (error) {
       console.error('Failed to load settings:', error);
     }
-  };
+  }, [setSettings]);
+
+  useEffect(() => {
+    void loadSettings();
+  }, [loadSettings]);
 
   /** 自动保存：将传入的新设置保存到后端并同步全局状态。 */
-  const saveSettingsAuto = async (next: SettingsType) => {
-    setMessage('');
-    try {
-      const normalized = enforceTrayDefaults(next);
-      await api.saveSettings(normalized);
-      setSettings(normalized);
-      setLocalSettings(normalized);
+  const saveSettingsAuto = useCallback(
+    async (next: SettingsType) => {
+      if (!isMountedRef.current) return;
+      setMessage('');
+      try {
+        const normalized = enforceTrayDefaults(next);
+        await api.saveSettings(normalized);
+        if (!isMountedRef.current) return;
+        setSettings(normalized);
+        setLocalSettings(normalized);
 
-      // 同步系统开机自启状态
-      api.setAutostart(normalized.autostart).catch((err) => {
-        console.error('Failed to sync autostart:', err);
-      });
+        // 同步系统开机自启状态
+        api.setAutostart(normalized.autostart).catch((err) => {
+          console.error('Failed to sync autostart:', err);
+        });
 
-      if (toastTimer.current) {
-        clearTimeout(toastTimer.current);
+        if (toastTimer.current) {
+          clearTimeout(toastTimer.current);
+        }
+        setShowSuccessToast(true);
+        toastTimer.current = setTimeout(() => {
+          if (!isMountedRef.current) return;
+          setShowSuccessToast(false);
+          toastTimer.current = null;
+        }, 2200);
+      } catch (error) {
+        console.error('Failed to save settings:', error);
+        if (!isMountedRef.current) return;
+        setMessage(t('errors.saveFailed'));
       }
-      setShowSuccessToast(true);
-      toastTimer.current = setTimeout(() => {
-        setShowSuccessToast(false);
-        toastTimer.current = null;
-      }, 2200);
-    } catch (error) {
-      setMessage(t('errors.saveFailed'));
-      console.error('Failed to save settings:', error);
-    }
-  };
+    },
+    [setSettings, t]
+  );
 
   /** 恢复为上次保存的设置。 */
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     if (confirm(t('settings.actions.reset'))) {
       setLocalSettings(enforceTrayDefaults(settings));
     }
-  };
+  }, [settings, t]);
 
-  const handleOpenMusicDirectory = async () => {
-    if (!localSettings.restMusicDirectory) return;
+  const handleOpenMusicDirectory = useCallback(async () => {
+    const directory = localSettings.restMusicDirectory;
+    if (!directory) return;
     try {
-      await revealItemInDir(localSettings.restMusicDirectory);
+      await revealItemInDir(directory);
     } catch (error) {
       console.error('Failed to open music directory:', error);
+      if (!isMountedRef.current) return;
       setMessage(t('settings.reminder.restMusic.openFailed'));
     }
-  };
+  }, [localSettings.restMusicDirectory, t]);
 
-  const handleOpenWebsite = async () => {
+  const handleOpenWebsite = useCallback(async () => {
     try {
       await openUrl('https://resty.tokisantike.net');
     } catch (error) {
@@ -150,14 +163,14 @@ export function Settings() {
         window.open('https://resty.tokisantike.net', '_blank', 'noopener,noreferrer');
       }
     }
-  };
+  }, []);
 
-  const scrollToSection = (id: string) => {
+  const scrollToSection = useCallback((id: string) => {
     const node = sectionRefs.current[id];
     if (!node) return;
     setActiveSection(id);
     node.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  }, []);
 
   // 已移除导入/导出：改为实时自动保存
 
