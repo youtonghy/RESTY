@@ -122,6 +122,130 @@ const getDisplayBounds = (range: TimeRange): TimelineBounds => {
   return { start: start.getTime(), end: end.getTime() };
 };
 
+const createAnalyticsQuery = (bounds: TimelineBounds): AnalyticsQuery => ({
+  startDate: new Date(bounds.start).toISOString(),
+  endDate: new Date(bounds.end).toISOString(),
+});
+
+const countWorkFragments = (sessions: Session[]): number =>
+  sessions.filter((session) => session.type === 'work').length;
+
+const countRestFragments = (sessions: Session[]): number =>
+  sessions.filter((session) => session.type === 'break' && !session.isSkipped).length;
+
+const buildFragmentCells = (sessions: Session[]): FragmentCell[] =>
+  sessions
+    .filter((session) => {
+      if (session.type === 'work') return true;
+      if (session.type === 'break') return !session.isSkipped;
+      return false;
+    })
+    .map<FragmentCell>((session) => ({
+      type: session.type,
+      startTime: session.startTime,
+      duration:
+        typeof session.duration === 'number'
+          ? Math.max(0, session.duration)
+          : Math.max(
+              0,
+              Math.floor(
+                (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / 1000
+              )
+            ),
+    }))
+    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+const computeCompletionRate = (data: AnalyticsData | null): number => {
+  if (!data || data.breakCount <= 0) return 0;
+  const completed = Math.max(0, data.completedBreaks);
+  const rate = (completed / Math.max(1, data.breakCount)) * 100;
+  return Math.round(rate);
+};
+
+const generateTimeScale = (
+  range: TimeRange,
+  bounds: TimelineBounds,
+  locale: string
+): TimeScaleMark[] => {
+  const total = bounds.end - bounds.start;
+  if (total <= 0) {
+    return [];
+  }
+
+  const formatter = (() => {
+    switch (range) {
+      case 'today':
+        return new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' });
+      case 'week':
+        return new Intl.DateTimeFormat(locale, {
+          month: 'short',
+          day: 'numeric',
+          weekday: 'short',
+        });
+      default:
+        return new Intl.DateTimeFormat(locale, {
+          month: 'short',
+          day: 'numeric',
+        });
+    }
+  })();
+
+  const marks: TimeScaleMark[] = [];
+  const addMark = (timestamp: number, position: TimeScaleMark['position']) => {
+    const clamped = Math.min(bounds.end, Math.max(bounds.start, timestamp));
+    const left = ((clamped - bounds.start) / total) * 100;
+    if (marks.some((mark) => Math.abs(mark.left - left) < 0.01)) {
+      return;
+    }
+    marks.push({
+      key: `${position}-${clamped}`,
+      left,
+      label: formatter.format(new Date(clamped)),
+      position,
+    });
+  };
+
+  switch (range) {
+    case 'today': {
+      addMark(bounds.start, 'start');
+      const sixHours = 6 * 60 * 60 * 1000;
+      addMark(bounds.start + sixHours, 'middle');
+      addMark(bounds.start + sixHours * 2, 'middle');
+      addMark(bounds.start + sixHours * 3, 'middle');
+      addMark(bounds.end, 'end');
+      break;
+    }
+    case 'week': {
+      let current = new Date(bounds.start);
+      current.setHours(0, 0, 0, 0);
+      while (current.getTime() <= bounds.end) {
+        const ts = current.getTime();
+        const position: TimeScaleMark['position'] =
+          ts === bounds.start ? 'start' : ts === bounds.end ? 'end' : 'middle';
+        addMark(ts, position);
+        current = new Date(ts + DAY_MS);
+      }
+      if (marks.every((mark) => mark.position !== 'end')) {
+        addMark(bounds.end, 'end');
+      }
+      break;
+    }
+    case 'month':
+    case 'custom':
+    default: {
+      addMark(bounds.start, 'start');
+      const segments = 3;
+      for (let i = 1; i <= segments; i += 1) {
+        addMark(bounds.start + (total * i) / (segments + 1), 'middle');
+      }
+      addMark(bounds.end, 'end');
+      break;
+    }
+  }
+
+  return marks.sort((a, b) => a.left - b.left);
+};
+
 /**
  * 数据统计页面：按日期区间加载会话数据，展示工作/休息统计与时间轴。
  */
@@ -255,7 +379,7 @@ export function Analytics() {
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   }, [data, displayBounds]);
 
-  const timeScaleMarks = useMemo(
+  const timeScaleMarks = useMemo<TimeScaleMark[]>(
     () => generateTimeScale(range, displayBounds, i18n.language),
     [range, displayBounds, i18n.language]
   );
