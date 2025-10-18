@@ -10,7 +10,7 @@ use services::{DatabaseService, TimerService};
 use std::sync::Arc;
 use tauri::image::Image;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
-use tauri::tray::{TrayIcon, TrayIconBuilder};
+use tauri::tray::{Theme as TrayTheme, TrayIcon, TrayIconBuilder};
 use tauri::{Emitter, Listener, Manager, Theme, WebviewUrl, WebviewWindowBuilder};
 
 const TRAY_ICON_LIGHT: &[u8] = include_bytes!("../icons/128x128.png");
@@ -19,6 +19,15 @@ const MAIN_TRAY_ID: &str = "resty-main-tray";
 
 fn load_tray_image(bytes: &[u8]) -> Option<Image<'static>> {
     Image::from_bytes(bytes).ok()
+}
+
+fn tray_theme_to_theme(theme: TrayTheme) -> Theme {
+    match theme {
+        TrayTheme::Dark => Theme::Dark,
+        TrayTheme::Light => Theme::Light,
+        // Some platforms report additional variants (e.g. high contrast); fall back to light.
+        _ => Theme::Light,
+    }
 }
 
 fn apply_tray_theme_icon(tray: &TrayIcon, theme: Theme) {
@@ -234,28 +243,29 @@ pub fn run() {
                             _ => {}
                         }
                     })
-                    .on_tray_icon_event(|tray, event| {
-                        match event {
-                            tauri::tray::TrayIconEvent::Click { button, .. } => {
-                                let app = tray.app_handle();
-                                match button {
-                                    tauri::tray::MouseButton::Left => {
-                                        if let Some(win) = app.get_webview_window("main") {
-                                            // Always show and focus (no toggle) to avoid flicker
-                                            let _ = win.set_skip_taskbar(false);
-                                            let _ = win.show();
-                                            let _ = win.unminimize();
-                                            let _ = win.set_focus();
-                                        }
+                    .on_tray_icon_event(|tray, event| match event {
+                        tauri::tray::TrayIconEvent::Click { button, .. } => {
+                            let app = tray.app_handle();
+                            match button {
+                                tauri::tray::MouseButton::Left => {
+                                    if let Some(win) = app.get_webview_window("main") {
+                                        // Always show and focus (no toggle) to avoid flicker
+                                        let _ = win.set_skip_taskbar(false);
+                                        let _ = win.show();
+                                        let _ = win.unminimize();
+                                        let _ = win.set_focus();
                                     }
-                                    tauri::tray::MouseButton::Right => {
-                                        // No-op: let the OS show the attached menu.
-                                    }
-                                    _ => {}
                                 }
+                                tauri::tray::MouseButton::Right => {
+                                    // No-op: let the OS show the attached menu.
+                                }
+                                _ => {}
                             }
-                            _ => {}
                         }
+                        tauri::tray::TrayIconEvent::ThemeChanged { theme } => {
+                            apply_tray_theme_icon(tray, tray_theme_to_theme(theme));
+                        }
+                        _ => {}
                     })
                     .tooltip("RESTY");
 
