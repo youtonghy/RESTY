@@ -4,7 +4,7 @@ use crate::utils::AppResult;
 use chrono::{Duration as ChronoDuration, Timelike, Utc, Local, TimeZone};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
-use tokio::time::{self, Duration as TokioDuration};
+use tokio::time::{self, Duration as TokioDuration, MissedTickBehavior};
 use uuid::Uuid;
 
 /// Timer service for managing work/break cycles.
@@ -476,6 +476,8 @@ impl TimerService {
         tokio::spawn(async move {
             // Tick every second to ensure phase transitions happen on-time (00 seconds)
             let mut interval = time::interval(TokioDuration::from_secs(1));
+            // Skip the backlog after system resume to avoid flooding the main thread.
+            interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
             loop {
                 interval.tick().await;
                 if let Ok(session) = service.tick() {
