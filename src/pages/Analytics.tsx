@@ -353,15 +353,25 @@ export function Analytics() {
     };
   }, [loadAnalytics, loadWeeklyFragments]);
 
-  /** 将秒数格式化为“小时+分钟”文案。 */
+  /** 将秒数格式化为“小时+分钟+秒”文案，根据需要省略单位。 */
   const formatDuration = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
+    const totalSeconds = Math.max(0, Math.round(seconds));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
 
+    const parts: string[] = [];
     if (hours > 0) {
-      return `${hours}${t('common.hours')} ${minutes}${t('common.minutes')}`;
+      parts.push(`${hours}${t('common.hours')}`);
     }
-    return `${minutes}${t('common.minutes')}`;
+    if (minutes > 0 || hours > 0) {
+      parts.push(`${minutes}${t('common.minutes')}`);
+    }
+    if (secs > 0 || parts.length === 0) {
+      parts.push(`${secs}${t('common.seconds')}`);
+    }
+
+    return parts.join(' ');
   };
 
   const completionRate = useMemo(() => computeCompletionRate(data), [data]);
