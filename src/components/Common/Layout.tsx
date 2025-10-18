@@ -3,6 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useAppStore } from '../../store';
 import { Navigation } from './Navigation';
+import { useTheme } from './ThemeProvider';
+import iconLight from '../../../src-tauri/icons/128x128.png';
+import iconDark from '../../../src-tauri/icons/128x128Night.png';
 import { WindowControls } from './WindowControls';
 import './Layout.css';
 
@@ -17,6 +20,7 @@ interface LayoutProps {
 export function Layout({ children, showNavigation = true }: LayoutProps) {
   const { t } = useTranslation();
   const { updateManifest, appVersion, setUpdateManifest } = useAppStore();
+  const { effectiveTheme } = useTheme();
 
   const handleOpenWebsite = useCallback(async () => {
     if (!updateManifest) return;
@@ -41,7 +45,12 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
       {/* Draggable area for borderless window with overlay buttons */}
       <div className="app-titlebar" data-tauri-drag-region>
         <div className="titlebar-left">
-          <img className="app-logo" src="/tauri.svg" alt="RESTY logo" aria-hidden="true" />
+          <img
+            className="app-logo"
+            src={effectiveTheme === 'dark' ? iconDark : iconLight}
+            alt="RESTY logo"
+            aria-hidden="true"
+          />
           <div className="app-title-group">
             <span className="app-title" title="RESTY">RESTY</span>
             <span className="app-subtitle">Eye Care Reminder</span>
