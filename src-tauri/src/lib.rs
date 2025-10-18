@@ -5,10 +5,34 @@ mod utils;
 
 use commands::AppState;
 use services::{DatabaseService, TimerService};
+use std::io::Cursor;
 use std::sync::Arc;
+use tauri::image::Image;
 use tauri::{Emitter, Listener, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
-use tauri::tray::TrayIconBuilder;
+use tauri::tray::{Theme as TrayTheme, TrayIcon, TrayIconBuilder};
+
+const TRAY_ICON_LIGHT: &[u8] = include_bytes!("../icons/128x128.png");
+const TRAY_ICON_DARK: &[u8] = include_bytes!("../icons/128x128Night.png");
+
+fn load_tray_image(bytes: &[u8]) -> Option<Image> {
+    Image::from_png(&mut Cursor::new(bytes)).ok()
+}
+
+fn apply_tray_theme_icon(tray: &TrayIcon, theme: TrayTheme) {
+    let icon_bytes = match theme {
+        TrayTheme::Dark => TRAY_ICON_DARK,
+        _ => TRAY_ICON_LIGHT,
+    };
+
+    if let Some(image) = load_tray_image(icon_bytes) {
+        if let Err(err) = tray.set_icon(image) {
+            eprintln!("Failed to set tray icon for theme {:?}: {}", theme, err);
+        }
+    } else {
+        eprintln!("Failed to decode tray icon for theme {:?}", theme);
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// 构建并运行 Tauri 应用，初始化数据库、计时服务与事件监听。
@@ -213,16 +237,22 @@ pub fn run() {
                                     _ => {}
                                 }
                             }
+                            tauri::tray::TrayIconEvent::ThemeChanged { theme } => {
+                                apply_tray_theme_icon(tray, theme);
+                            }
                             _ => {}
                         }
                     })
                     .tooltip("RESTY");
 
-                if let Some(icon) = app.default_window_icon().cloned() {
+                if let Some(icon) = load_tray_image(TRAY_ICON_LIGHT)
+                    .or_else(|| app.default_window_icon().cloned())
+                {
                     tray_builder = tray_builder.icon(icon);
                 }
 
-                let _tray = tray_builder.build(app)?;
+                let tray_icon = tray_builder.build(app)?;
+                apply_tray_theme_icon(&tray_icon, TrayTheme::Light);
             }
 
             Ok(())
