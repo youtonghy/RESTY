@@ -69,6 +69,7 @@
   flex-direction: column;
   align-items: center;
   gap: var(--spacing-xs);
+  min-width: 0;
 }
 
 .stat-icon {
@@ -105,10 +106,18 @@
 }
 
 .stat-value {
-  font-size: 2rem;
+  font-size: clamp(1.35rem, 1.1rem + 1.4vw, 2rem);
   font-weight: 700;
   color: var(--color-text-primary);
   margin-bottom: var(--spacing-xs);
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .stat-label {
