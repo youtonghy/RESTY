@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useAppStore } from '../../store';
 import type { Theme } from '../../types';
+import { updateTrayIconTheme } from '../../utils/tray';
 
 interface ThemeContextType {
   theme: Theme;
@@ -44,6 +45,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     mediaQuery.addEventListener('change', handler);
     return () => mediaQuery.removeEventListener('change', handler);
   }, [settings.theme]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as { __TAURI__?: unknown }).__TAURI__) {
+      void updateTrayIconTheme(effectiveTheme);
+    }
+  }, [effectiveTheme]);
 
   const setTheme = (theme: Theme) => {
     setSettings({ theme });

@@ -4,11 +4,52 @@ mod services;
 mod utils;
 
 use commands::AppState;
+use dark_light::Mode as SystemTheme;
+use crate::models::Theme as SettingsTheme;
 use services::{DatabaseService, TimerService};
 use std::sync::Arc;
-use tauri::{Emitter, Listener, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::image::Image;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
-use tauri::tray::TrayIconBuilder;
+use tauri::tray::{TrayIcon, TrayIconBuilder};
+use tauri::{Emitter, Listener, Manager, Theme, WebviewUrl, WebviewWindowBuilder};
+
+const TRAY_ICON_LIGHT: &[u8] = include_bytes!("../icons/128x128.png");
+const TRAY_ICON_DARK: &[u8] = include_bytes!("../icons/128x128Night.png");
+const MAIN_TRAY_ID: &str = "resty-main-tray";
+
+fn load_tray_image(bytes: &[u8]) -> Option<Image<'static>> {
+    Image::from_bytes(bytes).ok()
+}
+
+fn apply_tray_theme_icon(tray: &TrayIcon, theme: Theme) {
+    let icon_bytes = match theme {
+        Theme::Dark => TRAY_ICON_DARK,
+        _ => TRAY_ICON_LIGHT,
+    };
+
+    if let Some(image) = load_tray_image(icon_bytes) {
+        if let Err(err) = tray.set_icon(Some(image)) {
+            eprintln!("Failed to set tray icon for theme {:?}: {}", theme, err);
+        }
+    } else {
+        eprintln!("Failed to decode tray icon for theme {:?}", theme);
+    }
+}
+
+fn current_system_theme() -> Theme {
+    match dark_light::detect() {
+        SystemTheme::Dark => Theme::Dark,
+        _ => Theme::Light,
+    }
+}
+
+fn resolve_tray_theme(preference: &SettingsTheme) -> Theme {
+    match preference {
+        SettingsTheme::Dark => Theme::Dark,
+        SettingsTheme::Light => Theme::Light,
+        SettingsTheme::Auto => current_system_theme(),
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// 构建并运行 Tauri 应用，初始化数据库、计时服务与事件监听。
@@ -133,7 +174,7 @@ pub fn run() {
                     .build()?;
 
                 // Build tray icon
-                let mut tray_builder = TrayIconBuilder::new()
+                let mut tray_builder = TrayIconBuilder::with_id(MAIN_TRAY_ID)
                     .menu(&menu)
                     // Prevent showing context menu on left click to avoid flicker
                     .show_menu_on_left_click(false)
@@ -218,11 +259,15 @@ pub fn run() {
                     })
                     .tooltip("RESTY");
 
-                if let Some(icon) = app.default_window_icon().cloned() {
+                if let Some(icon) = load_tray_image(TRAY_ICON_LIGHT)
+                    .or_else(|| app.default_window_icon().cloned())
+                {
                     tray_builder = tray_builder.icon(icon);
                 }
 
-                let _tray = tray_builder.build(app)?;
+                let tray_icon = tray_builder.build(app)?;
+                let initial_tray_theme = resolve_tray_theme(&initial_settings.theme);
+                apply_tray_theme_icon(&tray_icon, initial_tray_theme);
             }
 
             Ok(())
@@ -246,9 +291,27 @@ pub fn run() {
             commands::show_reminder_window,
             commands::close_reminder_window,
             commands::get_rest_music_files,
+            update_tray_icon_theme,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[tauri::command]
+fn update_tray_icon_theme(app: tauri::AppHandle, theme: String) -> Result<(), String> {
+    let desired = if theme.eq_ignore_ascii_case("dark") {
+        Theme::Dark
+    } else {
+        Theme::Light
+    };
+
+    if let Some(tray) = app.tray_by_id(&MAIN_TRAY_ID) {
+        apply_tray_theme_icon(&tray, desired);
+    } else {
+        eprintln!("Tray icon not found when updating theme");
+    }
+
+    Ok(())
 }
 
 /// 根据配置显示休息提醒窗口（全屏或浮窗）。
