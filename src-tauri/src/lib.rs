@@ -4,13 +4,13 @@ mod services;
 mod utils;
 
 use commands::AppState;
-use dark_light::Mode as SystemTheme;
 use crate::models::Theme as SettingsTheme;
+use dark_light::Mode as SystemTheme;
 use services::{DatabaseService, TimerService};
 use std::sync::Arc;
 use tauri::image::Image;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
-use tauri::tray::{Theme as TrayTheme, TrayIcon, TrayIconBuilder};
+use tauri::tray::{TrayIcon, TrayIconBuilder};
 use tauri::{Emitter, Listener, Manager, Theme, WebviewUrl, WebviewWindowBuilder};
 
 const TRAY_ICON_LIGHT: &[u8] = include_bytes!("../icons/128x128.png");
@@ -19,15 +19,6 @@ const MAIN_TRAY_ID: &str = "resty-main-tray";
 
 fn load_tray_image(bytes: &[u8]) -> Option<Image<'static>> {
     Image::from_bytes(bytes).ok()
-}
-
-fn tray_theme_to_theme(theme: TrayTheme) -> Theme {
-    match theme {
-        TrayTheme::Dark => Theme::Dark,
-        TrayTheme::Light => Theme::Light,
-        // Some platforms report additional variants (e.g. high contrast); fall back to light.
-        _ => Theme::Light,
-    }
 }
 
 fn apply_tray_theme_icon(tray: &TrayIcon, theme: Theme) {
@@ -262,9 +253,6 @@ pub fn run() {
                                 _ => {}
                             }
                         }
-                        tauri::tray::TrayIconEvent::ThemeChanged { theme } => {
-                            apply_tray_theme_icon(tray, tray_theme_to_theme(theme));
-                        }
                         _ => {}
                     })
                     .tooltip("RESTY");
@@ -315,7 +303,7 @@ fn update_tray_icon_theme(app: tauri::AppHandle, theme: String) -> Result<(), St
         Theme::Light
     };
 
-    if let Some(tray) = app.tray_by_id(&MAIN_TRAY_ID) {
+    if let Some(tray) = app.tray_by_id(MAIN_TRAY_ID) {
         apply_tray_theme_icon(&tray, desired);
     } else {
         eprintln!("Tray icon not found when updating theme");
