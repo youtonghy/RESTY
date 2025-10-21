@@ -3,8 +3,8 @@ mod models;
 mod services;
 mod utils;
 
-use commands::AppState;
 use crate::models::Theme as SettingsTheme;
+use commands::AppState;
 use dark_light::Mode as SystemTheme;
 use services::{DatabaseService, TimerService};
 use std::sync::Arc;
@@ -108,6 +108,9 @@ pub fn run() {
                 // Auto-start work session when app launches
                 let _ = timer.start_work();
 
+                // Begin monitoring display power state (Windows) to auto pause when screen turns off.
+                crate::services::power::start_display_power_monitor(timer.clone());
+
                 (settings, timer)
             });
 
@@ -120,7 +123,9 @@ pub fn run() {
 
             // Hide window when autostart launches in silent mode
             let launched_from_autostart = std::env::args().any(|arg| arg == "--autostart");
-            if launched_from_autostart && initial_settings.autostart && initial_settings.silent_autostart
+            if launched_from_autostart
+                && initial_settings.autostart
+                && initial_settings.silent_autostart
             {
                 if let Some(main_window) = app.get_webview_window("main") {
                     let _ = main_window.hide();
@@ -158,12 +163,22 @@ pub fn run() {
             // Create system tray with menu
             {
                 // Build tray menu
-                let skip_item = MenuItemBuilder::new("跳到下一次休息/工作").id("skip").build(app)?;
+                let skip_item = MenuItemBuilder::new("跳到下一次休息/工作")
+                    .id("skip")
+                    .build(app)?;
                 // No-break submenu options
-                let nb_1h = MenuItemBuilder::new("1 小时不休息").id("no_break_1h").build(app)?;
-                let nb_2h = MenuItemBuilder::new("2 小时不休息").id("no_break_2h").build(app)?;
-                let nb_5h = MenuItemBuilder::new("5 小时不休息").id("no_break_5h").build(app)?;
-                let nb_tomorrow = MenuItemBuilder::new("直到明天早晨不休息").id("no_break_tomorrow").build(app)?;
+                let nb_1h = MenuItemBuilder::new("1 小时不休息")
+                    .id("no_break_1h")
+                    .build(app)?;
+                let nb_2h = MenuItemBuilder::new("2 小时不休息")
+                    .id("no_break_2h")
+                    .build(app)?;
+                let nb_5h = MenuItemBuilder::new("5 小时不休息")
+                    .id("no_break_5h")
+                    .build(app)?;
+                let nb_tomorrow = MenuItemBuilder::new("直到明天早晨不休息")
+                    .id("no_break_tomorrow")
+                    .build(app)?;
                 let no_break_submenu = SubmenuBuilder::new(app, "X 小时不休息")
                     .items(&[&nb_1h, &nb_2h, &nb_5h, &nb_tomorrow])
                     .build()?;
@@ -190,7 +205,8 @@ pub fn run() {
                                     match timer.skip() {
                                         Ok(session) => {
                                             if let Ok(mut guard) = db.try_lock() {
-                                                let _ = guard.save_or_update_session(&session).await;
+                                                let _ =
+                                                    guard.save_or_update_session(&session).await;
                                             } else {
                                                 let db2 = db.lock().await;
                                                 let _ = db2.save_or_update_session(&session).await;
@@ -257,8 +273,8 @@ pub fn run() {
                     })
                     .tooltip("RESTY");
 
-                if let Some(icon) = load_tray_image(TRAY_ICON_LIGHT)
-                    .or_else(|| app.default_window_icon().cloned())
+                if let Some(icon) =
+                    load_tray_image(TRAY_ICON_LIGHT).or_else(|| app.default_window_icon().cloned())
                 {
                     tray_builder = tray_builder.icon(icon);
                 }
@@ -321,7 +337,13 @@ pub fn show_break_reminder_window(
     let existing: Vec<_> = app
         .webview_windows()
         .iter()
-        .filter_map(|(label, w)| if label.starts_with("break-reminder") { Some(w.clone()) } else { None })
+        .filter_map(|(label, w)| {
+            if label.starts_with("break-reminder") {
+                Some(w.clone())
+            } else {
+                None
+            }
+        })
         .collect();
     if !existing.is_empty() {
         for w in existing {
@@ -371,7 +393,10 @@ pub fn show_break_reminder_window(
                     let window_size = window.outer_size()?;
                     let x = screen.width as i32 - window_size.width as i32 - 20;
                     let y = 96;
-                    window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }))?;
+                    window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+                        x,
+                        y,
+                    }))?;
                 }
             }
         }
@@ -381,17 +406,14 @@ pub fn show_break_reminder_window(
     // Create a window on each monitor
     for (idx, monitor) in monitors.iter().enumerate() {
         let label = format!("break-reminder-{}", idx);
-        let mut builder = WebviewWindowBuilder::new(
-            app,
-            &label,
-            WebviewUrl::App("index.html#reminder".into()),
-        )
-        .title("Break Time - RESTY")
-        .visible(false)
-        .resizable(false)
-        .decorations(false)
-        .always_on_top(true)
-        .skip_taskbar(true);
+        let mut builder =
+            WebviewWindowBuilder::new(app, &label, WebviewUrl::App("index.html#reminder".into()))
+                .title("Break Time - RESTY")
+                .visible(false)
+                .resizable(false)
+                .decorations(false)
+                .always_on_top(true)
+                .skip_taskbar(true);
 
         if !is_fullscreen {
             builder = builder.inner_size(340.0, 300.0).maximized(false);
@@ -410,7 +432,8 @@ pub fn show_break_reminder_window(
             let win_size = window.outer_size()?;
             let x = origin.x + (screen.width as i32 - win_size.width as i32 - 20);
             let y = origin.y + 96;
-            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+            let _ =
+                window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
         }
     }
 

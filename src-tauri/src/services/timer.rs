@@ -1,7 +1,7 @@
 use crate::models::{Session, SessionType, TimerInfo, TimerPhase, TimerState};
 use crate::services::DatabaseService;
 use crate::utils::AppResult;
-use chrono::{Duration as ChronoDuration, Timelike, Utc, Local, TimeZone};
+use chrono::{Duration as ChronoDuration, Local, TimeZone, Timelike, Utc};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
 use tokio::time::{self, Duration as TokioDuration, MissedTickBehavior};
@@ -29,6 +29,7 @@ struct TimerServiceState {
     auto_cycle: bool, // Auto cycle between work and break
     // When set, automatically skip breaks until this time
     suppress_breaks_until: Option<chrono::DateTime<Utc>>,
+    paused_due_to_display_off: bool,
 }
 
 impl TimerService {
@@ -55,6 +56,7 @@ impl TimerService {
                 current_session_start: None,
                 auto_cycle: true, // Enable auto cycle by default
                 suppress_breaks_until: None,
+                paused_due_to_display_off: false,
             })),
             app,
             db,
@@ -74,6 +76,7 @@ impl TimerService {
             Some(start_time + ChronoDuration::minutes(state.work_duration as i64));
         state.current_session_id = Some(Uuid::new_v4().to_string());
         state.current_session_start = Some(start_time);
+        state.paused_due_to_display_off = false;
         drop(state);
 
         self.emit_timer_update()?;
@@ -95,6 +98,7 @@ impl TimerService {
             Some(start_time + ChronoDuration::minutes(state.break_duration as i64));
         state.current_session_id = Some(Uuid::new_v4().to_string());
         state.current_session_start = Some(start_time);
+        state.paused_due_to_display_off = false;
         drop(state);
 
         self.emit_timer_update()?;
@@ -130,6 +134,7 @@ impl TimerService {
             } else {
                 state.phase_end_time = Some(start);
             }
+            state.paused_due_to_display_off = false;
             drop(state);
             self.emit_timer_update()?;
         }
@@ -189,6 +194,7 @@ impl TimerService {
         state.phase_end_time = None;
         state.current_session_id = None;
         state.current_session_start = None;
+        state.paused_due_to_display_off = false;
         drop(state);
         self.emit_timer_update()?;
         Ok(())
@@ -269,6 +275,41 @@ impl TimerService {
         Ok(session)
     }
 
+    /// React to system display power state changes.
+    /// 当检测到显示器被熄灭/点亮时，自动暂停或恢复计时。
+    pub fn handle_display_power_state(&self, display_on: bool) -> AppResult<()> {
+        if display_on {
+            let should_resume = {
+                let mut state = self.state.lock().unwrap();
+                if state.state == TimerState::Paused && state.paused_due_to_display_off {
+                    state.paused_due_to_display_off = false;
+                    true
+                } else {
+                    state.paused_due_to_display_off = false;
+                    false
+                }
+            };
+            if should_resume {
+                self.resume()?;
+            }
+        } else {
+            let should_pause = {
+                let mut state = self.state.lock().unwrap();
+                if state.state == TimerState::Running {
+                    state.paused_due_to_display_off = true;
+                    true
+                } else {
+                    false
+                }
+            };
+            if should_pause {
+                self.pause()?;
+            }
+        }
+
+        Ok(())
+    }
+
     /// Get current timer info
     pub fn get_info(&self) -> TimerInfo {
         let state = self.state.lock().unwrap();
@@ -279,7 +320,11 @@ impl TimerService {
             remaining_minutes: state.remaining_minutes,
             total_minutes: state.total_minutes,
             next_transition_time: state.phase_end_time,
-            next_break_time: if state.flow_mode { None } else { next_break_time },
+            next_break_time: if state.flow_mode {
+                None
+            } else {
+                next_break_time
+            },
         }
     }
 
@@ -309,7 +354,6 @@ impl TimerService {
 
         Ok(())
     }
-
 
     /// Do not take breaks for the specified number of hours from now.
     pub fn suppress_breaks_for_hours(&self, hours: i64) {
@@ -510,7 +554,9 @@ impl TimerService {
     }
 
     /// 根据当前状态与“抑制休息”设置，计算下一次真正开始休息的时间。
-    fn compute_next_break_time_from_state(state: &TimerServiceState) -> Option<chrono::DateTime<Utc>> {
+    fn compute_next_break_time_from_state(
+        state: &TimerServiceState,
+    ) -> Option<chrono::DateTime<Utc>> {
         // Idle 阶段无法预测下一次休息时间
         if state.phase == TimerPhase::Idle {
             return None;
