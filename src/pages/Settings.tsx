@@ -627,7 +627,7 @@ export function Settings() {
                   </div>
                 </div>
               )}
-              <div className="form-group toggle-group">
+              <div className="form-group toggle-group timer-toggle-offset">
                 <label className="toggle-row">
                   <span className="toggle-text">{t('settings.timer.enableForceBreak')}</span>
                   <span className="switch">

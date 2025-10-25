@@ -226,6 +226,10 @@
   border: 1px solid rgba(59, 130, 246, 0.18);
 }
 
+.timer-toggle-offset {
+  margin-top: calc(var(--spacing-xl) + var(--spacing-sm));
+}
+
 [data-theme='dark'] .schedule-mode-option {
   border: 1px solid rgba(148, 163, 184, 0.4);
   background: #111827;
