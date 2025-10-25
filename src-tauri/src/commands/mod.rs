@@ -33,9 +33,12 @@ pub async fn save_settings(
     validate_settings(&settings)?;
 
     // Update timer durations
-    state
-        .timer_service
-        .update_durations(settings.work_duration, settings.break_duration);
+    state.timer_service.update_timer_configuration(
+        settings.work_duration,
+        settings.break_duration,
+        settings.segmented_work_enabled,
+        settings.work_segments.clone(),
+    );
     state
         .timer_service
         .update_flow_mode(settings.flow_mode_enabled)
@@ -165,9 +168,12 @@ pub async fn import_config(
 
     validate_settings(&settings)?;
 
-    state
-        .timer_service
-        .update_durations(settings.work_duration, settings.break_duration);
+    state.timer_service.update_timer_configuration(
+        settings.work_duration,
+        settings.break_duration,
+        settings.segmented_work_enabled,
+        settings.work_segments.clone(),
+    );
     state
         .timer_service
         .update_flow_mode(settings.flow_mode_enabled)
@@ -257,6 +263,22 @@ fn validate_settings(settings: &Settings) -> Result<(), String> {
     }
     if settings.break_duration == 0 || settings.break_duration > 120 {
         return Err(AppError::InvalidDuration.to_string());
+    }
+    if settings.segmented_work_enabled {
+        if settings.work_segments.is_empty() {
+            return Err(AppError::InvalidWorkSegments.to_string());
+        }
+        for segment in &settings.work_segments {
+            if segment.work_minutes == 0 || segment.work_minutes > 120 {
+                return Err(AppError::InvalidDuration.to_string());
+            }
+            if segment.break_minutes == 0 || segment.break_minutes > 120 {
+                return Err(AppError::InvalidDuration.to_string());
+            }
+            if segment.repeat == 0 || segment.repeat > 12 {
+                return Err(AppError::InvalidWorkSegments.to_string());
+            }
+        }
     }
     if settings.opacity > 100 {
         return Err(AppError::InvalidOpacity.to_string());

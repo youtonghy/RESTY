@@ -100,6 +100,8 @@ pub fn run() {
                     settings.work_duration,
                     settings.break_duration,
                     settings.flow_mode_enabled,
+                    settings.segmented_work_enabled,
+                    settings.work_segments.clone(),
                 );
 
                 // Start the ticker

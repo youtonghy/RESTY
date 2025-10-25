@@ -221,6 +221,115 @@
   color: var(--color-text-secondary);
 }
 
+.segment-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg, 18px);
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+[data-theme='dark'] .segment-editor {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.segment-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.segment-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) repeat(3, minmax(120px, 1fr)) auto;
+  gap: var(--spacing-md);
+  align-items: end;
+}
+
+.segment-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.segment-field label {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.segment-repeat-input {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.segment-repeat-input .input {
+  width: 100px;
+}
+
+.segment-repeat-suffix {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.segment-label {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.segment-remove-button {
+  align-self: center;
+  padding: 0.55rem 1rem;
+  border-radius: var(--radius-md, 12px);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: transparent;
+  color: rgba(239, 68, 68, 0.9);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.segment-remove-button:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.55);
+  color: rgba(239, 68, 68, 1);
+}
+
+.segment-remove-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.segment-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.segment-add-button {
+  padding: 0.65rem 1.4rem;
+  border-radius: var(--radius-md, 12px);
+  border: 1px solid rgba(59, 130, 246, 0.38);
+  background: rgba(59, 130, 246, 0.16);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.segment-add-button:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: rgba(59, 130, 246, 0.52);
+}
+
+.segment-add-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .card-subtitle {
   margin-top: var(--spacing-lg);
   margin-bottom: var(--spacing-md);

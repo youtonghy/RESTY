@@ -9,6 +9,12 @@ export type FloatingPosition = 'top-left' | 'top-right' | 'bottom-left' | 'botto
 export type TimerPhase = 'work' | 'break' | 'idle';
 export type TimerState = 'running' | 'paused' | 'stopped';
 
+export interface WorkSegment {
+  workMinutes: number;
+  breakMinutes: number;
+  repeat: number;
+}
+
 /**
  * Settings configuration structure
  */
@@ -18,6 +24,8 @@ export interface Settings {
   breakDuration: number; // in minutes
   enableForceBreak: boolean;
   flowModeEnabled: boolean;
+  segmentedWorkEnabled: boolean;
+  workSegments: WorkSegment[];
 
   // Reminder settings
   reminderMode: ReminderMode;
@@ -131,6 +139,8 @@ export const DEFAULT_SETTINGS: Settings = {
   breakDuration: 5,
   enableForceBreak: false,
   flowModeEnabled: false,
+  segmentedWorkEnabled: false,
+  workSegments: [{ workMinutes: 25, breakMinutes: 5, repeat: 1 }],
   reminderMode: 'fullscreen',
   floatingPosition: 'top-right',
   opacity: 95,

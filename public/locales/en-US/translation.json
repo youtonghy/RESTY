@@ -18,7 +18,20 @@
       "enableForceBreak": "Force break mode",
       "forceBreakDescription": "Prevent skipping during break time",
       "flowMode": "Flow mode",
-      "flowModeDescription": "Stay in continuous work sessions until you stop manually"
+      "flowModeDescription": "Stay in continuous work sessions until you stop manually",
+      "segmented": {
+        "enable": "Segmented work durations",
+        "description": "Cycle through multiple work and break combinations in order.",
+        "columnName": "Segment",
+        "work": "Work (min)",
+        "break": "Break (min)",
+        "repeat": "Repeat",
+        "repeatSuffix": "times",
+        "add": "Add segment",
+        "remove": "Remove",
+        "segmentLabel": "Segment {{index}}",
+        "helper": "Segments run in order and repeat continuously."
+      }
     },
     "reminder": {
       "title": "Reminder Settings",
@@ -156,7 +169,8 @@
     "exportFailed": "Failed to export configuration",
     "saveFailed": "Failed to save settings",
     "loadFailed": "Failed to load settings",
-    "unknown": "An unexpected error occurred"
+    "unknown": "An unexpected error occurred",
+    "invalidSegments": "Segmented work schedule is invalid"
   },
   "common": {
     "confirm": "Confirm",

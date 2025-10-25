@@ -3,18 +3,92 @@ import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
 import * as api from '../utils/api';
-import type { Language, Settings as SettingsType } from '../types';
+import {
+  DEFAULT_SETTINGS,
+  type Language,
+  type Settings as SettingsType,
+  type WorkSegment,
+} from '../types';
 import './Settings.css';
 
+const MAX_SEGMENTS = 12;
+const MAX_DURATION_MINUTES = 120;
+const MAX_REPEAT = 12;
+
+const clampNumber = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max);
+
+const toInt = (value: unknown): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const normalizeSegmentValues = (segment: WorkSegment): WorkSegment => ({
+  workMinutes: clampNumber(toInt(segment.workMinutes), 1, MAX_DURATION_MINUTES),
+  breakMinutes: clampNumber(toInt(segment.breakMinutes), 1, MAX_DURATION_MINUTES),
+  repeat: clampNumber(toInt(segment.repeat) || 1, 1, MAX_REPEAT),
+});
+
+const normalizeSegmentWithFallback = (
+  segment: Partial<WorkSegment>,
+  fallbackWork: number,
+  fallbackBreak: number
+): WorkSegment =>
+  normalizeSegmentValues({
+    workMinutes: segment.workMinutes ?? fallbackWork,
+    breakMinutes: segment.breakMinutes ?? fallbackBreak,
+    repeat: segment.repeat ?? 1,
+  });
+
+const normalizeSegments = (
+  segments: WorkSegment[] | undefined,
+  fallbackWork: number,
+  fallbackBreak: number
+): WorkSegment[] => {
+  const source =
+    segments && segments.length
+      ? segments
+      : [{ workMinutes: fallbackWork, breakMinutes: fallbackBreak, repeat: 1 }];
+  return source
+    .map((segment) => normalizeSegmentWithFallback(segment, fallbackWork, fallbackBreak))
+    .slice(0, MAX_SEGMENTS);
+};
+
 const enforceTrayDefaults = (settings: SettingsType): SettingsType => {
+  const baseWork = clampNumber(
+    toInt(settings.workDuration || DEFAULT_SETTINGS.workDuration),
+    1,
+    MAX_DURATION_MINUTES
+  );
+  const baseBreak = clampNumber(
+    toInt(settings.breakDuration || DEFAULT_SETTINGS.breakDuration),
+    1,
+    MAX_DURATION_MINUTES
+  );
+  const normalizedSegments = normalizeSegments(settings.workSegments, baseWork, baseBreak);
   const normalized: SettingsType = {
     ...settings,
+    workDuration: baseWork,
+    breakDuration: baseBreak,
     minimizeToTray: true,
     closeToTray: true,
     silentAutostart: settings.silentAutostart ?? false,
+    segmentedWorkEnabled:
+      (settings.segmentedWorkEnabled ?? false) && normalizedSegments.length > 0,
+    workSegments: normalizedSegments,
   };
   if (!normalized.autostart) {
     normalized.silentAutostart = false;
+  }
+  if (!normalized.segmentedWorkEnabled && normalized.workSegments.length === 0) {
+    normalized.workSegments = normalizeSegments(
+      DEFAULT_SETTINGS.workSegments,
+      baseWork,
+      baseBreak
+    );
   }
   return normalized;
 };
@@ -135,6 +209,150 @@ export function Settings() {
     [setSettings, t]
   );
 
+  const updateSegments = useCallback(
+    (updater: (segments: WorkSegment[]) => WorkSegment[], persist: boolean) => {
+      setLocalSettings((previous) => {
+        const working = previous.workSegments.map((segment) => ({ ...segment }));
+        const updated = updater(working);
+        const fallbackWork = clampNumber(
+          toInt(previous.workDuration || DEFAULT_SETTINGS.workDuration),
+          1,
+          MAX_DURATION_MINUTES
+        );
+        const fallbackBreak = clampNumber(
+          toInt(previous.breakDuration || DEFAULT_SETTINGS.breakDuration),
+          1,
+          MAX_DURATION_MINUTES
+        );
+        const sanitized = persist
+          ? normalizeSegments(updated, fallbackWork, fallbackBreak)
+          : updated;
+        const ensured =
+          persist && sanitized.length === 0
+            ? normalizeSegments(
+                DEFAULT_SETTINGS.workSegments,
+                fallbackWork,
+                fallbackBreak
+              )
+            : sanitized;
+        const nextState: SettingsType = {
+          ...previous,
+          workSegments: ensured,
+        };
+        if (persist) {
+          const persisted = {
+            ...nextState,
+            segmentedWorkEnabled:
+              nextState.segmentedWorkEnabled && nextState.workSegments.length > 0,
+          };
+          void saveSettingsAuto(persisted);
+          return persisted;
+        }
+        return nextState;
+      });
+    },
+    [saveSettingsAuto]
+  );
+
+  const handleSegmentChange = useCallback(
+    (index: number, key: keyof WorkSegment, value: number) => {
+      updateSegments((segments) => {
+        if (!segments[index]) return segments;
+        const next = [...segments];
+        next[index] = { ...next[index], [key]: value };
+        return next;
+      }, false);
+    },
+    [updateSegments]
+  );
+
+  const handleSegmentBlur = useCallback(() => {
+    updateSegments((segments) => [...segments], true);
+  }, [updateSegments]);
+
+  const handleAddSegment = useCallback(() => {
+    setLocalSettings((prev) => {
+      if (prev.workSegments.length >= MAX_SEGMENTS) {
+        return prev;
+      }
+      const template = prev.workSegments[prev.workSegments.length - 1] ?? DEFAULT_SETTINGS.workSegments[0];
+      const nextSegments = [...prev.workSegments.map((segment) => ({ ...segment })), { ...template }];
+      const fallbackWork = clampNumber(
+        toInt(prev.workDuration || DEFAULT_SETTINGS.workDuration),
+        1,
+        MAX_DURATION_MINUTES
+      );
+      const fallbackBreak = clampNumber(
+        toInt(prev.breakDuration || DEFAULT_SETTINGS.breakDuration),
+        1,
+        MAX_DURATION_MINUTES
+      );
+      const normalized = normalizeSegments(
+        nextSegments,
+        fallbackWork,
+        fallbackBreak
+      );
+      const nextState = {
+        ...prev,
+        workSegments: normalized,
+        segmentedWorkEnabled: prev.segmentedWorkEnabled || normalized.length > 0,
+      };
+      void saveSettingsAuto(nextState);
+      return nextState;
+    });
+  }, [saveSettingsAuto]);
+
+  const handleRemoveSegment = useCallback(
+    (index: number) => {
+      updateSegments(
+        (segments) => {
+          if (segments.length <= 1) {
+            return segments;
+          }
+          return segments.filter((_, idx) => idx !== index);
+        },
+        true
+      );
+    },
+    [updateSegments]
+  );
+
+  const handleToggleSegmented = useCallback(
+    (enabled: boolean) => {
+      setLocalSettings((previous) => {
+        const fallbackWork = clampNumber(
+          toInt(previous.workDuration || DEFAULT_SETTINGS.workDuration),
+          1,
+          MAX_DURATION_MINUTES
+        );
+        const fallbackBreak = clampNumber(
+          toInt(previous.breakDuration || DEFAULT_SETTINGS.breakDuration),
+          1,
+          MAX_DURATION_MINUTES
+        );
+        const ensuredSegments = normalizeSegments(
+          previous.workSegments,
+          fallbackWork,
+          fallbackBreak
+        );
+        const nextState: SettingsType = {
+          ...previous,
+          segmentedWorkEnabled: enabled && ensuredSegments.length > 0,
+          workSegments: ensuredSegments.length
+            ? ensuredSegments
+            : normalizeSegments(
+                DEFAULT_SETTINGS.workSegments,
+                fallbackWork,
+                fallbackBreak
+              ),
+        };
+        void saveSettingsAuto(nextState);
+        return nextState;
+      });
+    },
+    [saveSettingsAuto]
+  );
+
   /** 恢复为上次保存的设置。 */
   const handleReset = useCallback(() => {
     if (confirm(t('settings.actions.reset'))) {
@@ -221,6 +439,7 @@ export function Settings() {
                   type="number"
                   className="input"
                   value={localSettings.workDuration}
+                  disabled={localSettings.segmentedWorkEnabled}
                   onChange={(e) => {
                     const value = parseInt(e.target.value);
                     setLocalSettings({ ...localSettings, workDuration: value });
@@ -245,6 +464,7 @@ export function Settings() {
                   type="number"
                   className="input"
                   value={localSettings.breakDuration}
+                  disabled={localSettings.segmentedWorkEnabled}
                   onChange={(e) => {
                     const value = parseInt(e.target.value);
                     setLocalSettings({ ...localSettings, breakDuration: value });
@@ -299,6 +519,102 @@ export function Settings() {
                 </label>
                 <p className="helper-text">{t('settings.timer.flowModeDescription')}</p>
               </div>
+
+              <div className="form-group toggle-group">
+                <label className="toggle-row">
+                  <span className="toggle-text">{t('settings.timer.segmented.enable')}</span>
+                  <span className="switch">
+                    <input
+                      type="checkbox"
+                      checked={localSettings.segmentedWorkEnabled}
+                      onChange={(e) => handleToggleSegmented(e.target.checked)}
+                    />
+                    <span className="slider" />
+                  </span>
+                </label>
+                <p className="helper-text">{t('settings.timer.segmented.description')}</p>
+              </div>
+
+              {localSettings.segmentedWorkEnabled && (
+                <div className="segment-editor" role="group" aria-label={t('settings.timer.segmented.enable')}>
+                  <p className="helper-text">{t('settings.timer.segmented.helper')}</p>
+                  <div className="segment-list">
+                    {localSettings.workSegments.map((segment, index) => (
+                      <div key={`segment-${index}`} className="segment-row">
+                        <div className="segment-label">{t('settings.timer.segmented.segmentLabel', { index: index + 1 })}</div>
+                        <div className="segment-field">
+                          <label htmlFor={`segment-work-${index}`}>{t('settings.timer.segmented.work')}</label>
+                          <input
+                            id={`segment-work-${index}`}
+                            type="number"
+                            className="input"
+                            value={segment.workMinutes}
+                            min={1}
+                            max={MAX_DURATION_MINUTES}
+                            onChange={(e) =>
+                              handleSegmentChange(index, 'workMinutes', toInt(e.target.value))
+                            }
+                            onBlur={handleSegmentBlur}
+                          />
+                        </div>
+                        <div className="segment-field">
+                          <label htmlFor={`segment-break-${index}`}>{t('settings.timer.segmented.break')}</label>
+                          <input
+                            id={`segment-break-${index}`}
+                            type="number"
+                            className="input"
+                            value={segment.breakMinutes}
+                            min={1}
+                            max={MAX_DURATION_MINUTES}
+                            onChange={(e) =>
+                              handleSegmentChange(index, 'breakMinutes', toInt(e.target.value))
+                            }
+                            onBlur={handleSegmentBlur}
+                          />
+                        </div>
+                        <div className="segment-field">
+                          <label htmlFor={`segment-repeat-${index}`}>{t('settings.timer.segmented.repeat')}</label>
+                          <div className="segment-repeat-input">
+                            <input
+                              id={`segment-repeat-${index}`}
+                              type="number"
+                              className="input"
+                              value={segment.repeat}
+                              min={1}
+                              max={MAX_REPEAT}
+                              onChange={(e) =>
+                                handleSegmentChange(index, 'repeat', toInt(e.target.value))
+                              }
+                              onBlur={handleSegmentBlur}
+                            />
+                            <span className="segment-repeat-suffix">
+                              {t('settings.timer.segmented.repeatSuffix')}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="segment-remove-button"
+                          onClick={() => handleRemoveSegment(index)}
+                          disabled={localSettings.workSegments.length <= 1}
+                        >
+                          {t('settings.timer.segmented.remove')}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="segment-actions">
+                    <button
+                      type="button"
+                      className="segment-add-button"
+                      onClick={handleAddSegment}
+                      disabled={localSettings.workSegments.length >= MAX_SEGMENTS}
+                    >
+                      {t('settings.timer.segmented.add')}
+                    </button>
+                  </div>
+                </div>
+              )}
             </section>
 
             {/* Reminder Settings */}

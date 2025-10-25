@@ -18,7 +18,19 @@
       "enableForceBreak": "強制休息模式",
       "forceBreakDescription": "休息期間禁止跳過",
       "flowMode": "心流模式",
-      "flowModeDescription": "開啟後持續工作，不再提醒休息，需手動結束"
+      "flowModeDescription": "開啟後持續工作，不再提醒休息，需手動結束",
+      "segmented": {
+        "enable": "啟用分段工作節奏",
+        "description": "自訂多段工作與休息時間，依序循環執行。",
+        "helper": "分段會依順序執行，最後一段結束後重新回到第一段。",
+        "work": "工作（分鐘）",
+        "break": "休息（分鐘）",
+        "repeat": "重複次數",
+        "repeatSuffix": "次",
+        "add": "新增分段",
+        "remove": "刪除",
+        "segmentLabel": "分段 {{index}}"
+      }
     },
     "reminder": {
       "title": "提醒設定",
@@ -156,7 +168,8 @@
     "exportFailed": "匯出設定失敗",
     "saveFailed": "儲存設定失敗",
     "loadFailed": "載入設定失敗",
-    "unknown": "發生未知錯誤"
+    "unknown": "發生未知錯誤",
+    "invalidSegments": "分段工作節奏設定無效"
   },
   "common": {
     "confirm": "確認",

@@ -1,4 +1,4 @@
-use crate::models::{Session, SessionType, TimerInfo, TimerPhase, TimerState};
+use crate::models::{Session, SessionType, TimerInfo, TimerPhase, TimerState, WorkSegment};
 use crate::services::DatabaseService;
 use crate::utils::AppResult;
 use chrono::{Duration as ChronoDuration, Local, TimeZone, Timelike, Utc};
@@ -22,7 +22,13 @@ struct TimerServiceState {
     total_minutes: u32,
     work_duration: u32,
     break_duration: u32,
+    base_work_duration: u32,
+    base_break_duration: u32,
     flow_mode: bool,
+    segmented_enabled: bool,
+    segments: Vec<WorkSegment>,
+    segment_index: usize,
+    segment_iteration: u32,
     phase_end_time: Option<chrono::DateTime<Utc>>,
     current_session_id: Option<String>,
     current_session_start: Option<chrono::DateTime<Utc>>,
@@ -32,7 +38,142 @@ struct TimerServiceState {
     paused_due_to_display_off: bool,
 }
 
+impl TimerServiceState {
+    fn has_segments(&self) -> bool {
+        self.segmented_enabled && !self.segments.is_empty()
+    }
+
+    fn apply_current_segment(&mut self) {
+        if self.has_segments() {
+            let idx = self
+                .segment_index
+                .min(self.segments.len().saturating_sub(1));
+            if let Some(segment) = self.segments.get(idx) {
+                self.work_duration = segment.work_minutes.max(1);
+                self.break_duration = segment.break_minutes.max(1);
+                return;
+            }
+        }
+        self.work_duration = self.base_work_duration.max(1);
+        self.break_duration = self.base_break_duration.max(1);
+    }
+
+    fn reset_segment_progress(&mut self) {
+        self.segment_index = 0;
+        self.segment_iteration = 0;
+        self.apply_current_segment();
+    }
+
+    fn advance_segment_cycle(&mut self) {
+        if !self.has_segments() {
+            self.segment_index = 0;
+            self.segment_iteration = 0;
+            self.apply_current_segment();
+            return;
+        }
+
+        let len = self.segments.len();
+        if len == 0 {
+            self.segment_index = 0;
+            self.segment_iteration = 0;
+            self.apply_current_segment();
+            return;
+        }
+
+        let idx = self.segment_index.min(len - 1);
+        let repeat = self.segments[idx].repeat.max(1);
+
+        if self.segment_iteration + 1 < repeat {
+            self.segment_iteration += 1;
+        } else {
+            self.segment_iteration = 0;
+            self.segment_index = (idx + 1) % len;
+        }
+
+        self.apply_current_segment();
+    }
+
+    fn normalized_segment_index(&self, index: usize) -> usize {
+        if self.segments.is_empty() {
+            0
+        } else {
+            index.min(self.segments.len() - 1)
+        }
+    }
+
+    fn cycle_work_minutes(&self, index: usize) -> u32 {
+        if self.has_segments() && !self.segments.is_empty() {
+            let idx = self.normalized_segment_index(index);
+            self.segments
+                .get(idx)
+                .map(|seg| seg.work_minutes.max(1))
+                .unwrap_or(self.base_work_duration.max(1))
+        } else {
+            self.base_work_duration.max(1)
+        }
+    }
+
+    fn cycle_break_minutes(&self, index: usize) -> u32 {
+        if self.has_segments() && !self.segments.is_empty() {
+            let idx = self.normalized_segment_index(index);
+            self.segments
+                .get(idx)
+                .map(|seg| seg.break_minutes.max(1))
+                .unwrap_or(self.base_break_duration.max(1))
+        } else {
+            self.base_break_duration.max(1)
+        }
+    }
+
+    fn next_cycle_position(&self, index: usize, iteration: u32) -> (usize, u32) {
+        if !self.has_segments() || self.segments.is_empty() {
+            return (0, 0);
+        }
+        let idx = self.normalized_segment_index(index);
+        let repeat = self.segments[idx].repeat.max(1);
+        if iteration + 1 < repeat {
+            (idx, iteration + 1)
+        } else {
+            ((idx + 1) % self.segments.len(), 0)
+        }
+    }
+}
 impl TimerService {
+    fn sanitize_segments(mut segments: Vec<WorkSegment>) -> Vec<WorkSegment> {
+        segments
+            .into_iter()
+            .map(|mut segment| {
+                if segment.work_minutes == 0 {
+                    segment.work_minutes = 1;
+                }
+                if segment.work_minutes > 120 {
+                    segment.work_minutes = 120;
+                }
+                if segment.break_minutes == 0 {
+                    segment.break_minutes = 1;
+                }
+                if segment.break_minutes > 120 {
+                    segment.break_minutes = 120;
+                }
+                if segment.repeat == 0 {
+                    segment.repeat = 1;
+                } else if segment.repeat > 12 {
+                    segment.repeat = 12;
+                }
+                segment
+            })
+            .filter(|seg| seg.work_minutes > 0 && seg.break_minutes > 0)
+            .collect()
+    }
+
+    fn advance_segment_if_needed(&self, segmented_active: bool) {
+        if !segmented_active {
+            return;
+        }
+        let mut state = self.state.lock().unwrap();
+        state.advance_segment_cycle();
+    }
+
     /// Create a new timer service
     /// 初始化服务，记录工作/休息时长并保留 AppHandle。
     pub fn new(
@@ -41,23 +182,35 @@ impl TimerService {
         work_duration: u32,
         break_duration: u32,
         flow_mode: bool,
+        segmented_enabled: bool,
+        segments: Vec<WorkSegment>,
     ) -> Arc<Self> {
+        let sanitized_segments = Self::sanitize_segments(segments);
+        let mut state = TimerServiceState {
+            phase: TimerPhase::Idle,
+            state: TimerState::Stopped,
+            remaining_minutes: 0,
+            total_minutes: 0,
+            work_duration,
+            break_duration,
+            base_work_duration: work_duration,
+            base_break_duration: break_duration,
+            flow_mode,
+            segmented_enabled: segmented_enabled && !sanitized_segments.is_empty(),
+            segments: sanitized_segments,
+            segment_index: 0,
+            segment_iteration: 0,
+            phase_end_time: None,
+            current_session_id: None,
+            current_session_start: None,
+            auto_cycle: true, // Enable auto cycle by default
+            suppress_breaks_until: None,
+            paused_due_to_display_off: false,
+        };
+        state.reset_segment_progress();
+
         Arc::new(Self {
-            state: Arc::new(Mutex::new(TimerServiceState {
-                phase: TimerPhase::Idle,
-                state: TimerState::Stopped,
-                remaining_minutes: 0,
-                total_minutes: 0,
-                work_duration,
-                break_duration,
-                flow_mode,
-                phase_end_time: None,
-                current_session_id: None,
-                current_session_start: None,
-                auto_cycle: true, // Enable auto cycle by default
-                suppress_breaks_until: None,
-                paused_due_to_display_off: false,
-            })),
+            state: Arc::new(Mutex::new(state)),
             app,
             db,
         })
@@ -67,10 +220,12 @@ impl TimerService {
     /// 切换到工作阶段并重置计时。
     pub fn start_work(&self) -> AppResult<()> {
         let mut state = self.state.lock().unwrap();
+        state.apply_current_segment();
         state.phase = TimerPhase::Work;
         state.state = TimerState::Running;
-        state.total_minutes = state.work_duration;
-        state.remaining_minutes = state.work_duration;
+        let work_minutes = state.work_duration;
+        state.total_minutes = work_minutes;
+        state.remaining_minutes = work_minutes;
         let start_time = Self::truncate_to_minute(Utc::now());
         state.phase_end_time =
             Some(start_time + ChronoDuration::minutes(state.work_duration as i64));
@@ -89,6 +244,7 @@ impl TimerService {
     /// 切换到休息阶段并重置计时。
     pub fn start_break(&self) -> AppResult<()> {
         let mut state = self.state.lock().unwrap();
+        state.apply_current_segment();
         state.phase = TimerPhase::Break;
         state.state = TimerState::Running;
         state.total_minutes = state.break_duration;
@@ -144,10 +300,14 @@ impl TimerService {
     /// Skip current phase
     /// 终止当前阶段并生成会话记录，返回给上层持久化。
     pub fn skip(&self) -> AppResult<Session> {
-        let state = self.state.lock().unwrap();
-        let previous_phase = state.phase.clone();
-        let session = self.create_session_record(&state, true);
-        drop(state);
+        let (previous_phase, session, segmented_active) = {
+            let state = self.state.lock().unwrap();
+            (
+                state.phase.clone(),
+                self.create_session_record(&state, true),
+                state.has_segments(),
+            )
+        };
 
         self.stop()?;
 
@@ -159,6 +319,7 @@ impl TimerService {
             }
             TimerPhase::Break => {
                 // Skipping break returns to the next work session
+                self.advance_segment_if_needed(segmented_active);
                 self.start_work()?;
             }
             TimerPhase::Idle => {}
@@ -227,6 +388,7 @@ impl TimerService {
         }
 
         let flow_mode = state.flow_mode;
+        let segmented_active = state.has_segments();
         let should_auto_cycle = timer_finished && state.auto_cycle;
         // Evaluate whether break suppression is active; clear if expired
         let suppress_breaks_active = if let Some(until) = state.suppress_breaks_until {
@@ -255,6 +417,7 @@ impl TimerService {
                     TimerPhase::Work => {
                         // Work finished
                         if suppress_breaks_active || flow_mode {
+                            self.advance_segment_if_needed(segmented_active);
                             // Skip break: immediately start another work session
                             self.start_work()?;
                         } else {
@@ -265,6 +428,7 @@ impl TimerService {
                     }
                     TimerPhase::Break => {
                         // Break finished, start work
+                        self.advance_segment_if_needed(segmented_active);
                         self.start_work()?;
                     }
                     TimerPhase::Idle => {}
@@ -328,11 +492,36 @@ impl TimerService {
         }
     }
 
-    /// Update durations
-    pub fn update_durations(&self, work_duration: u32, break_duration: u32) {
+    /// Update core timer configuration from settings.
+    pub fn update_timer_configuration(
+        &self,
+        work_duration: u32,
+        break_duration: u32,
+        segmented_enabled: bool,
+        segments: Vec<WorkSegment>,
+    ) {
         let mut state = self.state.lock().unwrap();
-        state.work_duration = work_duration;
-        state.break_duration = break_duration;
+        state.base_work_duration = work_duration.max(1);
+        state.base_break_duration = break_duration.max(1);
+        state.segments = Self::sanitize_segments(segments);
+        state.segmented_enabled = segmented_enabled && !state.segments.is_empty();
+
+        if !state.segmented_enabled {
+            state.segment_index = 0;
+            state.segment_iteration = 0;
+        } else {
+            if state.segment_index >= state.segments.len() {
+                state.segment_index = 0;
+                state.segment_iteration = 0;
+            } else {
+                let repeat = state.segments[state.segment_index].repeat.max(1);
+                if state.segment_iteration >= repeat {
+                    state.segment_iteration = 0;
+                }
+            }
+        }
+
+        state.apply_current_segment();
     }
 
     /// Update flow mode toggle based on settings.
@@ -569,39 +758,66 @@ impl TimerService {
             _ => now,
         };
 
-        // 计算第一个候选“开始休息”的时间点：
-        // - 若当前正处于工作阶段，则候选即为这段工作的结束时间（或暂停时的“现在 + 剩余分钟”）。
-        // - 若当前正处于休息阶段，则需要先完成休息，再工作一段工作时长，候选为：休息结束 + 工作时长。
-        let mut candidate = match state.phase {
-            TimerPhase::Work => {
-                if let Some(end) = state.phase_end_time {
-                    end
-                } else {
-                    // 暂停时没有结束时间，根据剩余分钟估算
-                    now + ChronoDuration::minutes(state.remaining_minutes as i64)
+        if !state.has_segments() {
+            let base_work = state.base_work_duration.max(1) as i64;
+            let mut candidate = match state.phase {
+                TimerPhase::Work => state.phase_end_time.unwrap_or_else(|| {
+                    now + ChronoDuration::minutes(state.remaining_minutes.max(1) as i64)
+                }),
+                TimerPhase::Break => {
+                    let break_end = state.phase_end_time.unwrap_or_else(|| {
+                        now + ChronoDuration::minutes(state.remaining_minutes.max(1) as i64)
+                    });
+                    break_end + ChronoDuration::minutes(base_work)
                 }
+                TimerPhase::Idle => unreachable!(),
+            };
+
+            if candidate < allow_break_from {
+                let diff_minutes = (allow_break_from - candidate).num_minutes();
+                let mut cycles = diff_minutes / base_work;
+                if diff_minutes % base_work != 0 {
+                    cycles += 1;
+                }
+                candidate += ChronoDuration::minutes(cycles * base_work);
+            }
+
+            return Some(Self::truncate_to_minute(candidate));
+        }
+
+        let mut candidate;
+        let mut idx;
+        let mut iteration;
+
+        match state.phase {
+            TimerPhase::Work => {
+                candidate = state.phase_end_time.unwrap_or_else(|| {
+                    now + ChronoDuration::minutes(state.remaining_minutes.max(1) as i64)
+                });
+                idx = state.segment_index;
+                iteration = state.segment_iteration;
             }
             TimerPhase::Break => {
-                let break_end = if let Some(end) = state.phase_end_time {
-                    end
-                } else {
-                    now + ChronoDuration::minutes(state.remaining_minutes as i64)
-                };
-                break_end + ChronoDuration::minutes(state.work_duration as i64)
+                let break_end = state.phase_end_time.unwrap_or_else(|| {
+                    now + ChronoDuration::minutes(state.remaining_minutes.max(1) as i64)
+                });
+                let next_position =
+                    state.next_cycle_position(state.segment_index, state.segment_iteration);
+                let work_minutes = state.cycle_work_minutes(next_position.0) as i64;
+                candidate = break_end + ChronoDuration::minutes(work_minutes);
+                idx = next_position.0;
+                iteration = next_position.1;
             }
             TimerPhase::Idle => unreachable!(),
-        };
+        }
 
-        // 如果候选时间早于“允许休息”的时间点，则需要按工作时长向后推若干个周期
-        if candidate < allow_break_from {
-            let diff_minutes = (allow_break_from - candidate).num_minutes();
-            let w = state.work_duration.max(1) as i64;
-            // 向上取整 diff_minutes / w
-            let mut cycles = diff_minutes / w;
-            if diff_minutes % w != 0 {
-                cycles += 1;
-            }
-            candidate += ChronoDuration::minutes(cycles * w);
+        while candidate < allow_break_from {
+            let break_len = state.cycle_break_minutes(idx) as i64;
+            let next_position = state.next_cycle_position(idx, iteration);
+            let work_len = state.cycle_work_minutes(next_position.0) as i64;
+            candidate += ChronoDuration::minutes(break_len + work_len);
+            idx = next_position.0;
+            iteration = next_position.1;
         }
 
         Some(Self::truncate_to_minute(candidate))

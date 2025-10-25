@@ -1,5 +1,6 @@
 use crate::models::{
-    rest_music_directory_default, AnalyticsData, AnalyticsQuery, Session, Settings,
+    default_work_segments, rest_music_directory_default, AnalyticsData, AnalyticsQuery, Session,
+    Settings,
 };
 use crate::utils::{AppError, AppResult};
 use std::path::PathBuf;
@@ -125,9 +126,8 @@ impl DatabaseService {
         drop(stored_settings);
 
         // Persist to file
-        let json = serde_json::to_string_pretty(&normalized).map_err(|e| {
-            AppError::DatabaseError(format!("Failed to serialize settings: {}", e))
-        })?;
+        let json = serde_json::to_string_pretty(&normalized)
+            .map_err(|e| AppError::DatabaseError(format!("Failed to serialize settings: {}", e)))?;
 
         std::fs::write(self.settings_file(), json).map_err(|e| {
             AppError::DatabaseError(format!("Failed to write settings file: {}", e))
@@ -171,6 +171,11 @@ impl DatabaseService {
             }
             if settings.silent_autostart && !settings.autostart {
                 settings.silent_autostart = false;
+                persist_flag = true;
+            }
+            if settings.work_segments.is_empty() {
+                settings.work_segments = default_work_segments();
+                settings.segmented_work_enabled = false;
                 persist_flag = true;
             }
 

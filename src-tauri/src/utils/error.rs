@@ -9,6 +9,9 @@ pub enum AppError {
     #[error("Invalid opacity: must be between 0 and 100")]
     InvalidOpacity,
 
+    #[error("Invalid segmented schedule configuration")]
+    InvalidWorkSegments,
+
     #[error("Database error: {0}")]
     DatabaseError(String),
 

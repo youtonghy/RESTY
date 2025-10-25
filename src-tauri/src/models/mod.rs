@@ -23,6 +23,22 @@ fn default_flow_mode() -> bool {
     false
 }
 
+fn default_segmented_work_enabled() -> bool {
+    false
+}
+
+fn default_segment_repeat() -> u32 {
+    1
+}
+
+pub fn default_work_segments() -> Vec<WorkSegment> {
+    vec![WorkSegment {
+        work_minutes: 25,
+        break_minutes: 5,
+        repeat: default_segment_repeat(),
+    }]
+}
+
 /// Theme preference
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -81,6 +97,15 @@ pub enum TimerState {
     Stopped,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkSegment {
+    pub work_minutes: u32,
+    pub break_minutes: u32,
+    #[serde(default = "default_segment_repeat")]
+    pub repeat: u32,
+}
+
 /// Application settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -91,6 +116,10 @@ pub struct Settings {
     pub enable_force_break: bool,
     #[serde(default = "default_flow_mode")]
     pub flow_mode_enabled: bool,
+    #[serde(default = "default_segmented_work_enabled")]
+    pub segmented_work_enabled: bool,
+    #[serde(default = "default_work_segments")]
+    pub work_segments: Vec<WorkSegment>,
 
     // Reminder settings
     pub reminder_mode: ReminderMode,
@@ -127,6 +156,8 @@ impl Default for Settings {
             break_duration: 5,
             enable_force_break: false,
             flow_mode_enabled: default_flow_mode(),
+            segmented_work_enabled: default_segmented_work_enabled(),
+            work_segments: default_work_segments(),
             reminder_mode: ReminderMode::Fullscreen,
             floating_position: FloatingPosition::TopRight,
             opacity: 95,

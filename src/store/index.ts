@@ -8,6 +8,9 @@ import {
   UpdateManifest,
 } from '../types';
 
+const cloneSegments = (segments: Settings['workSegments']) =>
+  segments.map((segment) => ({ ...segment }));
+
 /**
  * 全局应用状态定义：封装设置与计时器信息，供各 React 组件共享。
  */
@@ -38,6 +41,10 @@ export const useAppStore = create<AppStore>((set) => ({
       if (!merged.autostart) {
         merged.silentAutostart = false;
       }
+      merged.segmentedWorkEnabled = merged.segmentedWorkEnabled ?? false;
+      merged.workSegments = cloneSegments(
+        merged.workSegments?.length ? merged.workSegments : DEFAULT_SETTINGS.workSegments
+      );
       return { settings: merged };
     }),
 
