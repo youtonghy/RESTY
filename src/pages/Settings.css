@@ -160,11 +160,11 @@
 }
 
 .schedule-mode-option {
-  flex: 1 1 320px;
+  flex: 1 1 260px;
   display: flex;
-  flex-direction: column;
   gap: var(--spacing-md);
-  padding: var(--spacing-lg);
+  align-items: center;
+  padding: var(--spacing-md);
   border-radius: var(--radius-lg, 18px);
   border: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -172,10 +172,9 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
-.schedule-mode-header {
-  display: flex;
-  gap: var(--spacing-md);
-  align-items: flex-start;
+.schedule-mode-option input {
+  flex-shrink: 0;
+  margin: 0;
 }
 
 .schedule-mode-option.is-active {
@@ -206,6 +205,7 @@
   flex-direction: column;
   gap: var(--spacing-md);
   padding: var(--spacing-md);
+  margin-top: var(--spacing-md);
   border-radius: var(--radius-lg, 18px);
   background: rgba(59, 130, 246, 0.08);
   border: 1px solid rgba(59, 130, 246, 0.18);

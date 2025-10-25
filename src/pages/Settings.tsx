@@ -441,212 +441,192 @@ export function Settings() {
                   role="radiogroup"
                   aria-label={t('settings.timer.scheduleMode.label')}
                 >
-                  <div
-                    className={`schedule-mode-option${
-                      isSegmented ? '' : ' is-active'
-                    }`}
+                  <label
+                    className={`schedule-mode-option${isSegmented ? '' : ' is-active'}`}
+                    htmlFor="schedule-mode-fixed"
                   >
-                    <div className="schedule-mode-header">
-                      <input
-                        id="schedule-mode-fixed"
-                        type="radio"
-                        name="scheduleMode"
-                        value="fixed"
-                        checked={!isSegmented}
-                        onChange={() => {
-                          if (isSegmented) {
-                            handleToggleSegmented(false);
-                          }
-                        }}
-                      />
-                      <label className="schedule-mode-copy" htmlFor="schedule-mode-fixed">
-                        <span className="schedule-mode-title">
-                          {t('settings.timer.scheduleMode.fixed')}
-                        </span>
-                        <span className="schedule-mode-hint">
-                          {t('settings.timer.scheduleMode.fixedHint')}
-                        </span>
-                      </label>
+                    <input
+                      id="schedule-mode-fixed"
+                      type="radio"
+                      name="scheduleMode"
+                      value="fixed"
+                      checked={!isSegmented}
+                      onChange={() => handleToggleSegmented(false)}
+                    />
+                    <div className="schedule-mode-copy">
+                      <span className="schedule-mode-title">
+                        {t('settings.timer.scheduleMode.fixed')}
+                      </span>
+                      <span className="schedule-mode-hint">
+                        {t('settings.timer.scheduleMode.fixedHint')}
+                      </span>
                     </div>
-                    {!isSegmented && (
-                      <div className="schedule-mode-panel">
-                        <div className="form-group">
-                          <label htmlFor="workDuration">{t('settings.timer.workDuration')}</label>
-                          <input
-                            id="workDuration"
-                            type="number"
-                            className="input"
-                            value={localSettings.workDuration}
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value);
-                              setLocalSettings({ ...localSettings, workDuration: value });
-                            }}
-                            onBlur={(e) => {
-                              let value = parseInt(e.target.value);
-                              if (Number.isNaN(value)) value = localSettings.workDuration;
-                              value = Math.max(1, Math.min(120, value));
-                              const next = { ...localSettings, workDuration: value };
-                              setLocalSettings(next);
-                              saveSettingsAuto(next);
-                            }}
-                            min={1}
-                            max={120}
-                          />
-                        </div>
+                  </label>
 
-                        <div className="form-group">
-                          <label htmlFor="breakDuration">{t('settings.timer.breakDuration')}</label>
-                          <input
-                            id="breakDuration"
-                            type="number"
-                            className="input"
-                            value={localSettings.breakDuration}
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value);
-                              setLocalSettings({ ...localSettings, breakDuration: value });
-                            }}
-                            onBlur={(e) => {
-                              let value = parseInt(e.target.value);
-                              if (Number.isNaN(value)) value = localSettings.breakDuration;
-                              value = Math.max(1, Math.min(120, value));
-                              const next = { ...localSettings, breakDuration: value };
-                              setLocalSettings(next);
-                              saveSettingsAuto(next);
-                            }}
-                            min={1}
-                            max={120}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div
-                    className={`schedule-mode-option${
-                      isSegmented ? ' is-active' : ''
-                    }`}
+                  <label
+                    className={`schedule-mode-option${isSegmented ? ' is-active' : ''}`}
+                    htmlFor="schedule-mode-segmented"
                   >
-                    <div className="schedule-mode-header">
-                      <input
-                        id="schedule-mode-segmented"
-                        type="radio"
-                        name="scheduleMode"
-                        value="segmented"
-                        checked={isSegmented}
-                        onChange={() => {
-                          if (!isSegmented) {
-                            handleToggleSegmented(true);
-                          }
-                        }}
-                      />
-                      <label className="schedule-mode-copy" htmlFor="schedule-mode-segmented">
-                        <span className="schedule-mode-title">
-                          {t('settings.timer.scheduleMode.segmented')}
-                        </span>
-                        <span className="schedule-mode-hint">
-                          {t('settings.timer.segmented.description')}
-                        </span>
-                      </label>
+                    <input
+                      id="schedule-mode-segmented"
+                      type="radio"
+                      name="scheduleMode"
+                      value="segmented"
+                      checked={isSegmented}
+                      onChange={() => handleToggleSegmented(true)}
+                    />
+                    <div className="schedule-mode-copy">
+                      <span className="schedule-mode-title">
+                        {t('settings.timer.scheduleMode.segmented')}
+                      </span>
+                      <span className="schedule-mode-hint">
+                        {t('settings.timer.segmented.description')}
+                      </span>
                     </div>
-                    {isSegmented && (
-                      <div
-                        className="schedule-mode-panel segment-editor"
-                        role="group"
-                        aria-label={t('settings.timer.segmented.enable')}
-                      >
-                        <p className="helper-text">{t('settings.timer.segmented.helper')}</p>
-                        <div className="segment-list">
-                          {localSettings.workSegments.map((segment, index) => (
-                            <div key={`segment-${index}`} className="segment-row">
-                              <div className="segment-label">
-                                {t('settings.timer.segmented.segmentLabel', { index: index + 1 })}
-                              </div>
-                              <div className="segment-field">
-                                <label htmlFor={`segment-work-${index}`}>
-                                  {t('settings.timer.segmented.work')}
-                                </label>
-                                <input
-                                  id={`segment-work-${index}`}
-                                  type="number"
-                                  className="input"
-                                  value={segment.workMinutes}
-                                  min={1}
-                                  max={MAX_DURATION_MINUTES}
-                                  onChange={(e) =>
-                                    handleSegmentChange(index, 'workMinutes', toInt(e.target.value))
-                                  }
-                                  onBlur={handleSegmentBlur}
-                                />
-                              </div>
-                              <div className="segment-field">
-                                <label htmlFor={`segment-break-${index}`}>
-                                  {t('settings.timer.segmented.break')}
-                                </label>
-                                <input
-                                  id={`segment-break-${index}`}
-                                  type="number"
-                                  className="input"
-                                  value={segment.breakMinutes}
-                                  min={1}
-                                  max={MAX_DURATION_MINUTES}
-                                  onChange={(e) =>
-                                    handleSegmentChange(
-                                      index,
-                                      'breakMinutes',
-                                      toInt(e.target.value)
-                                    )
-                                  }
-                                  onBlur={handleSegmentBlur}
-                                />
-                              </div>
-                              <div className="segment-field">
-                                <label htmlFor={`segment-repeat-${index}`}>
-                                  {t('settings.timer.segmented.repeat')}
-                                </label>
-                                <div className="segment-repeat-input">
-                                  <input
-                                    id={`segment-repeat-${index}`}
-                                    type="number"
-                                    className="input"
-                                    value={segment.repeat}
-                                    min={1}
-                                    max={MAX_REPEAT}
-                                    onChange={(e) =>
-                                      handleSegmentChange(index, 'repeat', toInt(e.target.value))
-                                    }
-                                    onBlur={handleSegmentBlur}
-                                  />
-                                  <span className="segment-repeat-suffix">
-                                    {t('settings.timer.segmented.repeatSuffix')}
-                                  </span>
-                                </div>
-                              </div>
-                              <button
-                                type="button"
-                                className="segment-remove-button"
-                                onClick={() => handleRemoveSegment(index)}
-                                disabled={localSettings.workSegments.length <= 1}
-                              >
-                                {t('settings.timer.segmented.remove')}
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="segment-actions">
-                          <button
-                            type="button"
-                            className="segment-add-button"
-                            onClick={handleAddSegment}
-                            disabled={localSettings.workSegments.length >= MAX_SEGMENTS}
-                          >
-                            {t('settings.timer.segmented.add')}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  </label>
                 </div>
               </div>
 
+              {!isSegmented && (
+                <div className="schedule-mode-panel">
+                  <div className="form-group">
+                    <label htmlFor="workDuration">{t('settings.timer.workDuration')}</label>
+                    <input
+                      id="workDuration"
+                      type="number"
+                      className="input"
+                      value={localSettings.workDuration}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value);
+                        setLocalSettings({ ...localSettings, workDuration: value });
+                      }}
+                      onBlur={(e) => {
+                        let value = parseInt(e.target.value);
+                        if (Number.isNaN(value)) value = localSettings.workDuration;
+                        value = Math.max(1, Math.min(120, value));
+                        const next = { ...localSettings, workDuration: value };
+                        setLocalSettings(next);
+                        saveSettingsAuto(next);
+                      }}
+                      min={1}
+                      max={120}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="breakDuration">{t('settings.timer.breakDuration')}</label>
+                    <input
+                      id="breakDuration"
+                      type="number"
+                      className="input"
+                      value={localSettings.breakDuration}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value);
+                        setLocalSettings({ ...localSettings, breakDuration: value });
+                      }}
+                      onBlur={(e) => {
+                        let value = parseInt(e.target.value);
+                        if (Number.isNaN(value)) value = localSettings.breakDuration;
+                        value = Math.max(1, Math.min(120, value));
+                        const next = { ...localSettings, breakDuration: value };
+                        setLocalSettings(next);
+                        saveSettingsAuto(next);
+                      }}
+                      min={1}
+                      max={120}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {isSegmented && (
+                <div className="segment-editor" role="group" aria-label={t('settings.timer.segmented.enable')}>
+                  <p className="helper-text">{t('settings.timer.segmented.helper')}</p>
+                  <div className="segment-list">
+                    {localSettings.workSegments.map((segment, index) => (
+                      <div key={`segment-${index}`} className="segment-row">
+                        <div className="segment-label">
+                          {t('settings.timer.segmented.segmentLabel', { index: index + 1 })}
+                        </div>
+                        <div className="segment-field">
+                          <label htmlFor={`segment-work-${index}`}>
+                            {t('settings.timer.segmented.work')}
+                          </label>
+                          <input
+                            id={`segment-work-${index}`}
+                            type="number"
+                            className="input"
+                            value={segment.workMinutes}
+                            min={1}
+                            max={MAX_DURATION_MINUTES}
+                            onChange={(e) =>
+                              handleSegmentChange(index, 'workMinutes', toInt(e.target.value))
+                            }
+                            onBlur={handleSegmentBlur}
+                          />
+                        </div>
+                        <div className="segment-field">
+                          <label htmlFor={`segment-break-${index}`}>
+                            {t('settings.timer.segmented.break')}
+                          </label>
+                          <input
+                            id={`segment-break-${index}`}
+                            type="number"
+                            className="input"
+                            value={segment.breakMinutes}
+                            min={1}
+                            max={MAX_DURATION_MINUTES}
+                            onChange={(e) =>
+                              handleSegmentChange(index, 'breakMinutes', toInt(e.target.value))
+                            }
+                            onBlur={handleSegmentBlur}
+                          />
+                        </div>
+                        <div className="segment-field">
+                          <label htmlFor={`segment-repeat-${index}`}>
+                            {t('settings.timer.segmented.repeat')}
+                          </label>
+                          <div className="segment-repeat-input">
+                            <input
+                              id={`segment-repeat-${index}`}
+                              type="number"
+                              className="input"
+                              value={segment.repeat}
+                              min={1}
+                              max={MAX_REPEAT}
+                              onChange={(e) =>
+                                handleSegmentChange(index, 'repeat', toInt(e.target.value))
+                              }
+                              onBlur={handleSegmentBlur}
+                            />
+                            <span className="segment-repeat-suffix">
+                              {t('settings.timer.segmented.repeatSuffix')}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="segment-remove-button"
+                          onClick={() => handleRemoveSegment(index)}
+                          disabled={localSettings.workSegments.length <= 1}
+                        >
+                          {t('settings.timer.segmented.remove')}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="segment-actions">
+                    <button
+                      type="button"
+                      className="segment-add-button"
+                      onClick={handleAddSegment}
+                      disabled={localSettings.workSegments.length >= MAX_SEGMENTS}
+                    >
+                      {t('settings.timer.segmented.add')}
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="form-group toggle-group">
                 <label className="toggle-row">
                   <span className="toggle-text">{t('settings.timer.enableForceBreak')}</span>
