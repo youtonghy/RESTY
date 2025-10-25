@@ -160,11 +160,11 @@
 }
 
 .schedule-mode-option {
-  flex: 1 1 260px;
+  flex: 1 1 320px;
   display: flex;
+  flex-direction: column;
   gap: var(--spacing-md);
-  align-items: flex-start;
-  padding: var(--spacing-md);
+  padding: var(--spacing-lg);
   border-radius: var(--radius-lg, 18px);
   border: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -172,8 +172,10 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
-.schedule-mode-option input {
-  margin-top: 4px;
+.schedule-mode-header {
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: flex-start;
 }
 
 .schedule-mode-option.is-active {
@@ -199,6 +201,16 @@
   color: var(--color-text-secondary);
 }
 
+.schedule-mode-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg, 18px);
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.18);
+}
+
 [data-theme='dark'] .schedule-mode-option {
   border: 1px solid rgba(148, 163, 184, 0.4);
   background: #111827;
@@ -207,6 +219,11 @@
 [data-theme='dark'] .schedule-mode-option.is-active {
   border-color: rgba(59, 130, 246, 0.9);
   background: rgba(59, 130, 246, 0.12);
+}
+
+[data-theme='dark'] .schedule-mode-panel {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.26);
 }
 
 .toggle-group {}
