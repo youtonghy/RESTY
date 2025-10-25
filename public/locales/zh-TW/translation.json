@@ -15,6 +15,12 @@
       "title": "計時設定",
       "workDuration": "工作時長（分鐘）",
       "breakDuration": "休息時長（分鐘）",
+      "scheduleMode": {
+        "label": "休息策略",
+        "fixed": "固定時長",
+        "fixedHint": "每輪循環採用相同的工作與休息時長。",
+        "segmented": "分段節奏"
+      },
       "enableForceBreak": "強制休息模式",
       "forceBreakDescription": "休息期間禁止跳過",
       "flowMode": "心流模式",

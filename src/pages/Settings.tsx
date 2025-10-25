@@ -433,54 +433,108 @@ export function Settings() {
               <h2 className="card-header">{t('settings.timer.title')}</h2>
 
               <div className="form-group">
-                <label htmlFor="workDuration">{t('settings.timer.workDuration')}</label>
-                <input
-                  id="workDuration"
-                  type="number"
-                  className="input"
-                  value={localSettings.workDuration}
-                  disabled={localSettings.segmentedWorkEnabled}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value);
-                    setLocalSettings({ ...localSettings, workDuration: value });
-                  }}
-                  onBlur={(e) => {
-                    let value = parseInt(e.target.value);
-                    if (Number.isNaN(value)) value = localSettings.workDuration;
-                    value = Math.max(1, Math.min(120, value));
-                    const next = { ...localSettings, workDuration: value };
-                    setLocalSettings(next);
-                    saveSettingsAuto(next);
-                  }}
-                  min={1}
-                  max={120}
-                />
+                <span className="form-label">{t('settings.timer.scheduleMode.label')}</span>
+                <div
+                  className="schedule-mode-options"
+                  role="radiogroup"
+                  aria-label={t('settings.timer.scheduleMode.label')}
+                >
+                  <label
+                    className={`schedule-mode-option${
+                      localSettings.segmentedWorkEnabled ? '' : ' is-active'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="scheduleMode"
+                      value="fixed"
+                      checked={!localSettings.segmentedWorkEnabled}
+                      onChange={() => handleToggleSegmented(false)}
+                    />
+                    <div className="schedule-mode-copy">
+                      <span className="schedule-mode-title">
+                        {t('settings.timer.scheduleMode.fixed')}
+                      </span>
+                      <span className="schedule-mode-hint">
+                        {t('settings.timer.scheduleMode.fixedHint')}
+                      </span>
+                    </div>
+                  </label>
+                  <label
+                    className={`schedule-mode-option${
+                      localSettings.segmentedWorkEnabled ? ' is-active' : ''
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="scheduleMode"
+                      value="segmented"
+                      checked={localSettings.segmentedWorkEnabled}
+                      onChange={() => handleToggleSegmented(true)}
+                    />
+                    <div className="schedule-mode-copy">
+                      <span className="schedule-mode-title">
+                        {t('settings.timer.scheduleMode.segmented')}
+                      </span>
+                      <span className="schedule-mode-hint">
+                        {t('settings.timer.segmented.description')}
+                      </span>
+                    </div>
+                  </label>
+                </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="breakDuration">{t('settings.timer.breakDuration')}</label>
-                <input
-                  id="breakDuration"
-                  type="number"
-                  className="input"
-                  value={localSettings.breakDuration}
-                  disabled={localSettings.segmentedWorkEnabled}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value);
-                    setLocalSettings({ ...localSettings, breakDuration: value });
-                  }}
-                  onBlur={(e) => {
-                    let value = parseInt(e.target.value);
-                    if (Number.isNaN(value)) value = localSettings.breakDuration;
-                    value = Math.max(1, Math.min(120, value));
-                    const next = { ...localSettings, breakDuration: value };
-                    setLocalSettings(next);
-                    saveSettingsAuto(next);
-                  }}
-                  min={1}
-                  max={120}
-                />
-              </div>
+              {!localSettings.segmentedWorkEnabled && (
+                <>
+                  <div className="form-group">
+                    <label htmlFor="workDuration">{t('settings.timer.workDuration')}</label>
+                    <input
+                      id="workDuration"
+                      type="number"
+                      className="input"
+                      value={localSettings.workDuration}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value);
+                        setLocalSettings({ ...localSettings, workDuration: value });
+                      }}
+                      onBlur={(e) => {
+                        let value = parseInt(e.target.value);
+                        if (Number.isNaN(value)) value = localSettings.workDuration;
+                        value = Math.max(1, Math.min(120, value));
+                        const next = { ...localSettings, workDuration: value };
+                        setLocalSettings(next);
+                        saveSettingsAuto(next);
+                      }}
+                      min={1}
+                      max={120}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="breakDuration">{t('settings.timer.breakDuration')}</label>
+                    <input
+                      id="breakDuration"
+                      type="number"
+                      className="input"
+                      value={localSettings.breakDuration}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value);
+                        setLocalSettings({ ...localSettings, breakDuration: value });
+                      }}
+                      onBlur={(e) => {
+                        let value = parseInt(e.target.value);
+                        if (Number.isNaN(value)) value = localSettings.breakDuration;
+                        value = Math.max(1, Math.min(120, value));
+                        const next = { ...localSettings, breakDuration: value };
+                        setLocalSettings(next);
+                        saveSettingsAuto(next);
+                      }}
+                      min={1}
+                      max={120}
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="form-group toggle-group">
                 <label className="toggle-row">
@@ -518,21 +572,6 @@ export function Settings() {
                   </span>
                 </label>
                 <p className="helper-text">{t('settings.timer.flowModeDescription')}</p>
-              </div>
-
-              <div className="form-group toggle-group">
-                <label className="toggle-row">
-                  <span className="toggle-text">{t('settings.timer.segmented.enable')}</span>
-                  <span className="switch">
-                    <input
-                      type="checkbox"
-                      checked={localSettings.segmentedWorkEnabled}
-                      onChange={(e) => handleToggleSegmented(e.target.checked)}
-                    />
-                    <span className="slider" />
-                  </span>
-                </label>
-                <p className="helper-text">{t('settings.timer.segmented.description')}</p>
               </div>
 
               {localSettings.segmentedWorkEnabled && (

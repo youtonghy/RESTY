@@ -15,6 +15,12 @@
       "title": "Timer Settings",
       "workDuration": "Work Duration (minutes)",
       "breakDuration": "Break Duration (minutes)",
+      "scheduleMode": {
+        "label": "Rest schedule",
+        "fixed": "Fixed durations",
+        "fixedHint": "Use the same work and break length each cycle.",
+        "segmented": "Segmented rhythm"
+      },
       "enableForceBreak": "Force break mode",
       "forceBreakDescription": "Prevent skipping during break time",
       "flowMode": "Flow mode",
