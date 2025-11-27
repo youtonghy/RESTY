@@ -36,6 +36,7 @@ struct TimerServiceState {
     // When set, automatically skip breaks until this time
     suppress_breaks_until: Option<chrono::DateTime<Utc>>,
     paused_due_to_display_off: bool,
+    paused_due_to_system_suspend: bool,
 }
 
 impl TimerServiceState {
@@ -206,6 +207,7 @@ impl TimerService {
             auto_cycle: true, // Enable auto cycle by default
             suppress_breaks_until: None,
             paused_due_to_display_off: false,
+            paused_due_to_system_suspend: false,
         };
         state.reset_segment_progress();
 
@@ -291,6 +293,7 @@ impl TimerService {
                 state.phase_end_time = Some(start);
             }
             state.paused_due_to_display_off = false;
+            state.paused_due_to_system_suspend = false;
             drop(state);
             self.emit_timer_update()?;
         }
@@ -356,6 +359,7 @@ impl TimerService {
         state.current_session_id = None;
         state.current_session_start = None;
         state.paused_due_to_display_off = false;
+        state.paused_due_to_system_suspend = false;
         drop(state);
         self.emit_timer_update()?;
         Ok(())
@@ -471,6 +475,43 @@ impl TimerService {
             }
         }
 
+        Ok(())
+    }
+
+    /// Handle system suspend event (hibernate/sleep).
+    /// 系统即将进入休眠/睡眠状态时调用，暂停计时器以防止时间漂移。
+    pub fn handle_system_suspend(&self) -> AppResult<()> {
+        let should_pause = {
+            let mut state = self.state.lock().unwrap();
+            if state.state == TimerState::Running {
+                state.paused_due_to_system_suspend = true;
+                true
+            } else {
+                false
+            }
+        };
+        if should_pause {
+            self.pause()?;
+        }
+        Ok(())
+    }
+
+    /// Handle system resume event (wake from hibernate/sleep).
+    /// 系统从休眠/睡眠状态恢复时调用，恢复之前因休眠暂停的计时器。
+    pub fn handle_system_resume(&self) -> AppResult<()> {
+        let should_resume = {
+            let mut state = self.state.lock().unwrap();
+            if state.state == TimerState::Paused && state.paused_due_to_system_suspend {
+                state.paused_due_to_system_suspend = false;
+                true
+            } else {
+                state.paused_due_to_system_suspend = false;
+                false
+            }
+        };
+        if should_resume {
+            self.resume()?;
+        }
         Ok(())
     }
 
