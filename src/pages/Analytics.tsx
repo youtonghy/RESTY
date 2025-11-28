@@ -5,10 +5,13 @@ import type { AnalyticsData, AnalyticsQuery, Session } from '../types';
 import './Analytics.css';
 
 type TimeRange = 'today' | 'week' | 'month' | 'custom';
-type FragmentCell = {
-  type: 'work' | 'break';
-  startTime: string;
-  duration: number;
+
+// Heatmap types
+type HeatmapDay = {
+  date: string; // YYYY-MM-DD
+  count: number; // Total breaks (completed + skipped)
+  completed: number; // Completed breaks
+  level: 0 | 1 | 2 | 3 | 4; // 0: empty, 1-4: intensity based on completion rate
 };
 
 const TotalWorkIcon = (props: SVGProps<SVGSVGElement>) => (
@@ -64,7 +67,7 @@ const BreakCountIcon = (props: SVGProps<SVGSVGElement>) => (
   >
     <path d="M12 11.5V16.5" />
     <path d="M12 7.51L12.01 7.49889" />
-    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" />
+    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 2 12 22Z" />
   </svg>
 );
 
@@ -126,34 +129,6 @@ const createAnalyticsQuery = (bounds: TimelineBounds): AnalyticsQuery => ({
   startDate: new Date(bounds.start).toISOString(),
   endDate: new Date(bounds.end).toISOString(),
 });
-
-const countWorkFragments = (sessions: Session[]): number =>
-  sessions.filter((session) => session.type === 'work').length;
-
-const countRestFragments = (sessions: Session[]): number =>
-  sessions.filter((session) => session.type === 'break' && !session.isSkipped).length;
-
-const buildFragmentCells = (sessions: Session[]): FragmentCell[] =>
-  sessions
-    .filter((session) => {
-      if (session.type === 'work') return true;
-      if (session.type === 'break') return !session.isSkipped;
-      return false;
-    })
-    .map<FragmentCell>((session) => ({
-      type: session.type,
-      startTime: session.startTime,
-      duration:
-        typeof session.duration === 'number'
-          ? Math.max(0, session.duration)
-          : Math.max(
-              0,
-              Math.floor(
-                (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / 1000
-              )
-            ),
-    }))
-    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
 const computeCompletionRate = (data: AnalyticsData | null): number => {
   if (!data || data.breakCount <= 0) return 0;
@@ -254,11 +229,8 @@ export function Analytics() {
   const [range, setRange] = useState<TimeRange>('today');
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [weeklyWorkFragments, setWeeklyWorkFragments] = useState<number>(0);
-  const [weeklyRestFragments, setWeeklyRestFragments] = useState<number>(0);
-  const [weeklyFragmentCells, setWeeklyFragmentCells] = useState<FragmentCell[]>([]);
+  const [heatmapData, setHeatmapData] = useState<HeatmapDay[]>([]);
   const isZh = useMemo(() => i18n.language.startsWith('zh'), [i18n.language]);
-  const fragmentScrollRef = useRef<HTMLDivElement | null>(null);
   const isMountedRef = useRef(true);
 
   useEffect(
@@ -290,38 +262,84 @@ export function Analytics() {
     }
   }, [analyticsQuery]);
 
-  const loadWeeklyFragments = useCallback(async () => {
-    const weekBounds = getDisplayBounds('week');
-    const weekData = await api.getAnalytics(createAnalyticsQuery(weekBounds));
-    if (!isMountedRef.current) return;
-    setWeeklyWorkFragments(countWorkFragments(weekData.sessions));
-    setWeeklyRestFragments(countRestFragments(weekData.sessions));
-    setWeeklyFragmentCells(buildFragmentCells(weekData.sessions));
+  // Generate last 6 months dates
+  const generateHeatmapDates = () => {
+    const dates: string[] = [];
+    const end = new Date();
+    // 6 months ago
+    const start = new Date();
+    start.setMonth(start.getMonth() - 6);
+    start.setHours(0, 0, 0, 0);
+
+    const current = new Date(start);
+    while (current <= end) {
+      dates.push(current.toISOString().split('T')[0]);
+      current.setDate(current.getDate() + 1);
+    }
+    return { start, end, dates };
+  };
+
+  const loadHeatmapData = useCallback(async () => {
+    const { start, end, dates } = generateHeatmapDates();
+    const query: AnalyticsQuery = {
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+    };
+
+    try {
+      const result = await api.getAnalytics(query);
+      if (!isMountedRef.current) return;
+
+      // Process sessions into daily stats
+      const dailyStats = new Map<string, { completed: number; skipped: number }>();
+
+      result.sessions.forEach(session => {
+        if (session.type !== 'break') return;
+        const date = session.startTime.split('T')[0];
+        const stats = dailyStats.get(date) || { completed: 0, skipped: 0 };
+
+        if (session.isSkipped) {
+          stats.skipped++;
+        } else {
+          stats.completed++;
+        }
+        dailyStats.set(date, stats);
+      });
+
+      const heatmap: HeatmapDay[] = dates.map(date => {
+        const stats = dailyStats.get(date) || { completed: 0, skipped: 0 };
+        const total = stats.completed + stats.skipped;
+        let level: 0 | 1 | 2 | 3 | 4 = 0;
+
+        if (total > 0) {
+          const rate = stats.completed / total;
+          if (rate === 0) level = 1; // Has breaks but 0% completion (red)
+          else if (rate < 0.5) level = 2;
+          else if (rate < 0.8) level = 3;
+          else level = 4; // High completion (green)
+        }
+
+        return {
+          date,
+          count: total,
+          completed: stats.completed,
+          level
+        };
+      });
+
+      setHeatmapData(heatmap);
+    } catch (error) {
+      console.error('Failed to load heatmap data:', error);
+    }
   }, []);
 
   useEffect(() => {
     void loadAnalytics();
   }, [loadAnalytics]);
 
-  // Load weekly fragment counts once (or when day changes)
   useEffect(() => {
-    void (async () => {
-      try {
-        await loadWeeklyFragments();
-      } catch (error) {
-        console.error('Failed to load weekly fragments:', error);
-        if (isMountedRef.current) {
-          setWeeklyFragmentCells([]);
-        }
-      }
-    })();
-  }, [loadWeeklyFragments]);
-
-  useEffect(() => {
-    const node = fragmentScrollRef.current;
-    if (!node) return;
-    node.scrollLeft = node.scrollWidth;
-  }, [weeklyFragmentCells.length]);
+    void loadHeatmapData();
+  }, [loadHeatmapData]);
 
   // Real-time: refresh analytics when sessions are upserted (start/finish/skip)
   useEffect(() => {
@@ -333,12 +351,7 @@ export function Analytics() {
         unlisten = await api.onSessionUpserted(() => {
           if (!active) return;
           void loadAnalytics();
-          loadWeeklyFragments().catch((error) => {
-            console.warn('Failed to refresh fragments after session update:', error);
-            if (isMountedRef.current) {
-              setWeeklyFragmentCells([]);
-            }
-          });
+          void loadHeatmapData();
         });
       } catch (error) {
         console.error('Failed to subscribe to session updates:', error);
@@ -351,25 +364,19 @@ export function Analytics() {
       active = false;
       if (unlisten) unlisten();
     };
-  }, [loadAnalytics, loadWeeklyFragments]);
+  }, [loadAnalytics, loadHeatmapData]);
 
-  /** 将秒数格式化为“小时+分钟+秒”文案，根据需要省略单位。 */
+  /** 将秒数格式化为"小时+分钟"文案，不显示秒数。 */
   const formatDuration = (seconds: number): string => {
     const totalSeconds = Math.max(0, Math.round(seconds));
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const secs = totalSeconds % 60;
 
     const parts: string[] = [];
     if (hours > 0) {
       parts.push(`${hours}${t('common.hours')}`);
     }
-    if (minutes > 0 || hours > 0) {
-      parts.push(`${minutes}${t('common.minutes')}`);
-    }
-    if (secs > 0 || parts.length === 0) {
-      parts.push(`${secs}${t('common.seconds')}`);
-    }
+    parts.push(`${minutes}${t('common.minutes')}`);
 
     return parts.join(' ');
   };
@@ -422,17 +429,6 @@ export function Analytics() {
       skippedPercent,
     };
   }, [data]);
-
-  const fragmentTimeFormatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat(i18n.language, {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    [i18n.language]
-  );
 
   /**
    * 构建单条时间轴的线性渐变：
@@ -620,124 +616,74 @@ export function Analytics() {
               </div>
             </section>
 
-            {/* Overview + Fragments side-by-side */}
+            {/* Overview + Heatmap side-by-side */}
             <div className="details-row">
               <section className="analytics-card stats-details">
                 <h2 className="card-header">{t('analytics.overview')}</h2>
                 <div className="stats-grid">
-                    <div className="stat-item stat-item-pie">
-                      <div className="stat-item-pie-header">
-                        <span className="stat-item-label">
-                          {t('analytics.completionRate')}
-                        </span>
-                        <span className="stat-item-total">
-                          {data.completedBreaks} / {data.breakCount}
-                        </span>
-                      </div>
-                      <div className="completion-pie">
-                        <div
-                          className={`completion-pie-chart${restCompletion.total === 0 ? ' is-empty' : ''}`}
-                          style={{ background: restCompletion.gradient }}
-                          role="img"
-                          aria-label={t('analytics.completionRate')}
-                        >
-                          <span className="completion-pie-value">{completionRate}%</span>
-                        </div>
-                        <ul className="completion-pie-legend">
-                          <li className="completion-pie-legend-item">
-                            <span className="completion-pie-dot completed" aria-hidden="true" />
-                            <span>{t('analytics.completionLegend.completed', { defaultValue: isZh ? '已休息' : 'Completed' })}</span>
-                            <span className="completion-pie-count">{data.completedBreaks}</span>
-                          </li>
-                          <li className="completion-pie-legend-item">
-                            <span className="completion-pie-dot skipped" aria-hidden="true" />
-                            <span>{t('analytics.completionLegend.skipped', { defaultValue: isZh ? '跳过' : 'Skipped' })}</span>
-                            <span className="completion-pie-count">{data.skippedBreaks}</span>
-                          </li>
-                        </ul>
-                      </div>
+                  <div className="stat-item stat-item-pie">
+                    <div className="stat-item-pie-header">
+                      <span className="stat-item-label">
+                        {t('analytics.completionRate')}
+                      </span>
+                      <span className="stat-item-total">
+                        {completionRate}%
+                      </span>
                     </div>
+                    <div className="completion-pie">
+                      <div
+                        className={`completion-pie-chart${restCompletion.total === 0 ? ' is-empty' : ''}`}
+                        style={{ background: restCompletion.gradient }}
+                        role="img"
+                        aria-label={t('analytics.completionRate')}
+                      >
+                        <span className="completion-pie-value">{completionRate}%</span>
+                      </div>
+                      <ul className="completion-pie-legend">
+                        <li className="completion-pie-legend-item">
+                          <span className="completion-pie-dot completed" aria-hidden="true" />
+                          <span>{t('analytics.completionLegend.completed', { defaultValue: isZh ? '已休息' : 'Completed' })}</span>
+                          <span className="completion-pie-count">{data.completedBreaks}</span>
+                        </li>
+                        <li className="completion-pie-legend-item">
+                          <span className="completion-pie-dot skipped" aria-hidden="true" />
+                          <span>{t('analytics.completionLegend.skipped', { defaultValue: isZh ? '跳过' : 'Skipped' })}</span>
+                          <span className="completion-pie-count">{data.skippedBreaks}</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
 
-                    <div className="stat-item">
-                      <span className="stat-item-label">{t('analytics.skippedBreaks')}</span>
-                      <div className="stat-item-value text-warning">
-                        {data.skippedBreaks}
-                      </div>
+                  <div className="stat-item">
+                    <span className="stat-item-label">{t('analytics.skippedBreaks')}</span>
+                    <div className="stat-item-value text-warning">
+                      {data.skippedBreaks}
                     </div>
+                  </div>
                 </div>
               </section>
 
-              {/* Weekly fragment totals */}
-              <section className="analytics-card stats-details">
-                <h2 className="card-header">{t('analytics.fragments')}</h2>
-                <div
-                  className="fragment-visual"
-                  role="group"
-                  aria-label={t('analytics.fragments', {
-                    defaultValue: isZh ? '片段统计' : 'Fragment statistics',
-                  })}
-                >
-                  <div className="fragment-heatmap">
-                    {weeklyFragmentCells.length > 0 ? (
-                      <div className="fragment-grid-wrapper" ref={fragmentScrollRef}>
-                        <div
-                          className="fragment-grid"
-                          role="list"
-                          aria-label={t('analytics.fragmentsList', {
-                            defaultValue: isZh ? '片段列表' : 'Fragment list',
-                          })}
-                        >
-                          {weeklyFragmentCells.map((fragment, index) => {
-                            const typeLabel = isZh
-                              ? fragment.type === 'work'
-                                ? '工作片段'
-                                : '休息片段'
-                              : fragment.type === 'work'
-                              ? 'Work fragment'
-                              : 'Break fragment';
-                            const timeLabel = fragmentTimeFormatter.format(new Date(fragment.startTime));
-                            const durationLabel = formatDuration(fragment.duration);
-                            const label = `${typeLabel} · ${timeLabel} · ${durationLabel}`;
-                            return (
-                              <span
-                                key={`${fragment.startTime}-${index}`}
-                                className={`fragment-cell fragment-${fragment.type}`}
-                                title={label}
-                                aria-label={label}
-                                role="listitem"
-                              />
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="fragment-grid fragment-grid-empty">
-                        {t('analytics.fragmentsEmpty', {
-                          defaultValue: isZh ? '本周暂无片段' : 'No fragments this week',
-                        })}
-                      </div>
-                    )}
-
-                    <div className="fragment-legend">
-                      <div className="fragment-legend-item">
-                        <span className="fragment-legend-dot work" aria-hidden="true" />
-                        <span className="fragment-legend-text">
-                          {t('analytics.fragmentsLegend.work', {
-                            defaultValue: isZh ? '工作片段' : 'Work fragment',
-                          })}
-                        </span>
-                        <span className="fragment-legend-count">{weeklyWorkFragments}</span>
-                      </div>
-                      <div className="fragment-legend-item">
-                        <span className="fragment-legend-dot break" aria-hidden="true" />
-                        <span className="fragment-legend-text">
-                          {t('analytics.fragmentsLegend.break', {
-                            defaultValue: isZh ? '休息片段' : 'Break fragment',
-                          })}
-                        </span>
-                        <span className="fragment-legend-count">{weeklyRestFragments}</span>
-                      </div>
-                    </div>
+              {/* Heatmap */}
+              <section className="analytics-card stats-details heatmap-section">
+                <h2 className="card-header">{isZh ? '休息完成度' : 'Rest Completion'}</h2>
+                <div className="heatmap-container">
+                  <div className="heatmap-grid">
+                    {heatmapData.map((day) => (
+                      <div
+                        key={day.date}
+                        className={`heatmap-cell level-${day.level}`}
+                        title={`${day.date}: ${Math.round((day.completed / Math.max(1, day.count)) * 100)}% (${day.completed}/${day.count})`}
+                      />
+                    ))}
+                  </div>
+                  <div className="heatmap-legend">
+                    <span>{isZh ? '低' : 'Less'}</span>
+                    <div className="heatmap-cell level-0" />
+                    <div className="heatmap-cell level-1" />
+                    <div className="heatmap-cell level-2" />
+                    <div className="heatmap-cell level-3" />
+                    <div className="heatmap-cell level-4" />
+                    <span>{isZh ? '高' : 'More'}</span>
                   </div>
                 </div>
               </section>
