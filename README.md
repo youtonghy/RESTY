@@ -43,7 +43,7 @@ RESTY 是一款跨平台的视力保护提醒工具，通过智能计时器帮�
 pnpm install
 pnpm run dev
 ```
-默认开发地址为 `http://127.0.0.1:13000/`。Windows 用户请使用 IPv4 地址以避免 IPv6 权限问题。
+默认开发地址为 `http://127.0.0.1:21421/`。Windows 用户请使用 IPv4 地址以避免 IPv6 权限问题。
 
 #### 桌面应用（需要 Rust 与 Tauri）
 ```bash
@@ -115,7 +115,7 @@ RESTY is a cross-platform eye-care companion that keeps you on a healthy work–
 pnpm install
 pnpm run dev
 ```
-Open the printed `http://127.0.0.1:13000/` URL in your browser. Stick to the IPv4 address on Windows to avoid IPv6 permission issues.
+Open the printed `http://127.0.0.1:21421/` URL in your browser. Stick to the IPv4 address on Windows to avoid IPv6 permission issues.
 
 #### Native desktop workflow (Rust toolchain required)
 ```bash

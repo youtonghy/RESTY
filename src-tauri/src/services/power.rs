@@ -121,7 +121,7 @@ mod windows_impl {
                 if result.0 == 0 {
                     break;
                 }
-                TranslateMessage(&msg);
+                let _ = TranslateMessage(&msg);
                 DispatchMessageW(&msg);
             }
 

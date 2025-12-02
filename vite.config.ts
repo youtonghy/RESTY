@@ -16,16 +16,16 @@ export default defineConfig(async () => ({
   server: {
     // Use different ports to avoid Windows permission issues
     // Tauri mode: 1420, Dev mode: 3000 (higher port, less likely to have permission issues)
-    port: host ? 11420 : 13000,
+    port: host ? 11420 : 21421,
     strictPort: false, // Always find available port if specified port is taken
     // Force IPv4 to avoid Windows IPv6 permission issues
     host: "127.0.0.1",
     hmr: host
       ? {
-          protocol: "ws",
-          host,
-          port: 11421,
-        }
+        protocol: "ws",
+        host,
+        port: 11421,
+      }
       : undefined,
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`

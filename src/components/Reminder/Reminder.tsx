@@ -13,15 +13,15 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
   const { t } = useTranslation();
   const { timerInfo, settings } = useAppStore();
   const { effectiveTheme } = useTheme();
-  const [optimisticMinutes, setOptimisticMinutes] = useState<number | null>(null);
+  const [optimisticSeconds, setOptimisticSeconds] = useState<number | null>(null);
   const [isReady, setIsReady] = useState(false);
-  const safeRemainingMinutes = Math.max(0, timerInfo.remainingMinutes);
+  const safeRemainingSeconds = Math.max(0, timerInfo.remainingSeconds);
   const isBreak = timerInfo.phase === 'break';
   const canSkip = !settings.enableForceBreak || !isBreak;
   // Compute base remaining seconds using nextTransitionTime for higher precision
   const computeBaseSeconds = useMemo(() => {
     return () => {
-      let baseSeconds = safeRemainingMinutes * 60;
+      let baseSeconds = safeRemainingSeconds;
       if (timerInfo.nextTransitionTime) {
         const endTs = Date.parse(timerInfo.nextTransitionTime);
         if (!Number.isNaN(endTs)) {
@@ -30,13 +30,13 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
         }
       }
       // Apply optimistic extension (if any)
-      if (optimisticMinutes != null) {
-        const deltaMin = Math.max(0, optimisticMinutes - safeRemainingMinutes);
-        baseSeconds += deltaMin * 60;
+      if (optimisticSeconds != null) {
+        const deltaSec = Math.max(0, optimisticSeconds - safeRemainingSeconds);
+        baseSeconds += deltaSec;
       }
       return baseSeconds;
     };
-  }, [timerInfo.nextTransitionTime, safeRemainingMinutes, optimisticMinutes]);
+  }, [timerInfo.nextTransitionTime, safeRemainingSeconds, optimisticSeconds]);
 
   const [displaySeconds, setDisplaySeconds] = useState<number>(() => computeBaseSeconds());
 
@@ -55,37 +55,37 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
 
   const handleSkip = async () => {
     if (canSkip) {
-      setOptimisticMinutes(null);
+      setOptimisticSeconds(null);
       await api.skipPhase();
       await api.closeReminderWindow();
     }
   };
 
   const handleExtend = async () => {
-    // Optimistically bump by 5 minutes for immediate UI feedback
-    setOptimisticMinutes((prev) => {
-      const base = prev ?? safeRemainingMinutes;
-      return base + 5;
+    // Optimistically bump by 5 minutes (300 seconds) for immediate UI feedback
+    setOptimisticSeconds((prev) => {
+      const base = prev ?? safeRemainingSeconds;
+      return base + 300;
     });
     try {
       await api.extendPhase();
     } catch (err) {
       // Revert optimistic update on failure
-      setOptimisticMinutes(null);
+      setOptimisticSeconds(null);
       console.error('Failed to extend phase:', err);
     }
   };
 
   // Reconcile optimistic state when real timer info catches up
   useEffect(() => {
-    if (optimisticMinutes != null && safeRemainingMinutes >= optimisticMinutes) {
-      setOptimisticMinutes(null);
+    if (optimisticSeconds != null && safeRemainingSeconds >= optimisticSeconds) {
+      setOptimisticSeconds(null);
     }
     // Also clear if phase changes away from break
-    if (timerInfo.phase !== 'break' && optimisticMinutes != null) {
-      setOptimisticMinutes(null);
+    if (timerInfo.phase !== 'break' && optimisticSeconds != null) {
+      setOptimisticSeconds(null);
     }
-  }, [safeRemainingMinutes, timerInfo.phase, optimisticMinutes]);
+  }, [safeRemainingSeconds, timerInfo.phase, optimisticSeconds]);
 
   const skipLabel = t('reminder.actions.skip');
   const extendLabel = t('reminder.actions.extendShort');

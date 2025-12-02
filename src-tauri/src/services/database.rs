@@ -4,8 +4,8 @@ use crate::models::{
 };
 use crate::utils::{AppError, AppResult};
 use std::path::PathBuf;
-use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
+use tokio::sync::Mutex;
 
 /// Database service for managing persistent data.
 /// 使用本地 JSON 文件持久化设置与会话历史。
@@ -45,10 +45,10 @@ impl DatabaseService {
         }
 
         // Load settings from file
-        self.load_settings_from_file()?;
+        self.load_settings_from_file().await?;
 
         // Load sessions from file
-        self.load_sessions_from_file()?;
+        self.load_sessions_from_file().await?;
 
         Ok(())
     }
@@ -64,7 +64,7 @@ impl DatabaseService {
     }
 
     /// Load settings from file
-    fn load_settings_from_file(&self) -> AppResult<()> {
+    async fn load_settings_from_file(&self) -> AppResult<()> {
         let file_path = self.settings_file();
 
         if file_path.exists() {
@@ -75,10 +75,7 @@ impl DatabaseService {
             let loaded_settings: Settings = serde_json::from_str(&content)
                 .map_err(|e| AppError::DatabaseError(format!("Failed to parse settings: {}", e)))?;
 
-            let mut settings = self
-                .settings
-                .lock()
-                .map_err(|e| AppError::DatabaseError(format!("Failed to lock settings: {}", e)))?;
+            let mut settings = self.settings.lock().await;
             *settings = loaded_settings;
         }
 
@@ -86,7 +83,7 @@ impl DatabaseService {
     }
 
     /// Load sessions from file
-    fn load_sessions_from_file(&self) -> AppResult<()> {
+    async fn load_sessions_from_file(&self) -> AppResult<()> {
         let file_path = self.sessions_file();
 
         if file_path.exists() {
@@ -97,10 +94,7 @@ impl DatabaseService {
             let loaded_sessions: Vec<Session> = serde_json::from_str(&content)
                 .map_err(|e| AppError::DatabaseError(format!("Failed to parse sessions: {}", e)))?;
 
-            let mut sessions = self
-                .sessions
-                .lock()
-                .map_err(|e| AppError::DatabaseError(format!("Failed to lock sessions: {}", e)))?;
+            let mut sessions = self.sessions.lock().await;
             *sessions = loaded_sessions;
         }
 
@@ -118,12 +112,10 @@ impl DatabaseService {
         }
 
         // Update in-memory settings
-        let mut stored_settings = self
-            .settings
-            .lock()
-            .map_err(|e| AppError::DatabaseError(format!("Failed to lock settings: {}", e)))?;
-        *stored_settings = normalized.clone();
-        drop(stored_settings);
+        {
+            let mut stored_settings = self.settings.lock().await;
+            *stored_settings = normalized.clone();
+        }
 
         // Persist to file
         let json = serde_json::to_string_pretty(&normalized)
@@ -151,10 +143,7 @@ impl DatabaseService {
     /// 返回内存中的设置快照。
     pub async fn load_settings(&self) -> AppResult<Settings> {
         let (snapshot, needs_persist) = {
-            let mut settings = self
-                .settings
-                .lock()
-                .map_err(|e| AppError::DatabaseError(format!("Failed to lock settings: {}", e)))?;
+            let mut settings = self.settings.lock().await;
 
             let mut persist_flag = false;
             if !settings.minimize_to_tray {
@@ -204,10 +193,7 @@ impl DatabaseService {
     /// 追加会话记录并写入 `sessions.json`。
     pub async fn save_session(&self, session: &Session) -> AppResult<()> {
         // Add to in-memory sessions
-        let mut sessions = self
-            .sessions
-            .lock()
-            .map_err(|e| AppError::DatabaseError(format!("Failed to lock sessions: {}", e)))?;
+        let mut sessions = self.sessions.lock().await;
         sessions.push(session.clone());
 
         // Persist to file
@@ -227,10 +213,7 @@ impl DatabaseService {
     /// Insert or update a session by `id`.
     /// 如果已存在相同 `id` 的会话，则更新其字段；否则追加。
     pub async fn save_or_update_session(&self, session: &Session) -> AppResult<()> {
-        let mut sessions = self
-            .sessions
-            .lock()
-            .map_err(|e| AppError::DatabaseError(format!("Failed to lock sessions: {}", e)))?;
+        let mut sessions = self.sessions.lock().await;
 
         if let Some(existing) = sessions.iter_mut().find(|s| s.id == session.id) {
             *existing = session.clone();
@@ -254,10 +237,7 @@ impl DatabaseService {
     /// Get analytics data for a date range
     /// 按时间区间筛选会话，计算统计指标。
     pub async fn get_analytics(&self, query: &AnalyticsQuery) -> AppResult<AnalyticsData> {
-        let sessions = self
-            .sessions
-            .lock()
-            .map_err(|e| AppError::DatabaseError(format!("Failed to lock sessions: {}", e)))?;
+        let sessions = self.sessions.lock().await;
 
         // Filter sessions by overlap with date range [start_date, end_date]
         // 选择与区间有任意重叠的会话（而非仅按开始时间落在区间内）

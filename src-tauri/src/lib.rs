@@ -200,41 +200,60 @@ pub fn run() {
                         match id {
                             "skip" => {
                                 // Skip current phase and persist session
+                                // Use spawn_blocking to avoid blocking the UI thread with sync mutex operations
                                 let state = app.state::<crate::commands::AppState>();
                                 let timer = state.timer_service.clone();
                                 let db = state.database_service.clone();
                                 tauri::async_runtime::spawn(async move {
-                                    match timer.skip() {
-                                        Ok(session) => {
-                                            if let Ok(mut guard) = db.try_lock() {
-                                                let _ =
-                                                    guard.save_or_update_session(&session).await;
+                                    let result = tauri::async_runtime::spawn_blocking(move || {
+                                        timer.skip()
+                                    }).await;
+
+                                    match result {
+                                        Ok(Ok(session)) => {
+                                            if let Ok(guard) = db.try_lock() {
+                                                let _ = guard.save_or_update_session(&session).await;
                                             } else {
                                                 let db2 = db.lock().await;
                                                 let _ = db2.save_or_update_session(&session).await;
                                             }
                                         }
-                                        Err(e) => {
+                                        Ok(Err(e)) => {
                                             eprintln!("Failed to skip phase from tray: {}", e);
+                                        }
+                                        Err(e) => {
+                                            eprintln!("Failed to spawn skip task: {}", e);
                                         }
                                     }
                                 });
                             }
                             "no_break_1h" => {
                                 let state = app.state::<crate::commands::AppState>();
-                                state.timer_service.suppress_breaks_for_hours(1);
+                                let timer = state.timer_service.clone();
+                                tauri::async_runtime::spawn_blocking(move || {
+                                    timer.suppress_breaks_for_hours(1);
+                                });
                             }
                             "no_break_2h" => {
                                 let state = app.state::<crate::commands::AppState>();
-                                state.timer_service.suppress_breaks_for_hours(2);
+                                let timer = state.timer_service.clone();
+                                tauri::async_runtime::spawn_blocking(move || {
+                                    timer.suppress_breaks_for_hours(2);
+                                });
                             }
                             "no_break_5h" => {
                                 let state = app.state::<crate::commands::AppState>();
-                                state.timer_service.suppress_breaks_for_hours(5);
+                                let timer = state.timer_service.clone();
+                                tauri::async_runtime::spawn_blocking(move || {
+                                    timer.suppress_breaks_for_hours(5);
+                                });
                             }
                             "no_break_tomorrow" => {
                                 let state = app.state::<crate::commands::AppState>();
-                                state.timer_service.suppress_breaks_until_tomorrow_morning();
+                                let timer = state.timer_service.clone();
+                                tauri::async_runtime::spawn_blocking(move || {
+                                    timer.suppress_breaks_until_tomorrow_morning();
+                                });
                             }
                             "settings" => {
                                 if let Some(win) = app.get_webview_window("main") {

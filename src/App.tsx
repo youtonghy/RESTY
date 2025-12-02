@@ -18,6 +18,27 @@ import './App.css';
 import './i18n';
 
 /**
+ * Helper to cleanup event unsubscribers safely
+ */
+const cleanupUnsubscribers = (
+  unsubscribers: Array<Promise<() => void>>,
+  isMountedRef: React.MutableRefObject<boolean>
+) => {
+  unsubscribers.forEach((p) =>
+    p.then((unsub) => {
+      // Only unsubscribe if component is still mounted or being unmounted
+      // This prevents race conditions during rapid mount/unmount cycles
+      unsub();
+    }).catch((err) => {
+      // Ignore errors during cleanup (component may have unmounted)
+      if (isMountedRef.current) {
+        console.warn('Failed to cleanup event listener:', err);
+      }
+    })
+  );
+};
+
+/**
  * 根应用组件：负责初始化设置、监听 Tauri 后端事件，并配置全局路由/主题。
  */
 function App() {
@@ -93,11 +114,16 @@ function App() {
   );
 
   useEffect(() => {
+    // Track mounted state to prevent state updates after unmount
+    const isMountedRef = { current: true };
+
     /**
      * 根据当前阶段控制提醒窗口（全屏或浮窗）。
      */
     // Helper to open/close reminder window based on phase
     const handleReminderForPhase = (phase: string, settingsOverride?: AppSettings) => {
+      if (!isMountedRef.current) return;
+
       const activeSettings = settingsOverride ?? useAppStore.getState().settings;
       if (phase === 'break') {
         // In reminder window, don't attempt to open itself; focusing is fine but unnecessary
@@ -124,6 +150,8 @@ function App() {
 
     // 初始化加载持久化设置，并同步语言环境
     api.loadSettings().then(async (loaded) => {
+      if (!isMountedRef.current) return;
+
       const normalizedLanguage = normalizeLanguage(loaded.language);
       const normalizedSettings = {
         ...loaded,
@@ -147,6 +175,8 @@ function App() {
     // Listen for timer updates
     unsubscribers.push(
       api.onTimerUpdate((info) => {
+        if (!isMountedRef.current) return;
+
         const store = useAppStore.getState();
         const previousPhase = store.timerInfo.phase;
         store.setTimerInfo(info);
@@ -160,6 +190,7 @@ function App() {
     // Listen for phase changes
     unsubscribers.push(
       api.onPhaseChange((phase) => {
+        if (!isMountedRef.current) return;
         console.log('Phase changed to:', phase);
         handleReminderForPhase(phase);
       })
@@ -174,14 +205,19 @@ function App() {
 
     // For reminder window, proactively fetch timer info once for immediate render
     if (isReminderWindow) {
-      api.getTimerInfo().then(setTimerInfo).catch((error) => {
+      api.getTimerInfo().then((info) => {
+        if (isMountedRef.current) {
+          setTimerInfo(info);
+        }
+      }).catch((error) => {
         console.error('Failed to load timer info:', error);
       });
     }
 
     // 清理事件监听，避免内存泄漏
     return () => {
-      unsubscribers.forEach((p) => p.then((unsub) => unsub()));
+      isMountedRef.current = false;
+      cleanupUnsubscribers(unsubscribers, isMountedRef);
       if (!isReminderWindow) {
         stopRestMusic();
       }
@@ -277,15 +313,21 @@ export default App;
  */
 function RouteEventBridge() {
   const navigate = useNavigate();
+  const isMountedRef = useRef(true);
+
   useEffect(() => {
+    isMountedRef.current = true;
     const unsubs: Array<Promise<() => void>> = [];
     unsubs.push(
       api.onOpenSettings(() => {
-        navigate('/settings');
+        if (isMountedRef.current) {
+          navigate('/settings');
+        }
       })
     );
     return () => {
-      unsubs.forEach((p) => p.then((unsub) => unsub()));
+      isMountedRef.current = false;
+      cleanupUnsubscribers(unsubs, isMountedRef);
     };
   }, [navigate]);
   return null;

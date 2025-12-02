@@ -1,11 +1,11 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "resty",
-  "version": "0.1.4",
+  "version": "0.1.7",
   "identifier": "com.youtonghy.resty",
   "build": {
     "beforeDevCommand": "pnpm dev",
-    "devUrl": "http://127.0.0.1:13000",
+    "devUrl": "http://127.0.0.1:21421",
     "beforeBuildCommand": "pnpm build",
     "frontendDist": "../dist"
   },

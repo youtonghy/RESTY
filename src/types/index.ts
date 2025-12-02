@@ -85,10 +85,10 @@ export interface Session {
 export interface TimerInfo {
   phase: TimerPhase;
   state: TimerState;
-  remainingMinutes: number;
-  totalMinutes: number;
+  remainingSeconds: number;
+  totalSeconds: number;
   nextTransitionTime: string | null;
-  // 下一次真正“开始休息”的时间（UTC ISO 字符串），若不可预测则为 null
+  // 下一次真正"开始休息"的时间（UTC ISO 字符串），若不可预测则为 null
   nextBreakTime?: string | null;
 }
 

@@ -205,10 +205,10 @@ pub enum SessionType {
 pub struct TimerInfo {
     pub phase: TimerPhase,
     pub state: TimerState,
-    pub remaining_minutes: u32,
-    pub total_minutes: u32,
+    pub remaining_seconds: u32,
+    pub total_seconds: u32,
     pub next_transition_time: Option<DateTime<Utc>>,
-    // 下一次真正“开始休息”的时间（考虑了“X 小时不休息/直到明天早晨”抑制逻辑）。
+    // 下一次真正"开始休息"的时间（考虑了"X 小时不休息/直到明天早晨"抑制逻辑）。
     pub next_break_time: Option<DateTime<Utc>>,
 }
 
