@@ -256,6 +256,80 @@ pub fn close_reminder_window(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Show main window (used by frontend after initialization)
+#[tauri::command]
+pub fn show_main_window(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.set_skip_taskbar(false);
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+    Ok(())
+}
+
+/// Handle tray menu actions from custom menu window
+#[tauri::command]
+pub async fn tray_menu_action(action: String, app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    match action.as_str() {
+        "skip" => {
+            let timer = state.timer_service.clone();
+            let db = state.database_service.clone();
+            let result = tauri::async_runtime::spawn_blocking(move || timer.skip()).await;
+
+            match result {
+                Ok(Ok(session)) => {
+                    let db_guard = db.lock().await;
+                    let _ = db_guard.save_or_update_session(&session).await;
+                }
+                Ok(Err(e)) => {
+                    eprintln!("Failed to skip phase from tray: {}", e);
+                }
+                Err(e) => {
+                    eprintln!("Failed to spawn skip task: {}", e);
+                }
+            }
+        }
+        "no_break_1h" => {
+            let timer = state.timer_service.clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                timer.suppress_breaks_for_hours(1);
+            }).await.map_err(|e| e.to_string())?;
+        }
+        "no_break_2h" => {
+            let timer = state.timer_service.clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                timer.suppress_breaks_for_hours(2);
+            }).await.map_err(|e| e.to_string())?;
+        }
+        "no_break_5h" => {
+            let timer = state.timer_service.clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                timer.suppress_breaks_for_hours(5);
+            }).await.map_err(|e| e.to_string())?;
+        }
+        "no_break_tomorrow" => {
+            let timer = state.timer_service.clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                timer.suppress_breaks_until_tomorrow_morning();
+            }).await.map_err(|e| e.to_string())?;
+        }
+        "settings" => {
+            if let Some(win) = app.get_webview_window("main") {
+                let _ = win.set_skip_taskbar(false);
+                let _ = win.show();
+                let _ = win.set_focus();
+                let _ = win.unminimize();
+            }
+            let _ = app.emit("open-settings", ());
+        }
+        "quit" => {
+            std::process::exit(0);
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
 /// 校验设置合法性，防止写入异常值。
 fn validate_settings(settings: &Settings) -> Result<(), String> {
     if settings.work_duration == 0 || settings.work_duration > 120 {

@@ -1,0 +1,198 @@
+/* Tray Menu - Custom styled context menu */
+
+.tray-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 12px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 0 1px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Dark mode */
+[data-theme='dark'] .tray-menu,
+@media (prefers-color-scheme: dark) {
+  .tray-menu {
+    background: rgba(40, 40, 45, 0.95);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.4),
+      0 2px 8px rgba(0, 0, 0, 0.3),
+      0 0 1px rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* Menu Item */
+.tray-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+  color: #1a1a1a;
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+  position: relative;
+}
+
+[data-theme='dark'] .tray-menu-item {
+  color: #e8e8e8;
+}
+
+/* Hover effect with float animation */
+.tray-menu-item:hover {
+  background: rgba(0, 0, 0, 0.06);
+  transform: translateX(2px);
+}
+
+[data-theme='dark'] .tray-menu-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Active/pressed state */
+.tray-menu-item:active {
+  transform: translateX(2px) scale(0.98);
+  background: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] .tray-menu-item:active {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Focus state */
+.tray-menu-item:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+}
+
+/* Danger item (quit) */
+.tray-menu-item--danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+[data-theme='dark'] .tray-menu-item--danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+/* Menu Icon */
+.tray-menu-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-size: 14px;
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+/* Menu Text */
+.tray-menu-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Submenu Arrow */
+.tray-menu-arrow {
+  font-size: 16px;
+  opacity: 0.5;
+  margin-left: auto;
+  transition: transform 0.15s ease;
+}
+
+.tray-menu-submenu-trigger:hover .tray-menu-arrow {
+  transform: translateX(2px);
+  opacity: 0.8;
+}
+
+/* Divider */
+.tray-menu-divider {
+  height: 1px;
+  margin: 4px 8px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme='dark'] .tray-menu-divider {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Submenu */
+.tray-menu-submenu-trigger {
+  position: relative;
+}
+
+.tray-menu-submenu {
+  position: absolute;
+  left: calc(100% + 4px);
+  top: -6px;
+  min-width: 180px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 12px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 0 1px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  z-index: 10;
+  animation: submenu-appear 0.15s ease;
+}
+
+[data-theme='dark'] .tray-menu-submenu {
+  background: rgba(40, 40, 45, 0.95);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    0 0 1px rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@keyframes submenu-appear {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Menu appear animation */
+@keyframes menu-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.tray-menu {
+  animation: menu-appear 0.15s ease;
+}

@@ -5,6 +5,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { ThemeProvider } from './components/Common/ThemeProvider';
 import { Reminder } from './components/Reminder/Reminder';
+import { TrayMenu } from './components/TrayMenu/TrayMenu';
 import { Layout } from './components/Common/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Settings } from './pages/Settings';
@@ -51,6 +52,14 @@ function App() {
     return hash.startsWith('reminder');
   })();
 
+  const isTrayMenuWindow = (() => {
+    if (typeof window === 'undefined') return false;
+    const hash = window.location.hash.replace(/^#\/?/, '');
+    return hash.startsWith('tray-menu');
+  })();
+
+  const isSpecialWindow = isReminderWindow || isTrayMenuWindow;
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentTrackRef = useRef<string | null>(null);
 
@@ -66,7 +75,7 @@ function App() {
 
   const startRestMusic = useCallback(
     async (enabled: boolean, directory: string) => {
-      if (isReminderWindow) return;
+      if (isSpecialWindow) return;
       if (!enabled || !directory) {
         stopRestMusic();
         return;
@@ -110,7 +119,7 @@ function App() {
         stopRestMusic();
       }
     },
-    [isReminderWindow, stopRestMusic]
+    [isSpecialWindow, stopRestMusic]
   );
 
   useEffect(() => {
@@ -127,7 +136,7 @@ function App() {
       const activeSettings = settingsOverride ?? useAppStore.getState().settings;
       if (phase === 'break') {
         // In reminder window, don't attempt to open itself; focusing is fine but unnecessary
-        if (!isReminderWindow) {
+        if (!isSpecialWindow) {
           api.openReminderWindow(activeSettings.reminderMode === 'fullscreen').catch((error) => {
             console.error('Failed to open reminder window:', error);
           });
@@ -139,7 +148,7 @@ function App() {
         });
       }
 
-      if (!isReminderWindow) {
+      if (!isSpecialWindow) {
         if (phase === 'break') {
           void startRestMusic(activeSettings.restMusicEnabled, activeSettings.restMusicDirectory);
         } else {
@@ -165,6 +174,14 @@ function App() {
       api.setAutostart(loaded.autostart).catch((error) => {
         console.error('Failed to sync autostart on init:', error);
       });
+
+      // Ensure main window is visible after frontend initialization (skip for reminder window)
+      // This is a fallback in case backend setup didn't show the window
+      if (!isSpecialWindow && !loaded.silentAutostart) {
+        api.showMainWindow().catch((error) => {
+          console.error('Failed to show main window:', error);
+        });
+      }
     }).catch((error) => {
       console.error('Failed to load settings:', error);
     });
@@ -204,7 +221,7 @@ function App() {
     );
 
     // For reminder window, proactively fetch timer info once for immediate render
-    if (isReminderWindow) {
+    if (isSpecialWindow) {
       api.getTimerInfo().then((info) => {
         if (isMountedRef.current) {
           setTimerInfo(info);
@@ -218,11 +235,11 @@ function App() {
     return () => {
       isMountedRef.current = false;
       cleanupUnsubscribers(unsubscribers, isMountedRef);
-      if (!isReminderWindow) {
+      if (!isSpecialWindow) {
         stopRestMusic();
       }
     };
-  }, [isReminderWindow, setTimerInfo, startRestMusic, stopRestMusic]);
+  }, [isSpecialWindow, setTimerInfo, startRestMusic, stopRestMusic]);
 
   // Update language when settings change
   useEffect(() => {
@@ -235,7 +252,7 @@ function App() {
   }, [settings.language, i18n]);
 
   useEffect(() => {
-    if (isReminderWindow) return;
+    if (isSpecialWindow) return;
 
     if (!settings.restMusicEnabled) {
       stopRestMusic();
@@ -246,7 +263,7 @@ function App() {
       void startRestMusic(settings.restMusicEnabled, settings.restMusicDirectory);
     }
   }, [
-    isReminderWindow,
+    isSpecialWindow,
     settings.restMusicEnabled,
     settings.restMusicDirectory,
     timerInfo.phase,
@@ -255,7 +272,7 @@ function App() {
   ]);
 
   useEffect(() => {
-    if (isReminderWindow) return;
+    if (isSpecialWindow) return;
 
     const checkForUpdates = async () => {
       try {
@@ -282,11 +299,13 @@ function App() {
     };
 
     void checkForUpdates();
-  }, [isReminderWindow, setAppVersion, setUpdateManifest]);
+  }, [isSpecialWindow, setAppVersion, setUpdateManifest]);
 
   return (
     <ThemeProvider>
-      {isReminderWindow ? (
+      {isTrayMenuWindow ? (
+        <TrayMenu />
+      ) : isReminderWindow ? (
         <Reminder isFullscreen={settings.reminderMode === 'fullscreen'} />
       ) : (
         <BrowserRouter>

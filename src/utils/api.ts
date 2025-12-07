@@ -153,6 +153,11 @@ export async function showReminderWindow(): Promise<void> {
   return await invoke('show_reminder_window');
 }
 
+/** 显示主窗口（用于前端初始化完成后调用）。 */
+export async function showMainWindow(): Promise<void> {
+  return await invoke('show_main_window');
+}
+
 // Event listeners
 /** 订阅计时器状态更新事件。 */
 export async function onTimerUpdate(callback: (info: TimerInfo) => void) {

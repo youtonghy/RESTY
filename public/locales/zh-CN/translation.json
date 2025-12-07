@@ -142,13 +142,19 @@
   "tray": {
     "show": "显示窗口",
     "hide": "隐藏窗口",
+    "skip": "跳到下一次休息/工作",
+    "noBreak": "X 小时不休息",
+    "noBreak1h": "1 小时不休息",
+    "noBreak2h": "2 小时不休息",
+    "noBreak5h": "5 小时不休息",
+    "noBreakTomorrow": "直到明天早晨不休息",
     "startWork": "开始工作",
     "startBreak": "开始休息",
     "pause": "暂停计时",
     "resume": "继续计时",
     "settings": "设置",
     "analytics": "统计",
-    "quit": "退出"
+    "quit": "关闭"
   },
   "shortcuts": {
     "toggle": "开始/暂停",

@@ -9,13 +9,14 @@ use dark_light::Mode as SystemTheme;
 use services::{DatabaseService, TimerService};
 use std::sync::Arc;
 use tauri::image::Image;
-use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::tray::{TrayIcon, TrayIconBuilder};
 use tauri::{Emitter, Listener, Manager, Theme, WebviewUrl, WebviewWindowBuilder};
 
 const TRAY_ICON_LIGHT: &[u8] = include_bytes!("../icons/128x128.png");
 const TRAY_ICON_DARK: &[u8] = include_bytes!("../icons/128x128Night.png");
 const MAIN_TRAY_ID: &str = "resty-main-tray";
+const TRAY_MENU_WIDTH: f64 = 240.0;
+const TRAY_MENU_HEIGHT: f64 = 220.0;
 
 fn load_tray_image(bytes: &[u8]) -> Option<Image<'static>> {
     Image::from_bytes(bytes).ok()
@@ -48,6 +49,40 @@ fn resolve_tray_theme(preference: &SettingsTheme) -> Theme {
         SettingsTheme::Dark => Theme::Dark,
         SettingsTheme::Light => Theme::Light,
         SettingsTheme::Auto => current_system_theme(),
+    }
+}
+
+/// Show custom tray menu window at the specified position
+fn show_tray_menu_window(app: &tauri::AppHandle, x: f64, y: f64) {
+    // Close existing menu window if any
+    if let Some(existing) = app.get_webview_window("tray-menu") {
+        let _ = existing.close();
+        return; // Toggle behavior: if menu was open, just close it
+    }
+
+    // Calculate position (above the click point on Windows, adjust for screen bounds)
+    let menu_x = x - TRAY_MENU_WIDTH / 2.0;
+    let menu_y = y - TRAY_MENU_HEIGHT - 8.0; // Position above the tray icon
+
+    let window = WebviewWindowBuilder::new(
+        app,
+        "tray-menu",
+        WebviewUrl::App("index.html#tray-menu".into()),
+    )
+    .title("")
+    .inner_size(TRAY_MENU_WIDTH, TRAY_MENU_HEIGHT)
+    .position(menu_x, menu_y.max(0.0))
+    .resizable(false)
+    .decorations(false)
+    .transparent(true)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .focused(true)
+    .visible(true)
+    .build();
+
+    if let Err(e) = window {
+        eprintln!("Failed to create tray menu window: {}", e);
     }
 }
 
@@ -123,15 +158,22 @@ pub fn run() {
                 database_service: db_clone_for_state,
             });
 
-            // Hide window when autostart launches in silent mode
+            // Determine if this is a silent autostart launch
             let launched_from_autostart = std::env::args().any(|arg| arg == "--autostart");
-            if launched_from_autostart
+            let is_silent_autostart = launched_from_autostart
                 && initial_settings.autostart
-                && initial_settings.silent_autostart
-            {
-                if let Some(main_window) = app.get_webview_window("main") {
-                    let _ = main_window.hide();
+                && initial_settings.silent_autostart;
+
+            // Window is now invisible by default (visible: false in tauri.conf.json)
+            // Only show window if NOT silent autostart
+            if let Some(main_window) = app.get_webview_window("main") {
+                if is_silent_autostart {
+                    // Keep window hidden and skip taskbar for silent autostart
                     let _ = main_window.set_skip_taskbar(true);
+                } else {
+                    // Normal launch: show window after setup is complete
+                    let _ = main_window.show();
+                    let _ = main_window.set_focus();
                 }
             }
 
@@ -162,122 +204,31 @@ pub fn run() {
                 });
             });
 
-            // Create system tray with menu
+            // Create system tray (without native menu - using custom menu window)
             {
-                // Build tray menu
-                let skip_item = MenuItemBuilder::new("跳到下一次休息/工作")
-                    .id("skip")
-                    .build(app)?;
-                // No-break submenu options
-                let nb_1h = MenuItemBuilder::new("1 小时不休息")
-                    .id("no_break_1h")
-                    .build(app)?;
-                let nb_2h = MenuItemBuilder::new("2 小时不休息")
-                    .id("no_break_2h")
-                    .build(app)?;
-                let nb_5h = MenuItemBuilder::new("5 小时不休息")
-                    .id("no_break_5h")
-                    .build(app)?;
-                let nb_tomorrow = MenuItemBuilder::new("直到明天早晨不休息")
-                    .id("no_break_tomorrow")
-                    .build(app)?;
-                let no_break_submenu = SubmenuBuilder::new(app, "X 小时不休息")
-                    .items(&[&nb_1h, &nb_2h, &nb_5h, &nb_tomorrow])
-                    .build()?;
-                let settings_item = MenuItemBuilder::new("设置").id("settings").build(app)?;
-                let close_item = MenuItemBuilder::new("关闭").id("quit").build(app)?;
-                let menu = MenuBuilder::new(app)
-                    .items(&[&skip_item, &no_break_submenu, &settings_item, &close_item])
-                    .build()?;
-
-                // Build tray icon
+                // Build tray icon without menu
                 let mut tray_builder = TrayIconBuilder::with_id(MAIN_TRAY_ID)
-                    .menu(&menu)
-                    // Prevent showing context menu on left click to avoid flicker
                     .show_menu_on_left_click(false)
-                    .on_menu_event(|app, event| {
-                        let id = event.id().as_ref();
-                        match id {
-                            "skip" => {
-                                // Skip current phase and persist session
-                                // Use spawn_blocking to avoid blocking the UI thread with sync mutex operations
-                                let state = app.state::<crate::commands::AppState>();
-                                let timer = state.timer_service.clone();
-                                let db = state.database_service.clone();
-                                tauri::async_runtime::spawn(async move {
-                                    let result = tauri::async_runtime::spawn_blocking(move || {
-                                        timer.skip()
-                                    }).await;
-
-                                    match result {
-                                        Ok(Ok(session)) => {
-                                            if let Ok(guard) = db.try_lock() {
-                                                let _ = guard.save_or_update_session(&session).await;
-                                            } else {
-                                                let db2 = db.lock().await;
-                                                let _ = db2.save_or_update_session(&session).await;
-                                            }
-                                        }
-                                        Ok(Err(e)) => {
-                                            eprintln!("Failed to skip phase from tray: {}", e);
-                                        }
-                                        Err(e) => {
-                                            eprintln!("Failed to spawn skip task: {}", e);
-                                        }
-                                    }
-                                });
-                            }
-                            "no_break_1h" => {
-                                let state = app.state::<crate::commands::AppState>();
-                                let timer = state.timer_service.clone();
-                                tauri::async_runtime::spawn_blocking(move || {
-                                    timer.suppress_breaks_for_hours(1);
-                                });
-                            }
-                            "no_break_2h" => {
-                                let state = app.state::<crate::commands::AppState>();
-                                let timer = state.timer_service.clone();
-                                tauri::async_runtime::spawn_blocking(move || {
-                                    timer.suppress_breaks_for_hours(2);
-                                });
-                            }
-                            "no_break_5h" => {
-                                let state = app.state::<crate::commands::AppState>();
-                                let timer = state.timer_service.clone();
-                                tauri::async_runtime::spawn_blocking(move || {
-                                    timer.suppress_breaks_for_hours(5);
-                                });
-                            }
-                            "no_break_tomorrow" => {
-                                let state = app.state::<crate::commands::AppState>();
-                                let timer = state.timer_service.clone();
-                                tauri::async_runtime::spawn_blocking(move || {
-                                    timer.suppress_breaks_until_tomorrow_morning();
-                                });
-                            }
-                            "settings" => {
-                                if let Some(win) = app.get_webview_window("main") {
-                                    let _ = win.set_skip_taskbar(false);
-                                    let _ = win.show();
-                                    let _ = win.set_focus();
-                                    let _ = win.unminimize();
-                                }
-                                // Notify front-end to navigate to settings
-                                let _ = app.emit("open-settings", ());
-                            }
-                            "quit" => {
-                                std::process::exit(0);
-                            }
-                            _ => {}
-                        }
-                    })
                     .on_tray_icon_event(|tray, event| match event {
-                        tauri::tray::TrayIconEvent::Click { button, .. } => {
+                        tauri::tray::TrayIconEvent::Click {
+                            button,
+                            button_state,
+                            position,
+                            ..
+                        } => {
+                            // Only handle button release to avoid double triggers
+                            if button_state != tauri::tray::MouseButtonState::Up {
+                                return;
+                            }
+
                             let app = tray.app_handle();
                             match button {
                                 tauri::tray::MouseButton::Left => {
+                                    // Close tray menu if open
+                                    if let Some(menu_win) = app.get_webview_window("tray-menu") {
+                                        let _ = menu_win.close();
+                                    }
                                     if let Some(win) = app.get_webview_window("main") {
-                                        // Always show and focus (no toggle) to avoid flicker
                                         let _ = win.set_skip_taskbar(false);
                                         let _ = win.show();
                                         let _ = win.unminimize();
@@ -285,7 +236,8 @@ pub fn run() {
                                     }
                                 }
                                 tauri::tray::MouseButton::Right => {
-                                    // No-op: let the OS show the attached menu.
+                                    // Show custom tray menu window
+                                    show_tray_menu_window(app, position.x, position.y);
                                 }
                                 _ => {}
                             }
@@ -325,6 +277,8 @@ pub fn run() {
             commands::open_reminder_window,
             commands::show_reminder_window,
             commands::close_reminder_window,
+            commands::show_main_window,
+            commands::tray_menu_action,
             commands::get_rest_music_files,
             update_tray_icon_theme,
         ])

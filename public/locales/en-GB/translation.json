@@ -142,6 +142,12 @@
   "tray": {
     "show": "Show Window",
     "hide": "Hide Window",
+    "skip": "Skip to next break/work",
+    "noBreak": "No breaks for X hours",
+    "noBreak1h": "No breaks for 1 hour",
+    "noBreak2h": "No breaks for 2 hours",
+    "noBreak5h": "No breaks for 5 hours",
+    "noBreakTomorrow": "No breaks until tomorrow morning",
     "startWork": "Start Work Session",
     "startBreak": "Take a Break",
     "pause": "Pause Timer",
