@@ -14,7 +14,7 @@ interface TrayMenuProps {
  */
 export function TrayMenu({ onClose }: TrayMenuProps) {
   const { t } = useTranslation();
-  const [showNoBreakSubmenu, setShowNoBreakSubmenu] = useState(false);
+  const [menuLevel, setMenuLevel] = useState<'main' | 'no_break'>('main');
 
   const closeMenu = useCallback(async () => {
     onClose?.();
@@ -84,6 +84,50 @@ export function TrayMenu({ onClose }: TrayMenuProps) {
     };
   }, [closeMenu]);
 
+  if (menuLevel === 'no_break') {
+    return (
+      <div className="tray-menu">
+        <button
+          type="button"
+          className="tray-menu-item"
+          onClick={() => setMenuLevel('main')}
+        >
+          <span className="tray-menu-icon">‹</span>
+          <span className="tray-menu-text">{t('tray.back', '返回')}</span>
+        </button>
+        <div className="tray-menu-divider" />
+        <button
+          type="button"
+          className="tray-menu-item"
+          onClick={() => handleNoBreak('1h')}
+        >
+          <span className="tray-menu-text" style={{ paddingLeft: '30px' }}>{t('tray.noBreak1h', '1 小时不休息')}</span>
+        </button>
+        <button
+          type="button"
+          className="tray-menu-item"
+          onClick={() => handleNoBreak('2h')}
+        >
+          <span className="tray-menu-text" style={{ paddingLeft: '30px' }}>{t('tray.noBreak2h', '2 小时不休息')}</span>
+        </button>
+        <button
+          type="button"
+          className="tray-menu-item"
+          onClick={() => handleNoBreak('5h')}
+        >
+          <span className="tray-menu-text" style={{ paddingLeft: '30px' }}>{t('tray.noBreak5h', '5 小时不休息')}</span>
+        </button>
+        <button
+          type="button"
+          className="tray-menu-item"
+          onClick={() => handleNoBreak('tomorrow')}
+        >
+          <span className="tray-menu-text" style={{ paddingLeft: '30px' }}>{t('tray.noBreakTomorrow', '直到明天早晨')}</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="tray-menu">
       <button
@@ -95,48 +139,15 @@ export function TrayMenu({ onClose }: TrayMenuProps) {
         <span className="tray-menu-text">{t('tray.skip', '跳到下一次休息/工作')}</span>
       </button>
 
-      <div
-        className="tray-menu-item tray-menu-submenu-trigger"
-        onMouseEnter={() => setShowNoBreakSubmenu(true)}
-        onMouseLeave={() => setShowNoBreakSubmenu(false)}
+      <button
+        type="button"
+        className="tray-menu-item"
+        onClick={() => setMenuLevel('no_break')}
       >
         <span className="tray-menu-icon">🚫</span>
         <span className="tray-menu-text">{t('tray.noBreak', 'X 小时不休息')}</span>
         <span className="tray-menu-arrow">›</span>
-
-        {showNoBreakSubmenu && (
-          <div className="tray-menu-submenu">
-            <button
-              type="button"
-              className="tray-menu-item"
-              onClick={() => handleNoBreak('1h')}
-            >
-              <span className="tray-menu-text">{t('tray.noBreak1h', '1 小时不休息')}</span>
-            </button>
-            <button
-              type="button"
-              className="tray-menu-item"
-              onClick={() => handleNoBreak('2h')}
-            >
-              <span className="tray-menu-text">{t('tray.noBreak2h', '2 小时不休息')}</span>
-            </button>
-            <button
-              type="button"
-              className="tray-menu-item"
-              onClick={() => handleNoBreak('5h')}
-            >
-              <span className="tray-menu-text">{t('tray.noBreak5h', '5 小时不休息')}</span>
-            </button>
-            <button
-              type="button"
-              className="tray-menu-item"
-              onClick={() => handleNoBreak('tomorrow')}
-            >
-              <span className="tray-menu-text">{t('tray.noBreakTomorrow', '直到明天早晨不休息')}</span>
-            </button>
-          </div>
-        )}
-      </div>
+      </button>
 
       <div className="tray-menu-divider" />
 

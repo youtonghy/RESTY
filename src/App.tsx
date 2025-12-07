@@ -134,15 +134,10 @@ function App() {
       if (!isMountedRef.current) return;
 
       const activeSettings = settingsOverride ?? useAppStore.getState().settings;
-      if (phase === 'break') {
-        // In reminder window, don't attempt to open itself; focusing is fine but unnecessary
-        if (!isSpecialWindow) {
-          api.openReminderWindow(activeSettings.reminderMode === 'fullscreen').catch((error) => {
-            console.error('Failed to open reminder window:', error);
-          });
-        }
-      } else {
-        // Always allow closing from any window
+
+      // Opening reminder window is handled by backend (timer service events) to avoid race conditions.
+      // We only handle closing here to ensure windows are cleaned up when phase changes away from break.
+      if (phase !== 'break') {
         api.closeReminderWindow().catch((error) => {
           console.error('Failed to close reminder window:', error);
         });

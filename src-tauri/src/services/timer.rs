@@ -20,8 +20,8 @@ struct TimerServiceState {
     state: TimerState,
     remaining_seconds: u32,
     total_seconds: u32,
-    work_duration: u32,   // in minutes (from settings)
-    break_duration: u32,  // in minutes (from settings)
+    work_duration: u32,  // in minutes (from settings)
+    break_duration: u32, // in minutes (from settings)
     base_work_duration: u32,
     base_break_duration: u32,
     flow_mode: bool,
@@ -229,8 +229,7 @@ impl TimerService {
         state.total_seconds = work_seconds;
         state.remaining_seconds = work_seconds;
         let start_time = Utc::now();
-        state.phase_end_time =
-            Some(start_time + ChronoDuration::seconds(work_seconds as i64));
+        state.phase_end_time = Some(start_time + ChronoDuration::seconds(work_seconds as i64));
         state.current_session_id = Some(Uuid::new_v4().to_string());
         state.current_session_start = Some(start_time);
         state.paused_due_to_display_off = false;
@@ -253,8 +252,7 @@ impl TimerService {
         state.total_seconds = break_seconds;
         state.remaining_seconds = break_seconds;
         let start_time = Utc::now();
-        state.phase_end_time =
-            Some(start_time + ChronoDuration::seconds(break_seconds as i64));
+        state.phase_end_time = Some(start_time + ChronoDuration::seconds(break_seconds as i64));
         state.current_session_id = Some(Uuid::new_v4().to_string());
         state.current_session_start = Some(start_time);
         state.paused_due_to_display_off = false;
@@ -303,9 +301,15 @@ impl TimerService {
 
     /// Skip current phase
     /// 终止当前阶段并生成会话记录，返回给上层持久化。
-    pub fn skip(&self) -> AppResult<Session> {
+    /// Returns (Session, should_show_break_reminder)
+    pub fn skip(&self) -> AppResult<Option<(Session, bool)>> {
+        println!("TimerService: skip called");
         let (previous_phase, session, segmented_active) = {
             let state = self.state.lock().unwrap();
+            if state.phase == TimerPhase::Idle {
+                println!("TimerService: skip ignored (Idle)");
+                return Ok(None);
+            }
             (
                 state.phase.clone(),
                 self.create_session_record(&state, true),
@@ -313,23 +317,33 @@ impl TimerService {
             )
         };
 
+        // println!("TimerService: skip - stopping current timer");
         self.stop()?;
 
-        match previous_phase {
+        let should_show_reminder = match previous_phase {
             TimerPhase::Work => {
+                // println!("TimerService: skip - switching to break");
                 // Skipping work should immediately begin the break phase
                 self.start_break()?;
-                self.show_break_reminder()?;
+                // Fix: Do NOT return true here. The `start_break` inside `tick` handles the emission.
+                // But `skip` is manual.
+                // If I return true, the command emits it.
+                // If I return false, no one emits it.
+                // So returning true is correct for the command.
+                true
             }
             TimerPhase::Break => {
+                println!("TimerService: skip - switching to work");
                 // Skipping break returns to the next work session
                 self.advance_segment_if_needed(segmented_active);
                 self.start_work()?;
+                false
             }
-            TimerPhase::Idle => {}
-        }
+            TimerPhase::Idle => false,
+        };
 
-        Ok(session)
+        println!("TimerService: skip completed");
+        Ok(Some((session, should_show_reminder)))
     }
 
     /// Extend current phase by minutes
@@ -411,6 +425,7 @@ impl TimerService {
         self.emit_timer_update()?;
 
         if timer_finished {
+            println!("TimerService: timer finished, auto_cycle={}", should_auto_cycle);
             self.emit_timer_finished()?;
             if let Some(s) = session.clone() {
                 self.persist_session_finish(s);
@@ -422,16 +437,19 @@ impl TimerService {
                     TimerPhase::Work => {
                         // Work finished
                         if suppress_breaks_active || flow_mode {
+                            println!("TimerService: Auto-cycling to work (suppressed/flow)");
                             self.advance_segment_if_needed(segmented_active);
                             // Skip break: immediately start another work session
                             self.start_work()?;
                         } else {
+                            println!("TimerService: Auto-cycling to break");
                             // Start break and show reminder
                             self.start_break()?;
                             self.show_break_reminder()?;
                         }
                     }
                     TimerPhase::Break => {
+                        println!("TimerService: Auto-cycling to work");
                         // Break finished, start work
                         self.advance_segment_if_needed(segmented_active);
                         self.start_work()?;
@@ -577,8 +595,9 @@ impl TimerService {
         drop(state);
 
         if should_switch_to_work {
-            let session = self.skip()?;
-            self.persist_session_finish(session);
+            if let Some((session, _)) = self.skip()? {
+                self.persist_session_finish(session);
+            }
         } else {
             self.emit_timer_update()?;
         }
@@ -622,9 +641,7 @@ impl TimerService {
     /// Create session record from current state
     fn create_session_record(&self, state: &TimerServiceState, is_skipped: bool) -> Session {
         let end_time = Utc::now();
-        let start_time = state
-            .current_session_start
-            .unwrap_or(end_time);
+        let start_time = state.current_session_start.unwrap_or(end_time);
         let actual_duration = (end_time - start_time).num_seconds();
 
         Session {
@@ -657,9 +674,7 @@ impl TimerService {
                     .clone()
                     .unwrap_or_else(|| Uuid::new_v4().to_string()),
                 state.phase.clone(),
-                state
-                    .current_session_start
-                    .unwrap_or_else(Utc::now),
+                state.current_session_start.unwrap_or_else(Utc::now),
                 state.total_seconds as i64,
             )
         };

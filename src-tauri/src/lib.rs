@@ -10,13 +10,13 @@ use services::{DatabaseService, TimerService};
 use std::sync::Arc;
 use tauri::image::Image;
 use tauri::tray::{TrayIcon, TrayIconBuilder};
-use tauri::{Emitter, Listener, Manager, Theme, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Listener, Manager, Theme, WebviewUrl, WebviewWindowBuilder};
 
 const TRAY_ICON_LIGHT: &[u8] = include_bytes!("../icons/128x128.png");
 const TRAY_ICON_DARK: &[u8] = include_bytes!("../icons/128x128Night.png");
 const MAIN_TRAY_ID: &str = "resty-main-tray";
 const TRAY_MENU_WIDTH: f64 = 240.0;
-const TRAY_MENU_HEIGHT: f64 = 220.0;
+const TRAY_MENU_HEIGHT: f64 = 192.0;
 
 fn load_tray_image(bytes: &[u8]) -> Option<Image<'static>> {
     Image::from_bytes(bytes).ok()
@@ -60,9 +60,50 @@ fn show_tray_menu_window(app: &tauri::AppHandle, x: f64, y: f64) {
         return; // Toggle behavior: if menu was open, just close it
     }
 
-    // Calculate position (above the click point on Windows, adjust for screen bounds)
-    let menu_x = x - TRAY_MENU_WIDTH / 2.0;
-    let menu_y = y - TRAY_MENU_HEIGHT - 8.0; // Position above the tray icon
+    // Get screen dimensions and scale factor
+    let (screen_width, screen_height, scale_factor) = app
+        .primary_monitor()
+        .ok()
+        .flatten()
+        .map(|m| {
+            let size = m.size();
+            let scale = m.scale_factor();
+            (
+                size.width as f64 / scale,
+                size.height as f64 / scale,
+                scale,
+            )
+        })
+        .unwrap_or((1920.0, 1080.0, 1.0));
+
+    // Convert physical cursor coordinates to logical
+    let logical_x = x / scale_factor;
+    let logical_y = y / scale_factor;
+
+    // Smart position calculation (in Logical space):
+    // User requested "top-right" of the click.
+    // We interpret this as "above the cursor" and aligned to the right (starting at x).
+    let mut menu_x = logical_x;
+    let mut menu_y = logical_y - TRAY_MENU_HEIGHT - 8.0;
+
+    // Horizontal adjustment: ensure menu doesn't go off right edge
+    if menu_x + TRAY_MENU_WIDTH > screen_width {
+        menu_x = screen_width - TRAY_MENU_WIDTH - 8.0;
+    }
+    // Ensure menu doesn't go off left edge
+    if menu_x < 0.0 {
+        menu_x = 8.0;
+    }
+
+    // Vertical adjustment: ensure menu doesn't go off top edge
+    if menu_y < 0.0 {
+        // If it doesn't fit above, place it below the cursor
+        menu_y = logical_y + 8.0;
+    }
+    // Ensure menu doesn't go off bottom edge
+    if menu_y + TRAY_MENU_HEIGHT > screen_height {
+        menu_y = screen_height - TRAY_MENU_HEIGHT - 8.0;
+    }
 
     let window = WebviewWindowBuilder::new(
         app,
@@ -71,7 +112,7 @@ fn show_tray_menu_window(app: &tauri::AppHandle, x: f64, y: f64) {
     )
     .title("")
     .inner_size(TRAY_MENU_WIDTH, TRAY_MENU_HEIGHT)
-    .position(menu_x, menu_y.max(0.0))
+    .position(menu_x, menu_y)
     .resizable(false)
     .decorations(false)
     .transparent(true)
@@ -89,6 +130,20 @@ fn show_tray_menu_window(app: &tauri::AppHandle, x: f64, y: f64) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// 构建并运行 Tauri 应用，初始化数据库、计时服务与事件监听。
 pub fn run() {
+    std::panic::set_hook(Box::new(|info| {
+        let msg = match info.payload().downcast_ref::<&str>() {
+            Some(s) => *s,
+            None => match info.payload().downcast_ref::<String>() {
+                Some(s) => &s[..],
+                None => "Box<Any>",
+            },
+        };
+        let location = info.location().map(|l| l.to_string()).unwrap_or_else(|| "unknown".to_string());
+        let log = format!("Panic occurred at {}: {}", location, msg);
+        eprintln!("{}", log);
+        let _ = std::fs::write("panic.log", log);
+    }));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(
@@ -184,6 +239,9 @@ pub fn run() {
                 let app = app_handle.clone();
                 let db = db_clone.clone();
                 tauri::async_runtime::spawn(async move {
+                    // Small delay to ensure tray menu is closed and resources are freed
+                    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
                     // Load settings to check reminder mode
                     let settings = match db.lock().await.load_settings().await {
                         Ok(s) => s,
@@ -308,6 +366,7 @@ pub fn show_break_reminder_window(
     app: &tauri::AppHandle,
     is_fullscreen: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    println!("show_break_reminder_window: called, fullscreen={}", is_fullscreen);
     // If any reminder windows already exist, bring them to front
     let existing: Vec<_> = app
         .webview_windows()

@@ -5,7 +5,7 @@ use crate::services::{DatabaseService, TimerService};
 use crate::utils::AppError;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 /// Command 层共享的应用状态，封装计时服务与数据库服务句柄。
 pub struct AppState {
@@ -119,14 +119,22 @@ pub fn resume_timer(state: State<'_, AppState>) -> Result<(), String> {
 
 /// Skip current phase
 #[tauri::command]
-pub async fn skip_phase(state: State<'_, AppState>) -> Result<(), String> {
-    let session = state.timer_service.skip().map_err(|e| e.to_string())?;
+pub async fn skip_phase(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    let (session, should_show_reminder) = match state.timer_service.skip().map_err(|e| e.to_string())? {
+        Some(v) => v,
+        None => return Ok(()),
+    };
 
     // Save session to database
     let db = state.database_service.lock().await;
     db.save_or_update_session(&session)
         .await
         .map_err(|e| e.to_string())?;
+
+    // Trigger break reminder after the command completes
+    if should_show_reminder {
+        let _ = app.emit("show-break-reminder", ());
+    }
 
     Ok(())
 }
@@ -269,49 +277,37 @@ pub fn show_main_window(app: AppHandle) -> Result<(), String> {
 
 /// Handle tray menu actions from custom menu window
 #[tauri::command]
-pub async fn tray_menu_action(action: String, app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn tray_menu_action(
+    action: String,
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     match action.as_str() {
         "skip" => {
-            let timer = state.timer_service.clone();
-            let db = state.database_service.clone();
-            let result = tauri::async_runtime::spawn_blocking(move || timer.skip()).await;
+            if let Some((session, should_show_reminder)) =
+                state.timer_service.skip().map_err(|e| e.to_string())?
+            {
+                let db_guard = state.database_service.lock().await;
+                let _ = db_guard.save_or_update_session(&session).await;
+                drop(db_guard);
 
-            match result {
-                Ok(Ok(session)) => {
-                    let db_guard = db.lock().await;
-                    let _ = db_guard.save_or_update_session(&session).await;
-                }
-                Ok(Err(e)) => {
-                    eprintln!("Failed to skip phase from tray: {}", e);
-                }
-                Err(e) => {
-                    eprintln!("Failed to spawn skip task: {}", e);
+                // Trigger break reminder after completing the skip operation
+                if should_show_reminder {
+                    let _ = app.emit("show-break-reminder", ());
                 }
             }
         }
         "no_break_1h" => {
-            let timer = state.timer_service.clone();
-            tauri::async_runtime::spawn_blocking(move || {
-                timer.suppress_breaks_for_hours(1);
-            }).await.map_err(|e| e.to_string())?;
+            state.timer_service.suppress_breaks_for_hours(1);
         }
         "no_break_2h" => {
-            let timer = state.timer_service.clone();
-            tauri::async_runtime::spawn_blocking(move || {
-                timer.suppress_breaks_for_hours(2);
-            }).await.map_err(|e| e.to_string())?;
+            state.timer_service.suppress_breaks_for_hours(2);
         }
         "no_break_5h" => {
-            let timer = state.timer_service.clone();
-            tauri::async_runtime::spawn_blocking(move || {
-                timer.suppress_breaks_for_hours(5);
-            }).await.map_err(|e| e.to_string())?;
+            state.timer_service.suppress_breaks_for_hours(5);
         }
         "no_break_tomorrow" => {
-            let timer = state.timer_service.clone();
-            tauri::async_runtime::spawn_blocking(move || {
-                timer.suppress_breaks_until_tomorrow_morning();
-            }).await.map_err(|e| e.to_string())?;
+            state.timer_service.suppress_breaks_until_tomorrow_morning();
         }
         "settings" => {
             if let Some(win) = app.get_webview_window("main") {
