@@ -23,7 +23,11 @@ interface AppStore {
   appVersion: string | null;
   setAppVersion: (version: string) => void;
   updateManifest: UpdateManifest | null;
+  isUpdating: boolean;
+  updateError: string | null;
   setUpdateManifest: (manifest: UpdateManifest | null) => void;
+  setUpdating: (updating: boolean) => void;
+  setUpdateError: (message: string | null) => void;
 
   // Timer
   timerInfo: TimerInfo;
@@ -52,7 +56,12 @@ export const useAppStore = create<AppStore>((set) => ({
   appVersion: null,
   setAppVersion: (version) => set(() => ({ appVersion: version })),
   updateManifest: null,
-  setUpdateManifest: (manifest) => set(() => ({ updateManifest: manifest })),
+  isUpdating: false,
+  updateError: null,
+  setUpdateManifest: (manifest) =>
+    set(() => ({ updateManifest: manifest, updateError: null, isUpdating: false })),
+  setUpdating: (updating) => set(() => ({ isUpdating: updating })),
+  setUpdateError: (message) => set(() => ({ updateError: message })),
 
   // Timer
   timerInfo: {

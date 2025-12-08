@@ -379,6 +379,8 @@ pub fn run() {
             commands::show_main_window,
             commands::tray_menu_action,
             commands::get_rest_music_files,
+            commands::check_for_updates,
+            commands::download_and_install_update,
             update_tray_icon_theme,
         ])
         .run(tauri::generate_context!())

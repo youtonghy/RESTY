@@ -12,7 +12,7 @@ import { Settings } from './pages/Settings';
 import { Analytics } from './pages/Analytics';
 import { DailyReport } from './pages/DailyReport';
 import { useAppStore } from './store';
-import type { Settings as AppSettings, UpdateManifest } from './types';
+import type { Settings as AppSettings } from './types';
 import * as api from './utils/api';
 import { changeLanguage, normalizeLanguage } from './i18n';
 import { isNewerVersion } from './utils/version';
@@ -275,15 +275,7 @@ function App() {
         const currentVersion = await getVersion();
         setAppVersion(currentVersion);
 
-        const response = await fetch(
-          'https://raw.githubusercontent.com/youtonghy/RESTY/refs/heads/main/latest.json',
-          { cache: 'no-store' }
-        );
-        if (!response.ok) {
-          return;
-        }
-
-        const manifest = (await response.json()) as UpdateManifest;
+        const manifest = await api.checkForUpdates();
         if (manifest?.version && isNewerVersion(manifest.version, currentVersion)) {
           setUpdateManifest(manifest);
         } else {

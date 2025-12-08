@@ -210,6 +210,9 @@
     "available": "New version {{version}} available",
     "current": "Current version: {{version}}",
     "view": "Open website",
-    "dismiss": "Dismiss"
+    "install": "Update now",
+    "installing": "Updating…",
+    "dismiss": "Dismiss",
+    "failed": "Update failed. Please try again."
   }
 }

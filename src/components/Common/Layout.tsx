@@ -4,6 +4,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { useAppStore } from '../../store';
 import { Navigation } from './Navigation';
 import { useTheme } from './ThemeProvider';
+import { downloadAndInstall } from '../../utils/api';
 import iconLight from '../../../src-tauri/icons/128x128.png';
 import iconDark from '../../../src-tauri/icons/128x128Night.png';
 import { WindowControls } from './WindowControls';
@@ -19,7 +20,15 @@ interface LayoutProps {
  */
 export function Layout({ children, showNavigation = true }: LayoutProps) {
   const { t } = useTranslation();
-  const { updateManifest, appVersion, setUpdateManifest } = useAppStore();
+  const {
+    updateManifest,
+    appVersion,
+    isUpdating,
+    updateError,
+    setUpdateManifest,
+    setUpdating,
+    setUpdateError,
+  } = useAppStore();
   const { effectiveTheme } = useTheme();
 
   const handleOpenWebsite = useCallback(async () => {
@@ -39,6 +48,26 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
   const handleDismiss = useCallback(() => {
     setUpdateManifest(null);
   }, [setUpdateManifest]);
+
+  const handleInstall = useCallback(async () => {
+    if (!updateManifest) return;
+
+    if (!updateManifest.downloadUrl) {
+      await handleOpenWebsite();
+      return;
+    }
+
+    setUpdateError(null);
+    setUpdating(true);
+    try {
+      await downloadAndInstall(updateManifest.downloadUrl);
+    } catch (error) {
+      console.error('Failed to install update:', error);
+      setUpdateError(t('updates.failed'));
+    } finally {
+      setUpdating(false);
+    }
+  }, [handleOpenWebsite, setUpdateError, setUpdating, t, updateManifest]);
 
   return (
     <div className="layout">
@@ -71,6 +100,14 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
             )}
           </div>
           <div className="update-banner__actions">
+            <button
+              type="button"
+              className="update-banner__button"
+              onClick={handleInstall}
+              disabled={isUpdating}
+            >
+              {isUpdating ? t('updates.installing') : t('updates.install')}
+            </button>
             <button type="button" className="update-banner__button" onClick={handleOpenWebsite}>
               {t('updates.view')}
             </button>
@@ -82,6 +119,7 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
               {t('updates.dismiss')}
             </button>
           </div>
+          {updateError && <div className="update-banner__error">{updateError}</div>}
         </div>
       )}
       <div className="layout-content">

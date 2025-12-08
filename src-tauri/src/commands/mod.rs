@@ -1,7 +1,7 @@
 use crate::models::{
     AnalyticsData, AnalyticsQuery, MonitorInfo, Settings, SystemStatus, TimerInfo,
 };
-use crate::services::{DatabaseService, TimerService};
+use crate::services::{updater::UpdateManifest, DatabaseService, TimerService};
 use crate::utils::AppError;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -13,6 +13,27 @@ pub struct AppState {
     pub timer_service: Arc<TimerService>,
     pub database_service: Arc<tokio::sync::Mutex<DatabaseService>>,
     pub last_auto_close: Arc<std::sync::Mutex<Option<Instant>>>,
+}
+
+/// Fetch latest release metadata from GitHub.
+#[tauri::command]
+pub async fn check_for_updates() -> Result<Option<UpdateManifest>, String> {
+    crate::services::updater::fetch_latest_release()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Download the installer and trigger a silent install when available.
+#[tauri::command]
+pub async fn download_and_install_update(
+    app: AppHandle,
+    url: Option<String>,
+) -> Result<(), String> {
+    let download_url = url.ok_or_else(|| "Missing download URL".to_string())?;
+    crate::services::updater::download_and_install(&app, &download_url)
+        .await
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 /// Load application settings

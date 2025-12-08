@@ -56,12 +56,13 @@ export interface Settings {
  * Remote manifest metadata used for update checks.
  */
 export interface UpdateManifest {
-  name: string;
+  name?: string;
   version: string;
-  author: string;
-  website: string;
+  author?: string;
+  website?: string;
   downloadUrl?: string;
   notes?: string;
+  assetName?: string;
 }
 
 /**

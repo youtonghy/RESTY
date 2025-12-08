@@ -238,6 +238,9 @@
     "available": "偵測到新版本 {{version}}",
     "current": "目前版本：{{version}}",
     "view": "前往官網",
-    "dismiss": "稍後提醒"
+    "install": "一鍵更新",
+    "installing": "正在更新…",
+    "dismiss": "稍後提醒",
+    "failed": "更新失敗，請稍後再試"
   }
 }

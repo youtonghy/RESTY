@@ -8,6 +8,7 @@ import type {
   MonitorInfo,
   SystemStatus,
   Session,
+  UpdateManifest,
 } from '../types';
 
 /**
@@ -187,4 +188,15 @@ export async function onOpenSettings(callback: () => void) {
 /** 订阅会话写入/更新事件（用于统计页面实时刷新）。 */
 export async function onSessionUpserted(callback: (session: Session) => void) {
   return await listen<Session>('session-upserted', (event) => callback(event.payload));
+}
+
+// Update commands
+/** 获取最新发布的元数据。 */
+export async function checkForUpdates(): Promise<UpdateManifest | null> {
+  return await invoke<UpdateManifest | null>('check_for_updates');
+}
+
+/** 下载并触发静默安装更新。 */
+export async function downloadAndInstall(url: string): Promise<void> {
+  return await invoke('download_and_install_update', { url });
 }
