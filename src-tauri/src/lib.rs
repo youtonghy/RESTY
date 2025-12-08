@@ -10,12 +10,14 @@ use services::{DatabaseService, TimerService};
 use std::sync::Arc;
 use tauri::image::Image;
 use tauri::tray::{TrayIcon, TrayIconBuilder};
-use tauri::{Listener, Manager, Theme, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Emitter, Listener, Manager, Theme, WebviewUrl, WebviewWindowBuilder};
 
 const TRAY_ICON_LIGHT: &[u8] = include_bytes!("../icons/128x128.png");
 const TRAY_ICON_DARK: &[u8] = include_bytes!("../icons/128x128Night.png");
 const MAIN_TRAY_ID: &str = "resty-main-tray";
+#[cfg(target_os = "windows")]
 const TRAY_MENU_WIDTH: f64 = 240.0;
+#[cfg(target_os = "windows")]
 const TRAY_MENU_HEIGHT: f64 = 192.0;
 
 fn load_tray_image(bytes: &[u8]) -> Option<Image<'static>> {
@@ -52,7 +54,50 @@ fn resolve_tray_theme(preference: &SettingsTheme) -> Theme {
     }
 }
 
+/// Shared handler for tray actions used by both native menus and the custom window.
+pub(crate) async fn handle_tray_action(
+    action: &str,
+    app: tauri::AppHandle,
+    state: AppState,
+) -> Result<(), String> {
+    match action {
+        "skip" => {
+            if let Some((session, should_show_reminder)) =
+                state.timer_service.skip().map_err(|e| e.to_string())?
+            {
+                let db_guard = state.database_service.lock().await;
+                let _ = db_guard.save_or_update_session(&session).await;
+                drop(db_guard);
+
+                if should_show_reminder {
+                    let _ = app.emit("show-break-reminder", ());
+                }
+            }
+        }
+        "no_break_1h" => state.timer_service.suppress_breaks_for_hours(1),
+        "no_break_2h" => state.timer_service.suppress_breaks_for_hours(2),
+        "no_break_5h" => state.timer_service.suppress_breaks_for_hours(5),
+        "no_break_tomorrow" => state.timer_service.suppress_breaks_until_tomorrow_morning(),
+        "settings" => {
+            if let Some(win) = app.get_webview_window("main") {
+                let _ = win.set_skip_taskbar(false);
+                let _ = win.show();
+                let _ = win.set_focus();
+                let _ = win.unminimize();
+            }
+            let _ = app.emit("open-settings", ());
+        }
+        "quit" => {
+            std::process::exit(0);
+        }
+        _ => {}
+    }
+
+    Ok(())
+}
+
 /// Show custom tray menu window at the specified position
+#[cfg(target_os = "windows")]
 fn show_tray_menu_window(app: &tauri::AppHandle, x: f64, y: f64) {
     let window = app.get_webview_window("tray-menu");
 
@@ -123,9 +168,9 @@ fn show_tray_menu_window(app: &tauri::AppHandle, x: f64, y: f64) {
         .always_on_top(true)
         .skip_taskbar(true)
         .focused(true)
-        .visible(true);
+            .visible(true);
 
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(target_os = "windows")]
         {
             window_builder = window_builder.transparent(true);
         }
@@ -295,9 +340,81 @@ pub fn run() {
                 });
             });
 
-            // Create system tray (without native menu - using custom menu window)
+            // Create system tray
+            #[cfg(not(target_os = "windows"))]
             {
-                // Build tray icon without menu
+                use tauri::menu::{MenuBuilder, MenuItemBuilder};
+                use tauri::tray::TrayIconEvent;
+
+                let menu = MenuBuilder::new(app)
+                    .item(
+                        &MenuItemBuilder::with_id("skip", "跳到下一次休息/工作").build(app)?,
+                    )
+                    .item(
+                        &MenuItemBuilder::with_id("no_break_1h", "1 小时不休息").build(app)?,
+                    )
+                    .item(
+                        &MenuItemBuilder::with_id("no_break_2h", "2 小时不休息").build(app)?,
+                    )
+                    .item(
+                        &MenuItemBuilder::with_id("no_break_5h", "5 小时不休息").build(app)?,
+                    )
+                    .item(
+                        &MenuItemBuilder::with_id("no_break_tomorrow", "直到明天早晨")
+                            .build(app)?,
+                    )
+                    .separator()
+                    .item(&MenuItemBuilder::with_id("settings", "设置").build(app)?)
+                    .item(&MenuItemBuilder::with_id("quit", "关闭").build(app)?)
+                    .build()?;
+
+                let mut tray_builder = TrayIconBuilder::with_id(MAIN_TRAY_ID)
+                    .menu(&menu)
+                    .on_menu_event(|app, event| {
+                        let app = app.clone();
+                        let action = event.id().as_ref().to_string();
+                        let state = app.state::<AppState>();
+                        let cloned_state = AppState {
+                            timer_service: state.timer_service.clone(),
+                            database_service: state.database_service.clone(),
+                            last_auto_close: state.last_auto_close.clone(),
+                        };
+
+                        tauri::async_runtime::spawn(async move {
+                            let _ = handle_tray_action(&action, app, cloned_state).await;
+                        });
+                    })
+                    .on_tray_icon_event(|tray, event| match event {
+                        TrayIconEvent::Click {
+                            button: tauri::tray::MouseButton::Left,
+                            button_state: tauri::tray::MouseButtonState::Up,
+                            ..
+                        } => {
+                            if let Some(win) = tray.app_handle().get_webview_window("main") {
+                                let _ = win.set_skip_taskbar(false);
+                                let _ = win.show();
+                                let _ = win.unminimize();
+                                let _ = win.set_focus();
+                            }
+                        }
+                        _ => {}
+                    })
+                    .tooltip("RESTY");
+
+                if let Some(icon) =
+                    load_tray_image(TRAY_ICON_LIGHT).or_else(|| app.default_window_icon().cloned())
+                {
+                    tray_builder = tray_builder.icon(icon);
+                }
+
+                let tray_icon = tray_builder.build(app)?;
+                let initial_tray_theme = resolve_tray_theme(&initial_settings.theme);
+                apply_tray_theme_icon(&tray_icon, initial_tray_theme);
+            }
+
+            #[cfg(target_os = "windows")]
+            {
+                // Build tray icon without menu, use custom window
                 let mut tray_builder = TrayIconBuilder::with_id(MAIN_TRAY_ID)
                     .show_menu_on_left_click(false)
                     .on_tray_icon_event(|tray, event| match event {

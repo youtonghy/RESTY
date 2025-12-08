@@ -2,6 +2,7 @@ use crate::models::{
     AnalyticsData, AnalyticsQuery, MonitorInfo, Settings, SystemStatus, TimerInfo,
 };
 use crate::services::{updater::UpdateManifest, DatabaseService, TimerService};
+use crate::handle_tray_action;
 use crate::utils::AppError;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -305,48 +306,12 @@ pub async fn tray_menu_action(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    match action.as_str() {
-        "skip" => {
-            if let Some((session, should_show_reminder)) =
-                state.timer_service.skip().map_err(|e| e.to_string())?
-            {
-                let db_guard = state.database_service.lock().await;
-                let _ = db_guard.save_or_update_session(&session).await;
-                drop(db_guard);
-
-                // Trigger break reminder after completing the skip operation
-                if should_show_reminder {
-                    let _ = app.emit("show-break-reminder", ());
-                }
-            }
-        }
-        "no_break_1h" => {
-            state.timer_service.suppress_breaks_for_hours(1);
-        }
-        "no_break_2h" => {
-            state.timer_service.suppress_breaks_for_hours(2);
-        }
-        "no_break_5h" => {
-            state.timer_service.suppress_breaks_for_hours(5);
-        }
-        "no_break_tomorrow" => {
-            state.timer_service.suppress_breaks_until_tomorrow_morning();
-        }
-        "settings" => {
-            if let Some(win) = app.get_webview_window("main") {
-                let _ = win.set_skip_taskbar(false);
-                let _ = win.show();
-                let _ = win.set_focus();
-                let _ = win.unminimize();
-            }
-            let _ = app.emit("open-settings", ());
-        }
-        "quit" => {
-            std::process::exit(0);
-        }
-        _ => {}
-    }
-    Ok(())
+    let cloned_state = AppState {
+        timer_service: state.timer_service.clone(),
+        database_service: state.database_service.clone(),
+        last_auto_close: state.last_auto_close.clone(),
+    };
+    handle_tray_action(action.as_str(), app, cloned_state).await
 }
 
 /// 校验设置合法性，防止写入异常值。
