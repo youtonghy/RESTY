@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as api from '../utils/api';
 import type { AnalyticsQuery, Session } from '../types';
@@ -20,8 +20,6 @@ interface ReportCardData extends DailyStats {
   title: string;
   message: string;
 }
-
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 export function DailyReport() {
   const { t, i18n } = useTranslation();
