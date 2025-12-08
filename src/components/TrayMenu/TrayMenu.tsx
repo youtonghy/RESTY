@@ -62,6 +62,9 @@ export function TrayMenu({ onClose }: TrayMenuProps) {
 
   // Close menu when clicking outside or pressing Escape
   useEffect(() => {
+    // Ensure window has focus so blur events trigger correctly
+    getCurrentWindow().setFocus().catch(console.error);
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         void closeMenu();
@@ -70,17 +73,26 @@ export function TrayMenu({ onClose }: TrayMenuProps) {
 
     const handleBlur = () => {
       // Small delay to allow click events to process first
+      // Reduced to 50ms for snappier response
       setTimeout(() => {
         void closeMenu();
-      }, 100);
+      }, 50);
     };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('blur', handleBlur);
 
+    // Polling check for focus - reliable fallback for Linux
+    const focusCheckInterval = setInterval(() => {
+      if (!document.hasFocus()) {
+        void closeMenu();
+      }
+    }, 150);
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('blur', handleBlur);
+      clearInterval(focusCheckInterval);
     };
   }, [closeMenu]);
 

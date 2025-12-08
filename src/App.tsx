@@ -10,6 +10,7 @@ import { Layout } from './components/Common/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Settings } from './pages/Settings';
 import { Analytics } from './pages/Analytics';
+import { DailyReport } from './pages/DailyReport';
 import { useAppStore } from './store';
 import type { Settings as AppSettings, UpdateManifest } from './types';
 import * as api from './utils/api';
@@ -309,6 +310,7 @@ function App() {
           <Layout>
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/daily-report" element={<DailyReport />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="*" element={<Navigate to="/" replace />} />

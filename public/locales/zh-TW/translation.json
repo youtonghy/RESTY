@@ -6,8 +6,36 @@
   "navigation": {
     "primary": "主導航",
     "dashboard": "儀表板",
+    "dailyReport": "每日報告",
     "analytics": "統計",
     "settings": "設定"
+  },
+  "dailyReport": {
+    "title": "每日報告",
+    "empty": "暫無報告資料",
+    "templates": {
+      "excellent": {
+        "title": "完美的一天",
+        "message": "您今天的作息非常規律，完美地平衡了工作與休息。繼續保持這種健康的節奏！"
+      },
+      "good": {
+        "title": "不錯的節奏",
+        "message": "今天的表現不錯，大部分時間都注意了休息。還可以做得更好！"
+      },
+      "fair": {
+        "title": "需要注意",
+        "message": "雖然有休息，但工作強度似乎有點大。嘗試增加一些短暫的休息時間。"
+      },
+      "poor": {
+        "title": "過度勞累預警",
+        "message": "您今天的工作時間很長，且很少休息。為了眼睛健康，請務必多休息！"
+      }
+    },
+    "metrics": {
+      "workDuration": "工作時長",
+      "restDuration": "休息時長",
+      "completionRate": "休息完成度"
+    }
   },
   "settings": {
     "title": "設定",

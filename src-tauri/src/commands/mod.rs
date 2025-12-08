@@ -5,12 +5,14 @@ use crate::services::{DatabaseService, TimerService};
 use crate::utils::AppError;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 /// Command 层共享的应用状态，封装计时服务与数据库服务句柄。
 pub struct AppState {
     pub timer_service: Arc<TimerService>,
     pub database_service: Arc<tokio::sync::Mutex<DatabaseService>>,
+    pub last_auto_close: Arc<std::sync::Mutex<Option<Instant>>>,
 }
 
 /// Load application settings

@@ -54,11 +54,7 @@ fn resolve_tray_theme(preference: &SettingsTheme) -> Theme {
 
 /// Show custom tray menu window at the specified position
 fn show_tray_menu_window(app: &tauri::AppHandle, x: f64, y: f64) {
-    // Close existing menu window if any
-    if let Some(existing) = app.get_webview_window("tray-menu") {
-        let _ = existing.close();
-        return; // Toggle behavior: if menu was open, just close it
-    }
+    let window = app.get_webview_window("tray-menu");
 
     // Get screen dimensions and scale factor
     let (screen_width, screen_height, scale_factor) = app
@@ -81,49 +77,62 @@ fn show_tray_menu_window(app: &tauri::AppHandle, x: f64, y: f64) {
     let logical_y = y / scale_factor;
 
     // Smart position calculation (in Logical space):
-    // User requested "top-right" of the click.
-    // We interpret this as "above the cursor" and aligned to the right (starting at x).
     let mut menu_x = logical_x;
     let mut menu_y = logical_y - TRAY_MENU_HEIGHT - 8.0;
 
-    // Horizontal adjustment: ensure menu doesn't go off right edge
+    // Horizontal adjustment
     if menu_x + TRAY_MENU_WIDTH > screen_width {
         menu_x = screen_width - TRAY_MENU_WIDTH - 8.0;
     }
-    // Ensure menu doesn't go off left edge
     if menu_x < 0.0 {
         menu_x = 8.0;
     }
 
-    // Vertical adjustment: ensure menu doesn't go off top edge
+    // Vertical adjustment
     if menu_y < 0.0 {
-        // If it doesn't fit above, place it below the cursor
         menu_y = logical_y + 8.0;
     }
-    // Ensure menu doesn't go off bottom edge
     if menu_y + TRAY_MENU_HEIGHT > screen_height {
         menu_y = screen_height - TRAY_MENU_HEIGHT - 8.0;
     }
 
-    let window = WebviewWindowBuilder::new(
-        app,
-        "tray-menu",
-        WebviewUrl::App("index.html#tray-menu".into()),
-    )
-    .title("")
-    .inner_size(TRAY_MENU_WIDTH, TRAY_MENU_HEIGHT)
-    .position(menu_x, menu_y)
-    .resizable(false)
-    .decorations(false)
-    .transparent(true)
-    .always_on_top(true)
-    .skip_taskbar(true)
-    .focused(true)
-    .visible(true)
-    .build();
+    let position = tauri::Position::Logical(tauri::LogicalPosition {
+        x: menu_x,
+        y: menu_y,
+    });
 
-    if let Err(e) = window {
-        eprintln!("Failed to create tray menu window: {}", e);
+    if let Some(w) = window {
+        if w.is_visible().unwrap_or(false) {
+            let _ = w.hide();
+        } else {
+            let _ = w.set_position(position);
+            let _ = w.show();
+            let _ = w.set_focus();
+        }
+    } else {
+        let window = WebviewWindowBuilder::new(
+            app,
+            "tray-menu",
+            WebviewUrl::App("index.html#tray-menu".into()),
+        )
+        .title("")
+        .inner_size(TRAY_MENU_WIDTH, TRAY_MENU_HEIGHT)
+        .position(menu_x, menu_y)
+        .resizable(false)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .focused(true)
+        .visible(true)
+        .build();
+
+        match window {
+            Ok(w) => {
+                let _ = w.set_focus();
+            }
+            Err(e) => eprintln!("Failed to create tray menu window: {}", e),
+        }
     }
 }
 
@@ -150,16 +159,32 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--autostart".into()]),
         ))
-        // Intercept main window close to minimize instead of exiting
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                // Only affect the main window
-                if window.label() == "main" {
-                    api.prevent_close();
-                    // Hide window and keep app running in tray
-                    let _ = window.hide();
-                    let _ = window.set_skip_taskbar(true);
+        .on_window_event(move |window, event| {
+            match event {
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    // Only affect the main window
+                    if window.label() == "main" {
+                        api.prevent_close();
+                        // Hide window and keep app running in tray
+                        let _ = window.hide();
+                        let _ = window.set_skip_taskbar(true);
+                    }
                 }
+                tauri::WindowEvent::Focused(focused) => {
+                    // Hide tray menu when it loses focus
+                    if !focused && window.label() == "tray-menu" {
+                        let _ = window.hide();
+                        // Record close time to prevent immediate reopen on tray click
+                        {
+                            let state = window.state::<AppState>();
+                            let last_auto_close = state.last_auto_close.clone();
+                            if let Ok(mut last) = last_auto_close.lock() {
+                                *last = Some(std::time::Instant::now());
+                            };
+                        }
+                    }
+                }
+                _ => {}
             }
         })
         .setup(|app| {
@@ -208,9 +233,12 @@ pub fn run() {
 
             // Set up application state
             let db_clone_for_state = Arc::clone(&db_service);
+            let last_auto_close = Arc::new(std::sync::Mutex::new(None));
+
             app.manage(AppState {
                 timer_service,
                 database_service: db_clone_for_state,
+                last_auto_close,
             });
 
             // Determine if this is a silent autostart launch
@@ -294,8 +322,21 @@ pub fn run() {
                                     }
                                 }
                                 tauri::tray::MouseButton::Right => {
-                                    // Show custom tray menu window
-                                    show_tray_menu_window(app, position.x, position.y);
+                                    // Check if we just closed the menu (debounce)
+                                    let state = app.state::<AppState>();
+                                    let should_open = if let Ok(last) = state.last_auto_close.lock() {
+                                        if let Some(time) = *last {
+                                            time.elapsed().as_millis() > 200
+                                        } else {
+                                            true
+                                        }
+                                    } else {
+                                        true
+                                    };
+
+                                    if should_open {
+                                        show_tray_menu_window(app, position.x, position.y);
+                                    }
                                 }
                                 _ => {}
                             }

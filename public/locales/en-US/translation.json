@@ -6,8 +6,36 @@
   "navigation": {
     "primary": "Primary navigation",
     "dashboard": "Dashboard",
+    "dailyReport": "Daily Report",
     "analytics": "Analytics",
     "settings": "Settings"
+  },
+  "dailyReport": {
+    "title": "Daily Report",
+    "empty": "No report data available",
+    "templates": {
+      "excellent": {
+        "title": "Perfect Day",
+        "message": "You had a very regular schedule today, balancing work and rest perfectly. Keep it up!"
+      },
+      "good": {
+        "title": "Good Rhythm",
+        "message": "Great performance today, you took breaks most of the time. There is still room for improvement!"
+      },
+      "fair": {
+        "title": "Needs Attention",
+        "message": "Although you took breaks, the work intensity seems high. Try adding some short breaks."
+      },
+      "poor": {
+        "title": "Overwork Warning",
+        "message": "You worked for long hours today with very few breaks. Please rest more for your eye health!"
+      }
+    },
+    "metrics": {
+      "workDuration": "Work Duration",
+      "restDuration": "Rest Duration",
+      "completionRate": "Completion Rate"
+    }
   },
   "settings": {
     "title": "Settings",
