@@ -110,7 +110,7 @@ fn show_tray_menu_window(app: &tauri::AppHandle, x: f64, y: f64) {
             let _ = w.set_focus();
         }
     } else {
-        let window = WebviewWindowBuilder::new(
+        let mut window_builder = WebviewWindowBuilder::new(
             app,
             "tray-menu",
             WebviewUrl::App("index.html#tray-menu".into()),
@@ -120,12 +120,17 @@ fn show_tray_menu_window(app: &tauri::AppHandle, x: f64, y: f64) {
         .position(menu_x, menu_y)
         .resizable(false)
         .decorations(false)
-        .transparent(true)
         .always_on_top(true)
         .skip_taskbar(true)
         .focused(true)
-        .visible(true)
-        .build();
+        .visible(true);
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            window_builder = window_builder.transparent(true);
+        }
+
+        let window = window_builder.build();
 
         match window {
             Ok(w) => {
