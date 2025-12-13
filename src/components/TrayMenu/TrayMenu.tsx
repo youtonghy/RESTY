@@ -17,6 +17,7 @@ export function TrayMenu({ onClose }: TrayMenuProps) {
   const [menuLevel, setMenuLevel] = useState<'main' | 'no_break'>('main');
 
   const closeMenu = useCallback(async () => {
+    setMenuLevel('main');
     onClose?.();
     try {
       await getCurrentWindow().hide();
