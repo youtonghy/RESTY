@@ -66,9 +66,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'App v__VERSION__'
+          # When running on a tag push, use that tag; when manually dispatched, create a version tag.
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
+          releaseName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
           releaseBody: ${{ steps.git-cliff.outputs.content || 'See the assets to download this version and install.' }}
           releaseDraft: true
           prerelease: false
+          releaseCommitish: ${{ github.sha }}
           args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin' || '' }}
