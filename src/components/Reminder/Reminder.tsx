@@ -14,6 +14,7 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
   const { timerInfo, settings } = useAppStore();
   const { effectiveTheme } = useTheme();
   const [optimisticSeconds, setOptimisticSeconds] = useState<number | null>(null);
+  const [optimisticTargetTotal, setOptimisticTargetTotal] = useState<number | null>(null);
   const [isReady, setIsReady] = useState(false);
   const safeRemainingSeconds = Math.max(0, timerInfo.remainingSeconds);
   const isBreak = timerInfo.phase === 'break';
@@ -56,6 +57,7 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
   const handleSkip = async () => {
     if (canSkip) {
       setOptimisticSeconds(null);
+      setOptimisticTargetTotal(null);
       await api.skipPhase();
       await api.closeReminderWindow();
     }
@@ -67,25 +69,38 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
       const base = prev ?? safeRemainingSeconds;
       return base + 300;
     });
+    setOptimisticTargetTotal((prev) => {
+      const base = prev ?? timerInfo.totalSeconds;
+      return base + 300;
+    });
     try {
       await api.extendPhase();
     } catch (err) {
       // Revert optimistic update on failure
       setOptimisticSeconds(null);
+      setOptimisticTargetTotal(null);
       console.error('Failed to extend phase:', err);
     }
   };
 
   // Reconcile optimistic state when real timer info catches up
   useEffect(() => {
-    if (optimisticSeconds != null && safeRemainingSeconds >= optimisticSeconds) {
-      setOptimisticSeconds(null);
+    const shouldClearByTotal =
+      optimisticTargetTotal != null && timerInfo.totalSeconds >= optimisticTargetTotal;
+    const shouldClearByRemaining =
+      optimisticSeconds != null && safeRemainingSeconds >= optimisticSeconds - 2;
+
+    if (timerInfo.phase !== 'break' || shouldClearByTotal || shouldClearByRemaining) {
+      if (optimisticSeconds != null) setOptimisticSeconds(null);
+      if (optimisticTargetTotal != null) setOptimisticTargetTotal(null);
     }
-    // Also clear if phase changes away from break
-    if (timerInfo.phase !== 'break' && optimisticSeconds != null) {
-      setOptimisticSeconds(null);
-    }
-  }, [safeRemainingSeconds, timerInfo.phase, optimisticSeconds]);
+  }, [
+    safeRemainingSeconds,
+    timerInfo.phase,
+    timerInfo.totalSeconds,
+    optimisticSeconds,
+    optimisticTargetTotal,
+  ]);
 
   const skipLabel = t('reminder.actions.skip');
   const extendLabel = t('reminder.actions.extendShort');
