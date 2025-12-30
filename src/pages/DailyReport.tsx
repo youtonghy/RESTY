@@ -13,6 +13,7 @@ interface DailyStats {
   totalBreaks: number;
   completedBreaks: number;
   completionRate: number; // 0-100
+  maxContinuousWork: number; // seconds
 }
 
 interface ReportCardData extends DailyStats {
@@ -20,6 +21,64 @@ interface ReportCardData extends DailyStats {
   title: string;
   message: string;
 }
+
+const MIN_EFFECTIVE_BREAK_SEC = 180;
+const LONG_WORK_THRESHOLD_SEC = 60 * 60;
+const VERY_LONG_WORK_THRESHOLD_SEC = 2 * 60 * 60;
+const REST_RATIO_MIN = 0.05;
+const REST_RATIO_IDEAL = 0.2;
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const getSessionSeconds = (session: Session) => {
+  if (Number.isFinite(session.duration) && session.duration > 0) {
+    return session.duration;
+  }
+  const diff = (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / 1000;
+  return Math.max(0, diff);
+};
+
+const getBreakResetThreshold = (session: Session) =>
+  Math.max(MIN_EFFECTIVE_BREAK_SEC, session.plannedDuration * 0.5);
+
+const calculateMaxContinuousWork = (sessions: Session[]) => {
+  const ordered = [...sessions].sort(
+    (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+  );
+
+  let currentWork = 0;
+  let maxWork = 0;
+  let previousEnd: number | null = null;
+
+  ordered.forEach(session => {
+    const duration = getSessionSeconds(session);
+    const startMs = new Date(session.startTime).getTime();
+    const endMs = new Date(session.endTime).getTime();
+
+    if (previousEnd !== null) {
+      const gapSec = (startMs - previousEnd) / 1000;
+      if (gapSec >= MIN_EFFECTIVE_BREAK_SEC) {
+        currentWork = 0;
+      }
+    }
+
+    if (session.type === 'break') {
+      const resetThreshold = getBreakResetThreshold(session);
+      if (duration >= resetThreshold) {
+        currentWork = 0;
+      }
+    } else {
+      currentWork += duration;
+      if (currentWork > maxWork) {
+        maxWork = currentWork;
+      }
+    }
+
+    previousEnd = endMs;
+  });
+
+  return maxWork;
+};
 
 export function DailyReport() {
   const { t, i18n } = useTranslation();
@@ -37,22 +96,33 @@ export function DailyReport() {
   };
 
   const getTemplate = (stats: DailyStats): { level: ReportLevel; title: string; message: string } => {
-    const { completionRate, workDuration, restDuration } = stats;
-    
-    // Heuristics for report level
-    // Excellent: High completion rate (>80%) OR (Good balance: rest is at least 15% of work)
+    const { completionRate, workDuration, restDuration, maxContinuousWork } = stats;
+
     const restRatio = workDuration > 0 ? restDuration / workDuration : 0;
-    
+    const restRatioScore = clamp(
+      (restRatio - REST_RATIO_MIN) / (REST_RATIO_IDEAL - REST_RATIO_MIN),
+      0,
+      1
+    );
+    const completionScore = clamp(completionRate / 100, 0, 1);
+
+    const longWorkPenalty =
+      maxContinuousWork >= VERY_LONG_WORK_THRESHOLD_SEC
+        ? 0.3
+        : maxContinuousWork >= LONG_WORK_THRESHOLD_SEC
+          ? 0.2
+          : 0;
+
+    const fatigueScore = clamp(restRatioScore * 0.6 + completionScore * 0.4 - longWorkPenalty, 0, 1);
+
     let level: ReportLevel = 'poor';
 
-    if (completionRate >= 80 || (completionRate >= 70 && restRatio >= 0.15)) {
+    if (fatigueScore >= 0.8) {
       level = 'excellent';
-    } else if (completionRate >= 60 || restRatio >= 0.1) {
+    } else if (fatigueScore >= 0.6) {
       level = 'good';
-    } else if (completionRate >= 30) {
+    } else if (fatigueScore >= 0.4) {
       level = 'fair';
-    } else {
-      level = 'poor';
     }
 
     return {
@@ -108,17 +178,19 @@ export function DailyReport() {
           let completedBreaks = 0;
 
           sessions.forEach(s => {
-            const dur = (new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / 1000;
+            const dur = getSessionSeconds(s);
             if (s.type === 'work') {
               workSec += dur;
             } else if (s.type === 'break') {
               totalBreaks++;
+              restSec += dur;
               if (!s.isSkipped) {
-                restSec += dur;
                 completedBreaks++;
               }
             }
           });
+
+          const maxContinuousWork = calculateMaxContinuousWork(sessions);
 
           // If very little activity, skip
           if (workSec < 60 && totalBreaks === 0) continue;
@@ -131,7 +203,8 @@ export function DailyReport() {
             restDuration: restSec,
             totalBreaks,
             completedBreaks,
-            completionRate
+            completionRate,
+            maxContinuousWork
           };
 
           const template = getTemplate(stats);
