@@ -76,6 +76,8 @@ const enforceTrayDefaults = (settings: SettingsType): SettingsType => {
     minimizeToTray: true,
     closeToTray: true,
     silentAutostart: settings.silentAutostart ?? false,
+    reminderFullscreenDisplay:
+      settings.reminderFullscreenDisplay ?? DEFAULT_SETTINGS.reminderFullscreenDisplay,
     segmentedWorkEnabled:
       (settings.segmentedWorkEnabled ?? false) && normalizedSegments.length > 0,
     workSegments: normalizedSegments,
@@ -696,6 +698,31 @@ export function Settings() {
                   <option value="floating">{t('settings.reminder.floating')}</option>
                 </select>
               </div>
+
+              {localSettings.reminderMode === 'fullscreen' && (
+                <div className="form-group">
+                  <label htmlFor="reminderFullscreenDisplay">
+                    {t('settings.reminder.display')}
+                  </label>
+                  <select
+                    id="reminderFullscreenDisplay"
+                    className="input"
+                    value={localSettings.reminderFullscreenDisplay}
+                    onChange={(e) => {
+                      const next = {
+                        ...localSettings,
+                        reminderFullscreenDisplay:
+                          e.target.value as SettingsType['reminderFullscreenDisplay'],
+                      } as SettingsType;
+                      setLocalSettings(next);
+                      saveSettingsAuto(next);
+                    }}
+                  >
+                    <option value="scene">{t('settings.reminder.displayScene')}</option>
+                    <option value="panel">{t('settings.reminder.displayPanel')}</option>
+                  </select>
+                </div>
+              )}
 
               <h3 className="card-subtitle">{t('settings.reminder.restMusic.title')}</h3>
 

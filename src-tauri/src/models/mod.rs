@@ -31,6 +31,10 @@ fn default_segment_repeat() -> u32 {
     1
 }
 
+fn default_reminder_fullscreen_display() -> ReminderFullscreenDisplay {
+    ReminderFullscreenDisplay::Panel
+}
+
 pub fn default_work_segments() -> Vec<WorkSegment> {
     vec![WorkSegment {
         work_minutes: 25,
@@ -67,6 +71,14 @@ pub enum Language {
 pub enum ReminderMode {
     Fullscreen,
     Floating,
+}
+
+/// Fullscreen reminder display style
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ReminderFullscreenDisplay {
+    Scene,
+    Panel,
 }
 
 /// Floating window position
@@ -123,6 +135,8 @@ pub struct Settings {
 
     // Reminder settings
     pub reminder_mode: ReminderMode,
+    #[serde(default = "default_reminder_fullscreen_display")]
+    pub reminder_fullscreen_display: ReminderFullscreenDisplay,
     pub floating_position: FloatingPosition,
     pub opacity: u8, // 0-100
     pub play_sound: bool,
@@ -159,6 +173,7 @@ impl Default for Settings {
             segmented_work_enabled: default_segmented_work_enabled(),
             work_segments: default_work_segments(),
             reminder_mode: ReminderMode::Fullscreen,
+            reminder_fullscreen_display: ReminderFullscreenDisplay::Panel,
             floating_position: FloatingPosition::TopRight,
             opacity: 95,
             play_sound: true,

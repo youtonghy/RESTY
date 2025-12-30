@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import type { CSSProperties, SVGProps } from 'react';
@@ -774,9 +775,29 @@ interface FeatureCardProps {
   progress?: number; // 0..1 (optional) — when provided, card background fills as progress
   className?: string;
   style?: CSSProperties;
+  tabIndex?: number;
+  role?: string;
+  ariaLabel?: string;
+  onClick?: () => void;
+  onKeyDown?: (event: ReactKeyboardEvent<HTMLElement>) => void;
 }
 
-function FeatureCard({ primary, label, icon, iconTone, delay = 0, children, progress, className, style }: FeatureCardProps) {
+function FeatureCard({
+  primary,
+  label,
+  icon,
+  iconTone,
+  delay = 0,
+  children,
+  progress,
+  className,
+  style,
+  tabIndex = 0,
+  role = 'listitem',
+  ariaLabel,
+  onClick,
+  onKeyDown,
+}: FeatureCardProps) {
   const ref = useFadeInOnScroll<HTMLElement>(delay);
   const classes = [
     `tile-card`,
@@ -795,7 +816,16 @@ function FeatureCard({ primary, label, icon, iconTone, delay = 0, children, prog
       : (style as CSSProperties | undefined);
 
   return (
-    <section ref={ref} className={classes} style={computedStyle} tabIndex={0} role="listitem">
+    <section
+      ref={ref}
+      className={classes}
+      style={computedStyle}
+      tabIndex={tabIndex}
+      role={role}
+      aria-label={ariaLabel}
+      onClick={onClick}
+      onKeyDown={onKeyDown}
+    >
       <div className="tile-primary-row">
         {icon && (
           <span
@@ -822,9 +852,20 @@ interface PercentCardProps {
   gradient?: string;
   glow?: string;
   accent?: string;
+  tabIndex?: number;
 }
 
-function PercentCard({ value, label, info, formatted, delay = 0, gradient, glow, accent }: PercentCardProps) {
+function PercentCard({
+  value,
+  label,
+  info,
+  formatted,
+  delay = 0,
+  gradient,
+  glow,
+  accent,
+  tabIndex,
+}: PercentCardProps) {
   const progressStyle =
     gradient || glow || accent
       ? ({
@@ -843,6 +884,7 @@ function PercentCard({ value, label, info, formatted, delay = 0, gradient, glow,
       progress={clamp01(value)}
       delay={delay}
       style={progressStyle}
+      tabIndex={tabIndex}
     />
   );
 }
@@ -851,9 +893,29 @@ interface NextSlotCardProps {
   primary: string;
   secondary: string;
   delay?: number;
+  tabIndex?: number;
+  onActivate?: () => void;
+  actionLabel?: string;
 }
 
-function NextSlotCard({ primary, secondary, delay = 0 }: NextSlotCardProps) {
+function NextSlotCard({
+  primary,
+  secondary,
+  delay = 0,
+  tabIndex,
+  onActivate,
+  actionLabel,
+}: NextSlotCardProps) {
+  const isActionable = typeof onActivate === 'function';
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (!isActionable) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onActivate?.();
+    }
+  };
+  const resolvedTabIndex = isActionable ? 0 : tabIndex;
+
   return (
     <FeatureCard
       primary={primary}
@@ -861,6 +923,12 @@ function NextSlotCard({ primary, secondary, delay = 0 }: NextSlotCardProps) {
       icon={<NextSessionIcon />}
       iconTone="neutral"
       delay={delay}
+      tabIndex={resolvedTabIndex}
+      className={isActionable ? 'tile-card-actionable' : undefined}
+      role={isActionable ? 'button' : undefined}
+      ariaLabel={isActionable ? actionLabel ?? secondary : undefined}
+      onClick={isActionable ? onActivate : undefined}
+      onKeyDown={isActionable ? handleKeyDown : undefined}
     />
   );
 }
@@ -868,13 +936,14 @@ function NextSlotCard({ primary, secondary, delay = 0 }: NextSlotCardProps) {
 interface TipsCardProps {
   tip: string;
   delay?: number;
+  tabIndex?: number;
 }
 
-function TipsCard({ tip, delay = 0 }: TipsCardProps) {
+function TipsCard({ tip, delay = 0, tabIndex = 0 }: TipsCardProps) {
   const ref = useFadeInOnScroll<HTMLElement>(delay);
 
   return (
-    <section ref={ref} className="tile-card tips-card" tabIndex={0} role="listitem">
+    <section ref={ref} className="tile-card tips-card" tabIndex={tabIndex} role="listitem">
       <span className="tips-text">{tip}</span>
     </section>
   );
@@ -885,9 +954,10 @@ interface TipsCardRendererProps {
   language: string;
   isZh: boolean;
   delay?: number;
+  tabIndex?: number;
 }
 
-function TipsCardRenderer({ instance, language, isZh, delay = 0 }: TipsCardRendererProps) {
+function TipsCardRenderer({ instance, language, isZh, delay = 0, tabIndex }: TipsCardRendererProps) {
   const source = instance.settings?.tips?.source ?? 'local';
   const [content, setContent] = useState(() =>
     source === 'hitokoto' ? (isZh ? '加载中…' : 'Loading…') : generateTip(language)
@@ -929,16 +999,17 @@ function TipsCardRenderer({ instance, language, isZh, delay = 0 }: TipsCardRende
     return undefined;
   }, [source, language, isZh]);
 
-  return <TipsCard tip={content} delay={delay} />;
+  return <TipsCard tip={content} delay={delay} tabIndex={tabIndex} />;
 }
 
 interface ProgressCardRendererProps {
   instance: CardInstance;
   scopes: Record<ProgressScope, { value: number; formatted: string; label: string; info?: string }>;
   delay?: number;
+  tabIndex?: number;
 }
 
-function ProgressCardRenderer({ instance, scopes, delay = 0 }: ProgressCardRendererProps) {
+function ProgressCardRenderer({ instance, scopes, delay = 0, tabIndex }: ProgressCardRendererProps) {
   const progressSettings = instance.settings?.progress;
   const scope = progressSettings?.scope ?? 'day';
   const palette: ProgressPalette = progressSettings?.palette === 'warm' ? 'warm' : 'cool';
@@ -957,6 +1028,7 @@ function ProgressCardRenderer({ instance, scopes, delay = 0 }: ProgressCardRende
       gradient={gradientTheme.gradient}
       glow={gradientTheme.glow}
       accent={gradientTheme.accent}
+      tabIndex={tabIndex}
     />
   );
 }
@@ -966,9 +1038,10 @@ interface ClockCardProps {
   date: string;
   timezone: string;
   delay?: number;
+  tabIndex?: number;
 }
 
-function ClockCard({ time, date, timezone, delay = 0 }: ClockCardProps) {
+function ClockCard({ time, date, timezone, delay = 0, tabIndex }: ClockCardProps) {
   return (
     <FeatureCard
       primary={time}
@@ -977,18 +1050,30 @@ function ClockCard({ time, date, timezone, delay = 0 }: ClockCardProps) {
       iconTone="clock"
       delay={delay}
       className="clock-card"
+      tabIndex={tabIndex}
     />
   );
+}
+
+interface DashboardProps {
+  isReadOnly?: boolean;
+  nextCardAction?: {
+    primary?: string;
+    secondary?: string;
+    onActivate?: () => void;
+    actionLabel?: string;
+  };
 }
 
 /**
  * 仪表盘页面：苹果发布会信息卡拼贴风格的番茄工作状态总览。
  */
-export function Dashboard() {
+export function Dashboard({ isReadOnly = false, nextCardAction }: DashboardProps) {
   const { t, i18n } = useTranslation();
   const isZh = i18n.language.startsWith('zh');
   const { timerInfo, setTimerInfo, settings } = useAppStore();
   const [now, setNow] = useState(() => new Date());
+  const cardTabIndex = isReadOnly ? -1 : 0;
 
   const [cardInstances, setCardInstances] = useState<CardInstance[]>(() =>
     loadPersistedCards() ?? migrateLegacyLayout() ?? createInitialInstances()
@@ -1189,6 +1274,9 @@ export function Dashboard() {
     : t('dashboard.next.none', { defaultValue: isZh ? '未计划' : 'No schedule' });
   // Only show the label (e.g., Next break), hide source/relative/timezone
   const nextSecondary = slotTypeLabel;
+  const nextCardPrimary = nextCardAction?.primary ?? nextPrimary;
+  const nextCardSecondary = nextCardAction?.secondary ?? nextSecondary;
+  const nextCardTabIndex = nextCardAction?.onActivate ? 0 : cardTabIndex;
 
   const dayLabel = t('dashboard.progress.day.label', {
     defaultValue: isZh ? '今天进度' : 'Today progress',
@@ -1379,6 +1467,7 @@ export function Dashboard() {
             icon={statusContent.icon}
             iconTone={statusContent.tone}
             delay={delay}
+            tabIndex={cardTabIndex}
           />
         ),
       },
@@ -1386,14 +1475,26 @@ export function Dashboard() {
         minW: CARD_LIMITS.next.minW,
         minH: CARD_LIMITS.next.minH,
         render: (_instance, delay: number) => (
-          <NextSlotCard primary={nextPrimary} secondary={nextSecondary} delay={delay} />
+          <NextSlotCard
+            primary={nextCardPrimary}
+            secondary={nextCardSecondary}
+            delay={delay}
+            tabIndex={nextCardTabIndex}
+            onActivate={nextCardAction?.onActivate}
+            actionLabel={nextCardAction?.actionLabel}
+          />
         ),
       },
       progress: {
         minW: CARD_LIMITS.progress.minW,
         minH: CARD_LIMITS.progress.minH,
         render: (instance, delay: number) => (
-          <ProgressCardRenderer instance={instance} scopes={progressScopeData} delay={delay} />
+          <ProgressCardRenderer
+            instance={instance}
+            scopes={progressScopeData}
+            delay={delay}
+            tabIndex={cardTabIndex}
+          />
         ),
       },
       tips: {
@@ -1405,6 +1506,7 @@ export function Dashboard() {
             language={i18n.language}
             isZh={isZh}
             delay={delay}
+            tabIndex={cardTabIndex}
           />
         ),
       },
@@ -1437,16 +1539,21 @@ export function Dashboard() {
               date={dateString}
               timezone={timeZone}
               delay={delay}
+              tabIndex={cardTabIndex}
             />
           );
         },
       },
     }),
     [
+      cardTabIndex,
       dayInfo,
       i18n.language,
-      nextPrimary,
-      nextSecondary,
+      nextCardAction?.actionLabel,
+      nextCardAction?.onActivate,
+      nextCardPrimary,
+      nextCardSecondary,
+      nextCardTabIndex,
       now,
       progressScopeData,
       statusContent,
@@ -1487,6 +1594,8 @@ export function Dashboard() {
     const resetStyleLabel = isZh ? '恢复默认样式' : 'Use default style';
     const styleModalTitle = isZh ? '自定义卡片样式' : 'Customize card style';
     const styleModalCloseLabel = isZh ? '关闭' : 'Close';
+    const isActionable =
+      isReadOnly && card.type === 'next' && typeof nextCardAction?.onActivate === 'function';
     let renderCustomContent: ((close: () => void) => ReactNode) | undefined;
 
     if (card.type === 'clock') {
@@ -1797,6 +1906,8 @@ export function Dashboard() {
         styleModalTitle={styleModalTitle}
         styleModalCloseLabel={styleModalCloseLabel}
         renderCustomContent={renderCustomContent}
+        isInteractive={!isReadOnly}
+        isActionable={isActionable}
       >
         {config.render(card, delay)}
       </DraggableCard>
@@ -1804,39 +1915,41 @@ export function Dashboard() {
   });
 
   return (
-    <div className="dashboard-page">
+    <div className={`dashboard-page${isReadOnly ? ' is-readonly' : ''}`}>
       <div className="dashboard-content">
-        <div className="dashboard-toolbar">
-          <button
-            ref={addButtonRef}
-            type="button"
-            className="dashboard-add-button"
-            onClick={() => setAddMenuOpen((open) => !open)}
-            aria-haspopup="true"
-            aria-expanded={isAddMenuOpen}
-            aria-label={isZh ? '添加卡片' : 'Add card'}
-          >
-            +
-          </button>
-          {isAddMenuOpen && (
-            <div className="dashboard-add-menu" ref={addMenuRef} role="menu">
-              {CARD_ORDER.map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  className="dashboard-add-menu-item"
-                  onClick={() => {
-                    handleAddCard(type);
-                    setAddMenuOpen(false);
-                  }}
-                  role="menuitem"
-                >
-                  {cardLabels[type]}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {!isReadOnly && (
+          <div className="dashboard-toolbar">
+            <button
+              ref={addButtonRef}
+              type="button"
+              className="dashboard-add-button"
+              onClick={() => setAddMenuOpen((open) => !open)}
+              aria-haspopup="true"
+              aria-expanded={isAddMenuOpen}
+              aria-label={isZh ? '添加卡片' : 'Add card'}
+            >
+              +
+            </button>
+            {isAddMenuOpen && (
+              <div className="dashboard-add-menu" ref={addMenuRef} role="menu">
+                {CARD_ORDER.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    className="dashboard-add-menu-item"
+                    onClick={() => {
+                      handleAddCard(type);
+                      setAddMenuOpen(false);
+                    }}
+                    role="menuitem"
+                  >
+                    {cardLabels[type]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <div className="dashboard-grid" ref={gridRef} role="list" style={gridStyle}>
           {renderedCards}
         </div>
@@ -1863,6 +1976,8 @@ interface DraggableCardProps {
   styleModalTitle: string;
   styleModalCloseLabel: string;
   renderCustomContent?: (close: () => void) => ReactNode;
+  isInteractive?: boolean;
+  isActionable?: boolean;
 }
 
 function DraggableCard({
@@ -1883,6 +1998,8 @@ function DraggableCard({
   renderCustomContent,
   minW,
   minH,
+  isInteractive = true,
+  isActionable = false,
 }: DraggableCardProps) {
   const [mode, setMode] = useState<'idle' | 'dragging' | 'resizing'>('idle');
   const [styleMenuOpen, setStyleMenuOpen] = useState(false);
@@ -2071,8 +2188,9 @@ function DraggableCard({
     const base = ['draggable-card'];
     if (mode === 'dragging') base.push('is-dragging');
     if (mode === 'resizing') base.push('is-resizing');
+    if (isActionable) base.push('is-actionable');
     return base.join(' ');
-  }, [mode]);
+  }, [isActionable, mode]);
 
   const hasStyleOptions = styleOptions.length > 0;
   const hasCustomContent = typeof renderCustomContent === 'function';
@@ -2081,31 +2199,33 @@ function DraggableCard({
     <div
       ref={cardRef}
       className={classes}
-      onPointerDown={handleDragStart}
+      onPointerDown={isInteractive ? handleDragStart : undefined}
       style={{
         gridColumnStart: item.x + 1,
         gridColumnEnd: `span ${Math.max(minW, item.w)}`,
         gridRowStart: item.y + 1,
         gridRowEnd: `span ${Math.max(minH, item.h)}`,
-        touchAction: 'none',
+        touchAction: isInteractive ? 'none' : 'auto',
       }}
     >
-      <button
-        type="button"
-        className="card-remove-button"
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onRemove(id);
-        }}
-        onPointerDown={(event) => {
-          event.stopPropagation();
-        }}
-        aria-label={removeLabel}
-      >
-        ×
-      </button>
-      {styleMenuOpen && (
+      {isInteractive && (
+        <button
+          type="button"
+          className="card-remove-button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onRemove(id);
+          }}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+          aria-label={removeLabel}
+        >
+          ×
+        </button>
+      )}
+      {isInteractive && styleMenuOpen && (
         <div
           className="card-style-modal-overlay"
           role="dialog"
@@ -2179,7 +2299,9 @@ function DraggableCard({
         </div>
       )}
       {children}
-      <div className="card-resize-handle" aria-hidden="true" onPointerDown={handleResizeStart} />
+      {isInteractive && (
+        <div className="card-resize-handle" aria-hidden="true" onPointerDown={handleResizeStart} />
+      )}
     </div>
   );
 }

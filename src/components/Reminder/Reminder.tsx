@@ -4,6 +4,7 @@ import { useAppStore } from '../../store';
 import * as api from '../../utils/api';
 import './Reminder.css';
 import { useTheme } from '../Common/ThemeProvider';
+import { Dashboard } from '../../pages/Dashboard';
 
 interface ReminderProps {
   isFullscreen?: boolean;
@@ -12,7 +13,7 @@ interface ReminderProps {
 const TIMER_SYNC_KEY = 'resty-timer-sync';
 
 export function Reminder({ isFullscreen = true }: ReminderProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { timerInfo, settings, setTimerInfo } = useAppStore();
   const { effectiveTheme } = useTheme();
   const [optimisticSeconds, setOptimisticSeconds] = useState<number | null>(null);
@@ -22,6 +23,9 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
   const safeRemainingSeconds = Math.max(0, timerInfo.remainingSeconds);
   const isBreak = timerInfo.phase === 'break';
   const canSkip = !settings.enableForceBreak || !isBreak;
+  const isPanelDisplay =
+    isFullscreen && settings.reminderFullscreenDisplay === 'panel';
+  const isZh = i18n.language.startsWith('zh');
   // Compute base remaining seconds using nextTransitionTime for higher precision
   const computeBaseSeconds = useMemo(() => {
     return () => {
@@ -192,51 +196,70 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
     phaseClass,
     `theme-${effectiveTheme}`,
     isReady ? 'is-ready' : '',
+    isPanelDisplay ? 'reminder-panel-mode' : '',
   ].join(' ');
 
   return (
     <div className={rootClassName}>
-      <div className="reminder-scene" aria-hidden="true">
-        <div className="scene-group scene-day">
-          <div className="scene scene-day-sky" />
-          <div className="scene scene-day-sun" />
-          <div className="scene scene-day-mountain scene-day-mountain-back" />
-          <div className="scene scene-day-mountain scene-day-mountain-front" />
-          <div className="scene scene-day-water" />
-          <div className="scene scene-day-cloud scene-day-cloud-1" />
-          <div className="scene scene-day-cloud scene-day-cloud-2" />
+      {isPanelDisplay ? (
+        <div className="reminder-dashboard">
+          <Dashboard
+            isReadOnly
+            nextCardAction={{
+              primary: formattedTime,
+              secondary: t('dashboard.next.break', {
+                defaultValue: isZh ? '下次休息' : 'Next break',
+              }),
+              onActivate: handleExtend,
+              actionLabel: t('reminder.actions.extend5min'),
+            }}
+          />
         </div>
-        <div className="scene-group scene-night">
-          <div className="scene scene-night-sky" />
-          <div className="scene scene-night-stars" />
-          <div className="scene scene-night-moon" />
-          <div className="scene scene-night-city scene-night-city-back" />
-          <div className="scene scene-night-city scene-night-city-front" />
-          <div className="scene scene-night-haze" />
-        </div>
-        <div className="scene-phase-overlay" />
-      </div>
-      <div className="reminder-panel" role="dialog" aria-label={t('reminder.simpleLabel')}>
-        <div className="reminder-content">
-          <div className="reminder-simple-label">{timerLabel}</div>
-          <div className="reminder-simple-timer" aria-live="polite">{formattedTime}</div>
-
-          <div className="reminder-actions">
-            <button
-              className="btn btn-secondary btn-lg"
-              onClick={handleSkip}
-              disabled={!canSkip}
-              title={!canSkip && isBreak ? t('reminder.forceBreakTooltip') : undefined}
-            >
-              {skipLabel}
-            </button>
-
-            <button className="btn btn-primary btn-lg" onClick={handleExtend}>
-              {extendLabel}
-            </button>
+      ) : (
+        <>
+          <div className="reminder-scene" aria-hidden="true">
+            <div className="scene-group scene-day">
+              <div className="scene scene-day-sky" />
+              <div className="scene scene-day-sun" />
+              <div className="scene scene-day-mountain scene-day-mountain-back" />
+              <div className="scene scene-day-mountain scene-day-mountain-front" />
+              <div className="scene scene-day-water" />
+              <div className="scene scene-day-cloud scene-day-cloud-1" />
+              <div className="scene scene-day-cloud scene-day-cloud-2" />
+            </div>
+            <div className="scene-group scene-night">
+              <div className="scene scene-night-sky" />
+              <div className="scene scene-night-stars" />
+              <div className="scene scene-night-moon" />
+              <div className="scene scene-night-city scene-night-city-back" />
+              <div className="scene scene-night-city scene-night-city-front" />
+              <div className="scene scene-night-haze" />
+            </div>
+            <div className="scene-phase-overlay" />
           </div>
-        </div>
-      </div>
+          <div className="reminder-panel" role="dialog" aria-label={t('reminder.simpleLabel')}>
+            <div className="reminder-content">
+              <div className="reminder-simple-label">{timerLabel}</div>
+              <div className="reminder-simple-timer" aria-live="polite">{formattedTime}</div>
+
+              <div className="reminder-actions">
+                <button
+                  className="btn btn-secondary btn-lg"
+                  onClick={handleSkip}
+                  disabled={!canSkip}
+                  title={!canSkip && isBreak ? t('reminder.forceBreakTooltip') : undefined}
+                >
+                  {skipLabel}
+                </button>
+
+                <button className="btn btn-primary btn-lg" onClick={handleExtend}>
+                  {extendLabel}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

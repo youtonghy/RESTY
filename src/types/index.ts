@@ -5,6 +5,7 @@
 export type Theme = 'light' | 'dark' | 'auto';
 export type Language = 'en-US' | 'en-GB' | 'zh-CN' | 'zh-TW';
 export type ReminderMode = 'fullscreen' | 'floating';
+export type ReminderFullscreenDisplay = 'scene' | 'panel';
 export type FloatingPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 export type TimerPhase = 'work' | 'break' | 'idle';
 export type TimerState = 'running' | 'paused' | 'stopped';
@@ -29,6 +30,7 @@ export interface Settings {
 
   // Reminder settings
   reminderMode: ReminderMode;
+  reminderFullscreenDisplay: ReminderFullscreenDisplay;
   floatingPosition: FloatingPosition;
   opacity: number; // 0-100
   playSound: boolean;
@@ -143,6 +145,7 @@ export const DEFAULT_SETTINGS: Settings = {
   segmentedWorkEnabled: false,
   workSegments: [{ workMinutes: 25, breakMinutes: 5, repeat: 1 }],
   reminderMode: 'fullscreen',
+  reminderFullscreenDisplay: 'panel',
   floatingPosition: 'top-right',
   opacity: 95,
   playSound: true,

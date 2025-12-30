@@ -25,6 +25,24 @@
   color: #fff;
 }
 
+.reminder-panel-mode {
+  display: block;
+  align-items: stretch;
+  justify-content: stretch;
+  color: var(--color-text-primary);
+  background: var(--color-background);
+  overflow: auto;
+}
+
+.reminder-panel-mode .reminder-dashboard {
+  min-height: 100%;
+  width: 100%;
+}
+
+.reminder-panel-mode .dashboard-page {
+  min-height: 100%;
+}
+
 .reminder.theme-light {
   color-scheme: light;
 }

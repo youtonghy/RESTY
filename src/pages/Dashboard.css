@@ -566,9 +566,31 @@
   outline-offset: 4px;
 }
 
+.tile-card.tile-card-actionable {
+  cursor: pointer;
+}
+
 .tile-card.is-visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+.dashboard-page.is-readonly .tile-card {
+  cursor: default;
+}
+
+.dashboard-page.is-readonly .tile-card:hover {
+  transform: none;
+  box-shadow: var(--shadow-md);
+}
+
+.dashboard-page.is-readonly .tile-card.tile-card-actionable {
+  cursor: pointer;
+}
+
+.dashboard-page.is-readonly .tile-card.tile-card-actionable:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 
 .tile-span-4 {
