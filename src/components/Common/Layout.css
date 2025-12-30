@@ -160,7 +160,7 @@
 /* Variants: color-coded square buttons */
 .window-button.minimize { --window-button-color: #facc15; }
 
-.window-button.fullscreen { --window-button-color: #22c55e; }
+.window-button.maximize { --window-button-color: #22c55e; }
 
 .window-button.close { --window-button-color: #f87171; }
 

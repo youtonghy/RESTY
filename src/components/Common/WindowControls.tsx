@@ -3,21 +3,21 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 
 /**
  * Custom window control buttons for borderless Tauri window.
- * Colors: red (close), yellow (minimize), green (fullscreen)
+ * Colors: red (close), yellow (minimize), green (maximize)
  */
 export function WindowControls() {
   const appWindow = getCurrentWindow();
-  const [isFull, setIsFull] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     // Initialize state
-    appWindow.isFullscreen().then(setIsFull).catch(() => {});
+    appWindow.isMaximized().then(setIsMaximized).catch(() => {});
 
     // Best-effort: update state when window resizes
     const winAny = appWindow as unknown as { onResized?: (cb: () => void) => Promise<() => void> };
     winAny.onResized?.(() => {
-      appWindow.isFullscreen().then(setIsFull).catch(() => {});
+      appWindow.isMaximized().then(setIsMaximized).catch(() => {});
     })
       .then((off) => {
         unlisten = off;
@@ -37,10 +37,14 @@ export function WindowControls() {
     } catch {}
   };
 
-  const toggleFullscreen = async () => {
+  const toggleMaximize = async () => {
     try {
-      await appWindow.setFullscreen(!isFull);
-      setIsFull(!isFull);
+      if (isMaximized) {
+        await appWindow.unmaximize();
+      } else {
+        await appWindow.maximize();
+      }
+      setIsMaximized(!isMaximized);
     } catch {}
   };
 
@@ -50,11 +54,11 @@ export function WindowControls() {
     } catch {}
   };
 
-  const fullscreenLabel = isFull ? '退出全屏' : '全屏';
+  const maximizeLabel = isMaximized ? '还原' : '最大化';
 
   return (
     <div className="window-controls">
-      {/* Order: Yellow (minimize), Green (full screen), Red (close) */}
+      {/* Order: Yellow (minimize), Green (maximize), Red (close) */}
       <button
         className="window-button minimize"
         title="最小化"
@@ -62,10 +66,10 @@ export function WindowControls() {
         onClick={minimize}
       />
       <button
-        className="window-button fullscreen"
-        title={fullscreenLabel}
-        aria-label={fullscreenLabel}
-        onClick={toggleFullscreen}
+        className="window-button maximize"
+        title={maximizeLabel}
+        aria-label={maximizeLabel}
+        onClick={toggleMaximize}
       />
       <button className="window-button close" title="关闭" aria-label="关闭" onClick={close} />
     </div>
