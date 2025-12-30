@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../../store';
 import * as api from '../../utils/api';
@@ -9,13 +9,16 @@ interface ReminderProps {
   isFullscreen?: boolean;
 }
 
+const TIMER_SYNC_KEY = 'resty-timer-sync';
+
 export function Reminder({ isFullscreen = true }: ReminderProps) {
   const { t } = useTranslation();
-  const { timerInfo, settings } = useAppStore();
+  const { timerInfo, settings, setTimerInfo } = useAppStore();
   const { effectiveTheme } = useTheme();
   const [optimisticSeconds, setOptimisticSeconds] = useState<number | null>(null);
   const [optimisticTargetTotal, setOptimisticTargetTotal] = useState<number | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const syncChannelRef = useRef<BroadcastChannel | null>(null);
   const safeRemainingSeconds = Math.max(0, timerInfo.remainingSeconds);
   const isBreak = timerInfo.phase === 'break';
   const canSkip = !settings.enableForceBreak || !isBreak;
@@ -63,6 +66,18 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
     }
   };
 
+  const broadcastTimerSync = () => {
+    if (syncChannelRef.current) {
+      syncChannelRef.current.postMessage('timer-sync');
+      return;
+    }
+    try {
+      localStorage.setItem(TIMER_SYNC_KEY, Date.now().toString());
+    } catch (err) {
+      console.warn('Failed to broadcast timer sync:', err);
+    }
+  };
+
   const handleExtend = async () => {
     // Optimistically bump by 5 minutes (300 seconds) for immediate UI feedback
     setOptimisticSeconds((prev) => {
@@ -75,6 +90,13 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
     });
     try {
       await api.extendPhase();
+      try {
+        const latest = await api.getTimerInfo();
+        setTimerInfo(latest);
+      } catch (err) {
+        console.error('Failed to refresh timer info after extend:', err);
+      }
+      broadcastTimerSync();
     } catch (err) {
       // Revert optimistic update on failure
       setOptimisticSeconds(null);
@@ -101,6 +123,43 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
     optimisticSeconds,
     optimisticTargetTotal,
   ]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const syncFromBackend = () => {
+      api.getTimerInfo().then((info) => {
+        setTimerInfo(info);
+      }).catch((err) => {
+        console.error('Failed to sync timer info:', err);
+      });
+    };
+
+    if ('BroadcastChannel' in window) {
+      const channel = new BroadcastChannel(TIMER_SYNC_KEY);
+      syncChannelRef.current = channel;
+      channel.onmessage = (event) => {
+        if (event.data === 'timer-sync') {
+          syncFromBackend();
+        }
+      };
+      return () => {
+        channel.close();
+        syncChannelRef.current = null;
+      };
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === TIMER_SYNC_KEY) {
+        syncFromBackend();
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [setTimerInfo]);
 
   const skipLabel = t('reminder.actions.skip');
   const extendLabel = t('reminder.actions.extendShort');
