@@ -126,6 +126,7 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
+    const browserWindow = window as Window;
 
     const syncFromBackend = () => {
       api.getTimerInfo().then((info) => {
@@ -135,7 +136,7 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
       });
     };
 
-    if ('BroadcastChannel' in window) {
+    if ('BroadcastChannel' in browserWindow) {
       const channel = new BroadcastChannel(TIMER_SYNC_KEY);
       syncChannelRef.current = channel;
       channel.onmessage = (event) => {
@@ -155,9 +156,9 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
       }
     };
 
-    window.addEventListener('storage', handleStorage);
+    browserWindow.addEventListener('storage', handleStorage);
     return () => {
-      window.removeEventListener('storage', handleStorage);
+      browserWindow.removeEventListener('storage', handleStorage);
     };
   }, [setTimerInfo]);
 
