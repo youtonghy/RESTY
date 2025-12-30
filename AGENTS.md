@@ -16,7 +16,7 @@ There is no formal automated suite yet, so cover changes with manual smoke tests
 Existing history favors concise action-first messages (e.g., `优化 计时器`, `修复 tray 状态`); keep summaries under 50 characters and reference scope when helpful. Every task should conclude with a local commit instead of opening a PR. Use the commit body to capture motivation, test evidence (commands run, platforms checked), linked issues or tasks, and note any breaking changes, migration steps, or new environment variables.
 
 ## Agent-Specific Checklist
-- 在修改任何代码前，先使用 context7 获取最新文档和规范，确保遵循最新要求。
+- Before modifying any code, use context7 to obtain the latest documentation and specifications to ensure compliance with the latest requirements.
 - After modifying any Rust code, run `cargo check` in `src-tauri` before submitting.
 - Confirm both `pnpm build` and `pnpm tauri build` succeed when touching shared code paths.
 - Upon completing a task, stage all touched files and create a Git commit with a brief, action-focused title covering the work.
