@@ -470,7 +470,8 @@ impl TimerService {
                 let mut state = self.state.lock().unwrap();
                 if state.state == TimerState::Paused && state.paused_due_to_display_off {
                     state.paused_due_to_display_off = false;
-                    true
+                    // Only resume if not also paused due to system suspend
+                    !state.paused_due_to_system_suspend
                 } else {
                     state.paused_due_to_display_off = false;
                     false
@@ -522,7 +523,8 @@ impl TimerService {
             let mut state = self.state.lock().unwrap();
             if state.state == TimerState::Paused && state.paused_due_to_system_suspend {
                 state.paused_due_to_system_suspend = false;
-                true
+                // Only resume if not also paused due to display off
+                !state.paused_due_to_display_off
             } else {
                 state.paused_due_to_system_suspend = false;
                 false
