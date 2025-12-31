@@ -37,6 +37,7 @@ struct TimerServiceState {
     suppress_breaks_until: Option<chrono::DateTime<Utc>>,
     paused_due_to_display_off: bool,
     paused_due_to_system_suspend: bool,
+    last_power_restart_at: Option<chrono::DateTime<Utc>>,
 }
 
 impl TimerServiceState {
@@ -208,6 +209,7 @@ impl TimerService {
             suppress_breaks_until: None,
             paused_due_to_display_off: false,
             paused_due_to_system_suspend: false,
+            last_power_restart_at: None,
         };
         state.reset_segment_progress();
 
@@ -233,6 +235,7 @@ impl TimerService {
         state.current_session_id = Some(Uuid::new_v4().to_string());
         state.current_session_start = Some(start_time);
         state.paused_due_to_display_off = false;
+        state.paused_due_to_system_suspend = false;
         drop(state);
 
         self.emit_timer_update()?;
@@ -256,6 +259,7 @@ impl TimerService {
         state.current_session_id = Some(Uuid::new_v4().to_string());
         state.current_session_start = Some(start_time);
         state.paused_due_to_display_off = false;
+        state.paused_due_to_system_suspend = false;
         drop(state);
 
         self.emit_timer_update()?;
@@ -462,24 +466,52 @@ impl TimerService {
         Ok(session)
     }
 
+    /// Restart work session after a power-related resume event.
+    fn restart_work_for_power_event(&self) -> AppResult<()> {
+        const POWER_RESTART_DEBOUNCE_SECONDS: i64 = 3;
+        let (should_restart, session) = {
+            let mut state = self.state.lock().unwrap();
+            let now = Utc::now();
+            let should_restart = match state.last_power_restart_at {
+                Some(last) => (now - last).num_seconds().abs() >= POWER_RESTART_DEBOUNCE_SECONDS,
+                None => true,
+            };
+            if !should_restart {
+                (false, None)
+            } else {
+                state.last_power_restart_at = Some(now);
+                let session = if state.phase == TimerPhase::Idle {
+                    None
+                } else {
+                    Some(self.create_session_record(&state, true))
+                };
+                (true, session)
+            }
+        };
+
+        if !should_restart {
+            return Ok(());
+        }
+
+        if let Some(session) = session {
+            self.persist_session_finish(session);
+        }
+
+        self.stop()?;
+        self.start_work()?;
+        Ok(())
+    }
+
     /// React to system display power state changes.
-    /// 当检测到显示器被熄灭/点亮时，自动暂停或恢复计时。
+    /// 当检测到显示器被熄灭/点亮时，自动暂停或重启工作计时。
     pub fn handle_display_power_state(&self, display_on: bool) -> AppResult<()> {
         if display_on {
-            let should_resume = {
+            {
                 let mut state = self.state.lock().unwrap();
-                if state.state == TimerState::Paused && state.paused_due_to_display_off {
-                    state.paused_due_to_display_off = false;
-                    // Only resume if not also paused due to system suspend
-                    !state.paused_due_to_system_suspend
-                } else {
-                    state.paused_due_to_display_off = false;
-                    false
-                }
-            };
-            if should_resume {
-                self.resume()?;
+                state.paused_due_to_display_off = false;
+                state.paused_due_to_system_suspend = false;
             }
+            self.restart_work_for_power_event()?;
         } else {
             let should_pause = {
                 let mut state = self.state.lock().unwrap();
@@ -517,22 +549,14 @@ impl TimerService {
     }
 
     /// Handle system resume event (wake from hibernate/sleep).
-    /// 系统从休眠/睡眠状态恢复时调用，恢复之前因休眠暂停的计时器。
+    /// 系统从休眠/睡眠状态恢复时调用，重启工作计时。
     pub fn handle_system_resume(&self) -> AppResult<()> {
-        let should_resume = {
+        {
             let mut state = self.state.lock().unwrap();
-            if state.state == TimerState::Paused && state.paused_due_to_system_suspend {
-                state.paused_due_to_system_suspend = false;
-                // Only resume if not also paused due to display off
-                !state.paused_due_to_display_off
-            } else {
-                state.paused_due_to_system_suspend = false;
-                false
-            }
-        };
-        if should_resume {
-            self.resume()?;
+            state.paused_due_to_system_suspend = false;
+            state.paused_due_to_display_off = false;
         }
+        self.restart_work_for_power_event()?;
         Ok(())
     }
 
