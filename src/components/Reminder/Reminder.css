@@ -217,6 +217,33 @@
   mix-blend-mode: soft-light;
 }
 
+.reminder-panel-action-modal {
+  width: min(420px, calc(100% - 32px));
+}
+
+.reminder-panel-action-description {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.reminder-panel-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.reminder-panel-action-buttons .btn {
+  min-width: 140px;
+}
+
+.reminder-panel-action-buttons .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Day scene */
 .scene-day-sky {
   inset: 0;

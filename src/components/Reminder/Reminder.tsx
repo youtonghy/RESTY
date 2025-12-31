@@ -19,7 +19,9 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
   const [optimisticSeconds, setOptimisticSeconds] = useState<number | null>(null);
   const [optimisticTargetTotal, setOptimisticTargetTotal] = useState<number | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [isPanelActionOpen, setPanelActionOpen] = useState(false);
   const syncChannelRef = useRef<BroadcastChannel | null>(null);
+  const panelPrimaryActionRef = useRef<HTMLButtonElement | null>(null);
   const safeRemainingSeconds = Math.max(0, timerInfo.remainingSeconds);
   const isBreak = timerInfo.phase === 'break';
   const canSkip = !settings.enableForceBreak || !isBreak;
@@ -70,6 +72,11 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
     }
   };
 
+  const handlePanelSkip = async () => {
+    setPanelActionOpen(false);
+    await handleSkip();
+  };
+
   const broadcastTimerSync = () => {
     if (syncChannelRef.current) {
       syncChannelRef.current.postMessage('timer-sync');
@@ -107,6 +114,11 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
       setOptimisticTargetTotal(null);
       console.error('Failed to extend phase:', err);
     }
+  };
+
+  const handlePanelExtend = async () => {
+    setPanelActionOpen(false);
+    await handleExtend();
   };
 
   // Reconcile optimistic state when real timer info catches up
@@ -169,6 +181,27 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
   const skipLabel = t('reminder.actions.skip');
   const extendLabel = t('reminder.actions.extendShort');
   const timerLabel = t('reminder.simpleLabel');
+  const panelCountdownLabel = t('reminder.panel.breakCountdown', {
+    defaultValue: isZh ? '休息倒计时' : 'Break countdown',
+  });
+  const panelActionLabel = t('reminder.panel.actionLabel', {
+    defaultValue: isZh ? '休息倒计时操作' : 'Break countdown actions',
+  });
+  const panelActionTitle = t('reminder.panel.actionTitle', {
+    defaultValue: isZh ? '休息操作' : 'Break options',
+  });
+  const panelActionDescription = t('reminder.panel.actionDescription', {
+    defaultValue: isZh ? '选择本次休息的操作' : 'Choose what to do for this break',
+  });
+  const panelSkipLabel = t('reminder.panel.skipBreak', {
+    defaultValue: isZh ? '跳过休息' : 'Skip break',
+  });
+  const panelExtendLabel = t('reminder.panel.extendBreak', {
+    defaultValue: isZh ? '增加5分钟' : 'Add 5 minutes',
+  });
+  const panelCloseLabel = t('common.close', {
+    defaultValue: isZh ? '关闭' : 'Close',
+  });
 
   const phaseClass = `phase-${timerInfo.phase ?? 'break'}`;
 
@@ -190,6 +223,24 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isPanelActionOpen) return;
+    if (typeof window === 'undefined') return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setPanelActionOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPanelActionOpen]);
+
+  useEffect(() => {
+    if (!isPanelActionOpen) return;
+    panelPrimaryActionRef.current?.focus();
+  }, [isPanelActionOpen]);
+
   const rootClassName = [
     'reminder',
     isFullscreen ? 'reminder-fullscreen' : 'reminder-floating',
@@ -207,13 +258,71 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
             isReadOnly
             nextCardAction={{
               primary: formattedTime,
-              secondary: t('dashboard.next.break', {
-                defaultValue: isZh ? '下次休息' : 'Next break',
-              }),
-              onActivate: handleExtend,
-              actionLabel: t('reminder.actions.extend5min'),
+              secondary: panelCountdownLabel,
+              onActivate: () => setPanelActionOpen(true),
+              actionLabel: panelActionLabel,
             }}
           />
+          {isPanelActionOpen && (
+            <div
+              className="card-style-modal-overlay"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="reminder-panel-action-title"
+              aria-describedby="reminder-panel-action-desc"
+              onClick={() => setPanelActionOpen(false)}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
+            >
+              <div
+                className="card-style-modal reminder-panel-action-modal"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="card-style-modal-header">
+                  <h2 className="card-style-modal-title" id="reminder-panel-action-title">
+                    {panelActionTitle}
+                  </h2>
+                  <button
+                    type="button"
+                    className="card-style-modal-close"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setPanelActionOpen(false);
+                    }}
+                    aria-label={panelCloseLabel}
+                  >
+                    ×
+                  </button>
+                </div>
+                <div className="card-style-modal-body">
+                  <p className="reminder-panel-action-description" id="reminder-panel-action-desc">
+                    {panelActionDescription}
+                  </p>
+                  <div className="reminder-panel-action-buttons">
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={handlePanelSkip}
+                      disabled={!canSkip}
+                      title={!canSkip && isBreak ? t('reminder.forceBreakTooltip') : undefined}
+                    >
+                      {panelSkipLabel}
+                    </button>
+                    <button
+                      ref={panelPrimaryActionRef}
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handlePanelExtend}
+                    >
+                      {panelExtendLabel}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <>

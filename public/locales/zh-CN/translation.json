@@ -145,6 +145,14 @@
       "extend5min": "添加5分钟休息",
       "extendShort": "+5分钟",
       "startBreak": "立即休息"
+    },
+    "panel": {
+      "breakCountdown": "休息倒计时",
+      "actionLabel": "休息倒计时操作",
+      "actionTitle": "休息操作",
+      "actionDescription": "选择本次休息的操作",
+      "skipBreak": "跳过休息",
+      "extendBreak": "增加5分钟"
     }
   },
   "analytics": {

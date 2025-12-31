@@ -146,6 +146,14 @@
       "extend5min": "Add 5 min break",
       "extendShort": "+5 Minutes",
       "startBreak": "Start Break Now"
+    },
+    "panel": {
+      "breakCountdown": "Break countdown",
+      "actionLabel": "Break countdown actions",
+      "actionTitle": "Break options",
+      "actionDescription": "Choose what to do for this break",
+      "skipBreak": "Skip break",
+      "extendBreak": "Add 5 minutes"
     }
   },
   "analytics": {
