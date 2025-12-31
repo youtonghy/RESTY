@@ -21,6 +21,8 @@ const TRAY_MENU_WIDTH: f64 = 240.0;
 const TRAY_MENU_HEIGHT: f64 = 192.0;
 const FLOATING_MARGIN_X: i32 = 20;
 const FLOATING_MARGIN_Y: i32 = 96;
+const FLOATING_WINDOW_WIDTH: f64 = 340.0;
+const FLOATING_WINDOW_HEIGHT: f64 = 300.0;
 
 fn load_tray_image(bytes: &[u8]) -> Option<Image<'static>> {
     Image::from_bytes(bytes).ok()
@@ -531,6 +533,26 @@ fn update_tray_icon_theme(app: tauri::AppHandle, theme: String) -> Result<(), St
     Ok(())
 }
 
+fn resolve_window_size_for_monitor(
+    window: &tauri::WebviewWindow,
+    monitor: &tauri::Monitor,
+) -> tauri::PhysicalSize<u32> {
+    let current_scale = window.scale_factor().unwrap_or(1.0);
+    let (logical_width, logical_height) = match window.outer_size() {
+        Ok(size) => (
+            size.width as f64 / current_scale,
+            size.height as f64 / current_scale,
+        ),
+        Err(_) => (FLOATING_WINDOW_WIDTH, FLOATING_WINDOW_HEIGHT),
+    };
+    let target_scale = monitor.scale_factor();
+
+    tauri::PhysicalSize {
+        width: (logical_width * target_scale).round().max(1.0) as u32,
+        height: (logical_height * target_scale).round().max(1.0) as u32,
+    }
+}
+
 fn resolve_floating_position(
     origin: tauri::PhysicalPosition<i32>,
     screen: tauri::PhysicalSize<u32>,
@@ -618,7 +640,7 @@ pub fn show_break_reminder_window(
             )
             .title("Break Time - RESTY")
             .visible(false)
-            .inner_size(340.0, 300.0)
+            .inner_size(FLOATING_WINDOW_WIDTH, FLOATING_WINDOW_HEIGHT)
             .resizable(false)
             .maximized(false)
             .decorations(false)
@@ -629,7 +651,7 @@ pub fn show_break_reminder_window(
             if let Ok(Some(monitor)) = window.current_monitor() {
                 let screen = *monitor.size();
                 let origin = *monitor.position();
-                let window_size = window.outer_size()?;
+                let window_size = resolve_window_size_for_monitor(&window, &monitor);
                 let position =
                     resolve_floating_position(origin, screen, window_size, floating_position);
                 window.set_position(tauri::Position::Physical(position))?;
@@ -651,7 +673,9 @@ pub fn show_break_reminder_window(
                 .skip_taskbar(true);
 
         if !is_fullscreen {
-            builder = builder.inner_size(340.0, 300.0).maximized(false);
+            builder = builder
+                .inner_size(FLOATING_WINDOW_WIDTH, FLOATING_WINDOW_HEIGHT)
+                .maximized(false);
         }
 
         let window = builder.build()?;
@@ -663,7 +687,7 @@ pub fn show_break_reminder_window(
             let _ = window.set_fullscreen(true);
         } else {
             let screen = *monitor.size();
-            let win_size = window.outer_size()?;
+            let win_size = resolve_window_size_for_monitor(&window, monitor);
             let position =
                 resolve_floating_position(origin, screen, win_size, floating_position.clone());
             let _ = window.set_position(tauri::Position::Physical(position));
