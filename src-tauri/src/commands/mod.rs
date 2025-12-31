@@ -1,5 +1,5 @@
 use crate::models::{
-    AnalyticsData, AnalyticsQuery, MonitorInfo, Settings, SystemStatus, TimerInfo,
+    AnalyticsData, AnalyticsQuery, FloatingPosition, MonitorInfo, Settings, SystemStatus, TimerInfo,
 };
 use crate::services::{updater::UpdateManifest, DatabaseService, TimerService};
 use crate::handle_tray_action;
@@ -256,8 +256,13 @@ pub fn get_system_status() -> Result<SystemStatus, String> {
 
 /// Open reminder window
 #[tauri::command]
-pub fn open_reminder_window(app: AppHandle, fullscreen: bool) -> Result<(), String> {
-    crate::show_break_reminder_window(&app, fullscreen).map_err(|e| e.to_string())
+pub fn open_reminder_window(
+    app: AppHandle,
+    fullscreen: bool,
+    floating_position: Option<FloatingPosition>,
+) -> Result<(), String> {
+    let position = floating_position.unwrap_or(FloatingPosition::TopRight);
+    crate::show_break_reminder_window(&app, fullscreen, position).map_err(|e| e.to_string())
 }
 
 /// Show reminder window once frontend is ready

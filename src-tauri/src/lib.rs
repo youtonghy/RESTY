@@ -3,7 +3,7 @@ mod models;
 mod services;
 mod utils;
 
-use crate::models::Theme as SettingsTheme;
+use crate::models::{FloatingPosition, Theme as SettingsTheme};
 use commands::AppState;
 use dark_light::Mode as SystemTheme;
 use services::{DatabaseService, TimerService};
@@ -19,6 +19,8 @@ const MAIN_TRAY_ID: &str = "resty-main-tray";
 const TRAY_MENU_WIDTH: f64 = 240.0;
 #[cfg(target_os = "windows")]
 const TRAY_MENU_HEIGHT: f64 = 192.0;
+const FLOATING_MARGIN_X: i32 = 20;
+const FLOATING_MARGIN_Y: i32 = 96;
 
 fn load_tray_image(bytes: &[u8]) -> Option<Image<'static>> {
     Image::from_bytes(bytes).ok()
@@ -333,8 +335,11 @@ pub fn run() {
                         settings.reminder_mode,
                         crate::models::ReminderMode::Fullscreen
                     );
+                    let floating_position = settings.floating_position.clone();
 
-                    if let Err(e) = show_break_reminder_window(&app, is_fullscreen) {
+                    if let Err(e) =
+                        show_break_reminder_window(&app, is_fullscreen, floating_position)
+                    {
                         eprintln!("Failed to show break reminder: {}", e);
                     }
                 });
@@ -526,10 +531,45 @@ fn update_tray_icon_theme(app: tauri::AppHandle, theme: String) -> Result<(), St
     Ok(())
 }
 
+fn resolve_floating_position(
+    origin: tauri::PhysicalPosition<i32>,
+    screen: tauri::PhysicalSize<u32>,
+    window_size: tauri::PhysicalSize<u32>,
+    floating_position: FloatingPosition,
+) -> tauri::PhysicalPosition<i32> {
+    let screen_width = screen.width as i32;
+    let screen_height = screen.height as i32;
+    let window_width = window_size.width as i32;
+    let window_height = window_size.height as i32;
+
+    let left = origin.x + FLOATING_MARGIN_X;
+    let right = origin.x + screen_width - window_width - FLOATING_MARGIN_X;
+    let top = origin.y + FLOATING_MARGIN_Y;
+    let bottom = origin.y + screen_height - window_height - FLOATING_MARGIN_Y;
+
+    let x = match floating_position {
+        FloatingPosition::TopLeft | FloatingPosition::BottomLeft => left,
+        FloatingPosition::TopRight | FloatingPosition::BottomRight => right,
+    };
+    let y = match floating_position {
+        FloatingPosition::TopLeft | FloatingPosition::TopRight => top,
+        FloatingPosition::BottomLeft | FloatingPosition::BottomRight => bottom,
+    };
+
+    let max_x = origin.x + (screen_width - window_width).max(0);
+    let max_y = origin.y + (screen_height - window_height).max(0);
+
+    tauri::PhysicalPosition {
+        x: x.clamp(origin.x, max_x),
+        y: y.clamp(origin.y, max_y),
+    }
+}
+
 /// 根据配置显示休息提醒窗口（全屏或浮窗）。
 pub fn show_break_reminder_window(
     app: &tauri::AppHandle,
     is_fullscreen: bool,
+    floating_position: FloatingPosition,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("show_break_reminder_window: called, fullscreen={}", is_fullscreen);
     // If any reminder windows already exist, bring them to front
@@ -586,17 +626,13 @@ pub fn show_break_reminder_window(
             .skip_taskbar(true)
             .build()?;
 
-            if let Ok(monitor) = window.current_monitor() {
-                if let Some(monitor) = monitor {
-                    let screen = monitor.size();
-                    let window_size = window.outer_size()?;
-                    let x = screen.width as i32 - window_size.width as i32 - 20;
-                    let y = 96;
-                    window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-                        x,
-                        y,
-                    }))?;
-                }
+            if let Ok(Some(monitor)) = window.current_monitor() {
+                let screen = *monitor.size();
+                let origin = *monitor.position();
+                let window_size = window.outer_size()?;
+                let position =
+                    resolve_floating_position(origin, screen, window_size, floating_position);
+                window.set_position(tauri::Position::Physical(position))?;
             }
         }
         return Ok(());
@@ -626,13 +662,11 @@ pub fn show_break_reminder_window(
             let _ = window.set_position(tauri::Position::Physical(origin));
             let _ = window.set_fullscreen(true);
         } else {
-            // Top-right of the monitor
-            let screen = monitor.size();
+            let screen = *monitor.size();
             let win_size = window.outer_size()?;
-            let x = origin.x + (screen.width as i32 - win_size.width as i32 - 20);
-            let y = origin.y + 96;
-            let _ =
-                window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+            let position =
+                resolve_floating_position(origin, screen, win_size, floating_position.clone());
+            let _ = window.set_position(tauri::Position::Physical(position));
         }
     }
 

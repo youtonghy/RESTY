@@ -75,6 +75,12 @@
       "displayScene": "日月",
       "displayPanel": "面板",
       "floatingPosition": "窗口位置",
+      "positionOptions": {
+        "topLeft": "左上角",
+        "topRight": "右上角",
+        "bottomLeft": "左下角",
+        "bottomRight": "右下角"
+      },
       "opacity": "窗口透明度",
       "playSound": "播放提示音",
       "restMusic": {

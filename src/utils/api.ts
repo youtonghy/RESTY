@@ -5,6 +5,7 @@ import type {
   TimerInfo,
   AnalyticsData,
   AnalyticsQuery,
+  FloatingPosition,
   MonitorInfo,
   SystemStatus,
   Session,
@@ -140,8 +141,11 @@ export async function setAutostart(enabled: boolean): Promise<void> {
 
 // Window commands
 /** 打开提醒窗口，支持全屏或浮窗模式。 */
-export async function openReminderWindow(fullscreen: boolean): Promise<void> {
-  return await invoke('open_reminder_window', { fullscreen });
+export async function openReminderWindow(
+  fullscreen: boolean,
+  floatingPosition?: FloatingPosition
+): Promise<void> {
+  return await invoke('open_reminder_window', { fullscreen, floatingPosition });
 }
 
 /** 关闭提醒窗口。 */

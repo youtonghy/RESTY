@@ -78,6 +78,7 @@ const enforceTrayDefaults = (settings: SettingsType): SettingsType => {
     silentAutostart: settings.silentAutostart ?? false,
     reminderFullscreenDisplay:
       settings.reminderFullscreenDisplay ?? DEFAULT_SETTINGS.reminderFullscreenDisplay,
+    floatingPosition: settings.floatingPosition ?? DEFAULT_SETTINGS.floatingPosition,
     segmentedWorkEnabled:
       (settings.segmentedWorkEnabled ?? false) && normalizedSegments.length > 0,
     workSegments: normalizedSegments,
@@ -100,6 +101,16 @@ const LANGUAGE_OPTIONS: Array<{ value: Language; labelKey: string }> = [
   { value: 'en-GB', labelKey: 'settings.language.options.enGB' },
   { value: 'zh-CN', labelKey: 'settings.language.options.zhCN' },
   { value: 'zh-TW', labelKey: 'settings.language.options.zhTW' },
+];
+
+const FLOATING_POSITION_OPTIONS: Array<{
+  value: SettingsType['floatingPosition'];
+  labelKey: string;
+}> = [
+  { value: 'top-right', labelKey: 'settings.reminder.positionOptions.topRight' },
+  { value: 'bottom-right', labelKey: 'settings.reminder.positionOptions.bottomRight' },
+  { value: 'top-left', labelKey: 'settings.reminder.positionOptions.topLeft' },
+  { value: 'bottom-left', labelKey: 'settings.reminder.positionOptions.bottomLeft' },
 ];
 
 /**
@@ -698,6 +709,33 @@ export function Settings() {
                   <option value="floating">{t('settings.reminder.floating')}</option>
                 </select>
               </div>
+
+              {localSettings.reminderMode === 'floating' && (
+                <div className="form-group">
+                  <label htmlFor="floatingPosition">
+                    {t('settings.reminder.floatingPosition')}
+                  </label>
+                  <select
+                    id="floatingPosition"
+                    className="input"
+                    value={localSettings.floatingPosition}
+                    onChange={(e) => {
+                      const next = {
+                        ...localSettings,
+                        floatingPosition: e.target.value as SettingsType['floatingPosition'],
+                      } as SettingsType;
+                      setLocalSettings(next);
+                      saveSettingsAuto(next);
+                    }}
+                  >
+                    {FLOATING_POSITION_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {t(option.labelKey)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {localSettings.reminderMode === 'fullscreen' && (
                 <div className="form-group">

@@ -76,6 +76,12 @@
       "displayScene": "Day/Night",
       "displayPanel": "Panel",
       "floatingPosition": "Window Position",
+      "positionOptions": {
+        "topLeft": "Top Left",
+        "topRight": "Top Right",
+        "bottomLeft": "Bottom Left",
+        "bottomRight": "Bottom Right"
+      },
       "opacity": "Window Opacity",
       "playSound": "Play notification sound",
       "restMusic": {
