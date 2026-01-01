@@ -221,7 +221,6 @@ mod windows_impl {
 #[cfg(target_os = "macos")]
 mod macos_impl {
     use super::*;
-    use cocoa::appkit::NSWorkspace;
     use cocoa::base::{id, nil};
     use cocoa::foundation::{NSAutoreleasePool, NSString};
     use objc::declare::ClassDecl;
@@ -234,9 +233,13 @@ mod macos_impl {
     const SYSTEM_WILL_SLEEP: &str = "NSWorkspaceWillSleepNotification";
     const SYSTEM_DID_WAKE: &str = "NSWorkspaceDidWakeNotification";
 
+    struct ObserverHandle(id);
+
+    unsafe impl Sync for ObserverHandle {}
+
     static TIMER_INSTANCE: OnceLock<Arc<TimerService>> = OnceLock::new();
     static OBSERVER_CLASS: OnceLock<&'static Class> = OnceLock::new();
-    static OBSERVER_INSTANCE: OnceLock<id> = OnceLock::new();
+    static OBSERVER_INSTANCE: OnceLock<ObserverHandle> = OnceLock::new();
 
     pub(super) fn start(timer: Arc<TimerService>) {
         if TIMER_INSTANCE.set(timer).is_err() {
@@ -248,7 +251,8 @@ mod macos_impl {
             let _pool = NSAutoreleasePool::new(nil);
             let observer_class = OBSERVER_CLASS.get_or_init(register_observer_class);
             let observer: id = msg_send![*observer_class, new];
-            let workspace: id = NSWorkspace::sharedWorkspace(nil);
+            let workspace_class = class!(NSWorkspace);
+            let workspace: id = msg_send![workspace_class, sharedWorkspace];
             let center: id = msg_send![workspace, notificationCenter];
 
             add_observer(center, observer, sel!(screenDidSleep:), SCREEN_DID_SLEEP);
@@ -256,7 +260,7 @@ mod macos_impl {
             add_observer(center, observer, sel!(systemWillSleep:), SYSTEM_WILL_SLEEP);
             add_observer(center, observer, sel!(systemDidWake:), SYSTEM_DID_WAKE);
 
-            let _ = OBSERVER_INSTANCE.set(observer);
+            let _ = OBSERVER_INSTANCE.set(ObserverHandle(observer));
         }
     }
 
