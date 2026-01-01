@@ -235,6 +235,7 @@ mod macos_impl {
 
     struct ObserverHandle(id);
 
+    unsafe impl Send for ObserverHandle {}
     unsafe impl Sync for ObserverHandle {}
 
     static TIMER_INSTANCE: OnceLock<Arc<TimerService>> = OnceLock::new();
