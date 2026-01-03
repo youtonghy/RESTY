@@ -126,7 +126,6 @@ export function Settings() {
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
-  const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const sectionDefs = useMemo(
     () => [
       { id: 'timer', label: t('settings.timer.title') },
@@ -149,28 +148,6 @@ export function Settings() {
       }
     };
   }, []);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      let current = sectionDefs[0]?.id ?? 'timer';
-      const offset = 160;
-      sectionDefs.forEach((section) => {
-        const node = sectionRefs.current[section.id];
-        if (!node) return;
-        const top = node.getBoundingClientRect().top;
-        if (top - offset <= 0) {
-          current = section.id;
-        }
-      });
-      setActiveSection((prev) => (prev === current ? prev : current));
-    };
-
-    handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, [sectionDefs]);
 
   /** 从后端加载配置并同步全局 store。 */
   const loadSettings = useCallback(async () => {
@@ -400,13 +377,6 @@ export function Settings() {
     }
   }, []);
 
-  const scrollToSection = useCallback((id: string) => {
-    const node = sectionRefs.current[id];
-    if (!node) return;
-    setActiveSection(id);
-    node.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, []);
-
   // 已移除导入/导出：改为实时自动保存
 
   const isSegmented = localSettings.segmentedWorkEnabled;
@@ -434,7 +404,7 @@ export function Settings() {
                 className={`settings-nav-button settings-nav-button--${section.id}${
                   activeSection === section.id ? ' is-active' : ''
                 }`}
-                onClick={() => scrollToSection(section.id)}
+                onClick={() => setActiveSection(section.id)}
               >
                 {section.label}
               </button>
@@ -443,14 +413,9 @@ export function Settings() {
 
           <div className="settings-content">
             {/* Timer Settings */}
-            <section
-              id="settings-timer"
-              ref={(node) => {
-                sectionRefs.current.timer = node;
-              }}
-              className="settings-card settings-section"
-            >
-              <h2 className="card-header">{t('settings.timer.title')}</h2>
+            {activeSection === 'timer' && (
+              <section id="settings-timer" className="settings-card settings-section">
+                <h2 className="card-header">{t('settings.timer.title')}</h2>
 
               <div className="form-group">
                 <span className="form-label">{t('settings.timer.scheduleMode.label')}</span>
@@ -683,17 +648,13 @@ export function Settings() {
                 <p className="helper-text">{t('settings.timer.flowModeDescription')}</p>
               </div>
 
-            </section>
+              </section>
+            )}
 
             {/* Reminder Settings */}
-            <section
-              id="settings-reminder"
-              ref={(node) => {
-                sectionRefs.current.reminder = node;
-              }}
-              className="settings-card settings-section"
-            >
-              <h2 className="card-header">{t('settings.reminder.title')}</h2>
+            {activeSection === 'reminder' && (
+              <section id="settings-reminder" className="settings-card settings-section">
+                <h2 className="card-header">{t('settings.reminder.title')}</h2>
 
               <div className="form-group">
                 <label htmlFor="reminderMode">{t('settings.reminder.mode')}</label>
@@ -799,17 +760,13 @@ export function Settings() {
                   {localSettings.restMusicDirectory || t('settings.reminder.restMusic.directoryMissing')}
                 </button>
               </div>
-            </section>
+              </section>
+            )}
 
             {/* Appearance Settings */}
-            <section
-              id="settings-appearance"
-              ref={(node) => {
-                sectionRefs.current.appearance = node;
-              }}
-              className="settings-card settings-section"
-            >
-              <h2 className="card-header">{t('settings.appearance.title')}</h2>
+            {activeSection === 'appearance' && (
+              <section id="settings-appearance" className="settings-card settings-section">
+                <h2 className="card-header">{t('settings.appearance.title')}</h2>
 
               <div className="form-group">
                 <label htmlFor="theme">{t('settings.appearance.theme')}</label>
@@ -831,17 +788,13 @@ export function Settings() {
                   <option value="auto">{t('settings.appearance.auto')}</option>
                 </select>
               </div>
-            </section>
+              </section>
+            )}
 
             {/* System Settings */}
-            <section
-              id="settings-system"
-              ref={(node) => {
-                sectionRefs.current.system = node;
-              }}
-              className="settings-card settings-section"
-            >
-              <h2 className="card-header">{t('settings.system.title')}</h2>
+            {activeSection === 'system' && (
+              <section id="settings-system" className="settings-card settings-section">
+                <h2 className="card-header">{t('settings.system.title')}</h2>
 
               <div className="form-group toggle-group">
                 <label className="toggle-row">
@@ -888,17 +841,13 @@ export function Settings() {
                 </label>
                 <p className="helper-text">{t('settings.system.silentAutostartHint')}</p>
               </div>
-            </section>
+              </section>
+            )}
 
             {/* Language Settings */}
-            <section
-              id="settings-language"
-              ref={(node) => {
-                sectionRefs.current.language = node;
-              }}
-              className="settings-card settings-section"
-            >
-              <h2 className="card-header">{t('settings.language.title')}</h2>
+            {activeSection === 'language' && (
+              <section id="settings-language" className="settings-card settings-section">
+                <h2 className="card-header">{t('settings.language.title')}</h2>
 
               <div className="form-group">
                 <label htmlFor="language">{t('settings.language.select')}</label>
@@ -920,42 +869,39 @@ export function Settings() {
                   ))}
                 </select>
               </div>
-            </section>
+              </section>
+            )}
 
             {/* About */}
-            <section
-              id="settings-about"
-              ref={(node) => {
-                sectionRefs.current.about = node;
-              }}
-              className="settings-card settings-section"
-            >
-              <h2 className="card-header">{t('settings.about.title')}</h2>
-              <dl className="about-list">
-                <div className="about-item">
-                  <dt className="about-label">{t('settings.about.software')}</dt>
-                  <dd className="about-value">{t('app.name')}</dd>
-                </div>
-                <div className="about-item">
-                  <dt className="about-label">{t('settings.about.author')}</dt>
-                  <dd className="about-value">youtonghy</dd>
-                </div>
-                <div className="about-item">
-                  <dt className="about-label">{t('settings.about.website')}</dt>
-                  <dd className="about-value">
-                    <button type="button" className="link-button" onClick={handleOpenWebsite}>
-                      https://resty.tokisantike.net
-                    </button>
-                  </dd>
-                </div>
-                <div className="about-item">
-                  <dt className="about-label">{t('settings.about.version')}</dt>
-                  <dd className="about-value">
-                    {appVersion ?? t('settings.about.versionUnknown')}
-                  </dd>
-                </div>
-              </dl>
-            </section>
+            {activeSection === 'about' && (
+              <section id="settings-about" className="settings-card settings-section">
+                <h2 className="card-header">{t('settings.about.title')}</h2>
+                <dl className="about-list">
+                  <div className="about-item">
+                    <dt className="about-label">{t('settings.about.software')}</dt>
+                    <dd className="about-value">{t('app.name')}</dd>
+                  </div>
+                  <div className="about-item">
+                    <dt className="about-label">{t('settings.about.author')}</dt>
+                    <dd className="about-value">youtonghy</dd>
+                  </div>
+                  <div className="about-item">
+                    <dt className="about-label">{t('settings.about.website')}</dt>
+                    <dd className="about-value">
+                      <button type="button" className="link-button" onClick={handleOpenWebsite}>
+                        https://resty.tokisantike.net
+                      </button>
+                    </dd>
+                  </div>
+                  <div className="about-item">
+                    <dt className="about-label">{t('settings.about.version')}</dt>
+                    <dd className="about-value">
+                      {appVersion ?? t('settings.about.versionUnknown')}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+            )}
 
             {/* Actions: 仅保留重置，移除手动保存/导出/导入 */}
             <div className="settings-actions">
