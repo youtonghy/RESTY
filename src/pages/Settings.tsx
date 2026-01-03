@@ -397,18 +397,35 @@ export function Settings() {
             className="settings-nav"
             aria-label={t('settings.navigation.label', { defaultValue: 'Settings sections' })}
           >
-            {sectionDefs.map((section) => (
-              <button
-                key={section.id}
-                type="button"
-                className={`settings-nav-button settings-nav-button--${section.id}${
-                  activeSection === section.id ? ' is-active' : ''
-                }`}
-                onClick={() => setActiveSection(section.id)}
+            <div className="settings-nav-select">
+              <select
+                id="settings-nav-select"
+                className="input settings-nav-select-control"
+                value={activeSection}
+                aria-label={t('settings.navigation.label', { defaultValue: 'Settings sections' })}
+                onChange={(event) => setActiveSection(event.target.value)}
               >
-                {section.label}
-              </button>
-            ))}
+                {sectionDefs.map((section) => (
+                  <option key={section.id} value={section.id}>
+                    {section.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="settings-nav-buttons">
+              {sectionDefs.map((section) => (
+                <button
+                  key={section.id}
+                  type="button"
+                  className={`settings-nav-button settings-nav-button--${section.id}${
+                    activeSection === section.id ? ' is-active' : ''
+                  }`}
+                  onClick={() => setActiveSection(section.id)}
+                >
+                  {section.label}
+                </button>
+              ))}
+            </div>
           </nav>
 
           <div className="settings-content">

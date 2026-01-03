@@ -31,6 +31,20 @@
   box-shadow: var(--shadow-md);
 }
 
+.settings-nav-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.settings-nav-select {
+  display: none;
+}
+
+.settings-nav-select-control {
+  width: 100%;
+}
+
 .settings-nav-button {
   display: flex;
   align-items: center;
@@ -539,10 +553,13 @@
 
   .settings-nav {
     position: static;
+    border-radius: var(--radius-lg, 18px);
+  }
+
+  .settings-nav-buttons {
     flex-direction: row;
     flex-wrap: wrap;
     gap: var(--spacing-xs);
-    border-radius: var(--radius-lg, 18px);
   }
 
   .settings-nav-button {
@@ -556,5 +573,19 @@
 
   .settings-card {
     padding: var(--spacing-lg);
+  }
+}
+
+@media (max-width: 640px) {
+  .settings-nav {
+    padding: var(--spacing-md);
+  }
+
+  .settings-nav-select {
+    display: block;
+  }
+
+  .settings-nav-buttons {
+    display: none;
   }
 }
