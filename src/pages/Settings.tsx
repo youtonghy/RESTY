@@ -15,6 +15,7 @@ const MAX_SEGMENTS = 12;
 const MAX_DURATION_MINUTES = 120;
 const MAX_REPEAT = 12;
 
+// 设置数值归一化工具
 const clampNumber = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
@@ -96,6 +97,7 @@ const enforceTrayDefaults = (settings: SettingsType): SettingsType => {
   return normalized;
 };
 
+// 语言与提醒位置选项配置
 const LANGUAGE_OPTIONS: Array<{ value: Language; labelKey: string }> = [
   { value: 'en-US', labelKey: 'settings.language.options.enUS' },
   { value: 'en-GB', labelKey: 'settings.language.options.enGB' },
@@ -222,6 +224,7 @@ export function Settings() {
     [setSettings, t]
   );
 
+  // 分段番茄的增删改：本地更新并按需持久化
   const updateSegments = useCallback(
     (updater: (segments: WorkSegment[]) => WorkSegment[], persist: boolean) => {
       setLocalSettings((previous) => {
@@ -373,6 +376,7 @@ export function Settings() {
     }
   }, [settings, t]);
 
+  // 外部链接/目录打开
   const handleOpenMusicDirectory = useCallback(async () => {
     const directory = localSettings.restMusicDirectory;
     if (!directory) return;
@@ -407,6 +411,7 @@ export function Settings() {
 
   const isSegmented = localSettings.segmentedWorkEnabled;
 
+  // 页面布局：左侧导航 + 右侧分区表单
   return (
     <div className="page">
       {showSuccessToast && (

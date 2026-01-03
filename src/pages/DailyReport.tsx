@@ -22,12 +22,14 @@ interface ReportCardData extends DailyStats {
   message: string;
 }
 
+// 日报评分阈值与比率配置
 const MIN_EFFECTIVE_BREAK_SEC = 180;
 const LONG_WORK_THRESHOLD_SEC = 60 * 60;
 const VERY_LONG_WORK_THRESHOLD_SEC = 2 * 60 * 60;
 const REST_RATIO_MIN = 0.05;
 const REST_RATIO_IDEAL = 0.2;
 
+// 日报统计工具方法
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 const getSessionSeconds = (session: Session) => {
@@ -41,6 +43,7 @@ const getSessionSeconds = (session: Session) => {
 const getBreakResetThreshold = (session: Session) =>
   Math.max(MIN_EFFECTIVE_BREAK_SEC, session.plannedDuration * 0.5);
 
+// 计算最长连续专注时长
 const calculateMaxContinuousWork = (sessions: Session[]) => {
   const ordered = [...sessions].sort(
     (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
@@ -85,7 +88,7 @@ export function DailyReport() {
   const [reports, setReports] = useState<ReportCardData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Helper to format duration
+  // 时长格式化：用于统计指标展示
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -95,6 +98,7 @@ export function DailyReport() {
     return `${minutes}${t('common.minutes')}`;
   };
 
+  // 根据当天统计结果生成文案模板
   const getTemplate = (stats: DailyStats): { level: ReportLevel; title: string; message: string } => {
     const { completionRate, workDuration, restDuration, maxContinuousWork } = stats;
 
@@ -133,6 +137,7 @@ export function DailyReport() {
   };
 
   useEffect(() => {
+    // 加载近 14 天数据并生成日报卡片
     const loadData = async () => {
       setLoading(true);
       try {
@@ -226,6 +231,7 @@ export function DailyReport() {
     void loadData();
   }, [t]);
 
+  // 加载中状态
   if (loading) {
     return (
       <div className="page daily-report-page">
@@ -241,6 +247,7 @@ export function DailyReport() {
       <div className="container">
         <h1 className="page-title">{t('dailyReport.title')}</h1>
         
+        {/* 无数据时展示空态 */}
         {reports.length === 0 ? (
           <div className="empty-state">
             <p>{t('dailyReport.empty')}</p>

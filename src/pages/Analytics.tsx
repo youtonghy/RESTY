@@ -6,7 +6,7 @@ import './Analytics.css';
 
 type TimeRange = 'today' | 'week' | 'month' | 'custom';
 
-// Heatmap types
+// 热力图数据结构
 type HeatmapDay = {
   date: string; // YYYY-MM-DD
   count: number; // Total breaks (completed + skipped)
@@ -14,6 +14,7 @@ type HeatmapDay = {
   level: 0 | 1 | 2 | 3 | 4; // 0: empty, 1-4: intensity based on completion rate
 };
 
+// 统计卡片图标
 const TotalWorkIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg
     viewBox="0 0 24 24"
@@ -100,6 +101,7 @@ type TimeScaleMark = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// 根据区间类型计算时间范围（包含结束日）
 const getDisplayBounds = (range: TimeRange): TimelineBounds => {
   const end = new Date();
   end.setHours(23, 59, 59, 999);
@@ -262,7 +264,7 @@ export function Analytics() {
     }
   }, [analyticsQuery]);
 
-  // Generate last 6 months dates
+  // 生成最近 6 个月日期序列（用于热力图底板）
   const generateHeatmapDates = () => {
     const dates: string[] = [];
     const end = new Date();
@@ -279,6 +281,7 @@ export function Analytics() {
     return { start, end, dates };
   };
 
+  // 加载热力图数据：按天统计休息完成度
   const loadHeatmapData = useCallback(async () => {
     const { start, end, dates } = generateHeatmapDates();
     const query: AnalyticsQuery = {
@@ -341,7 +344,7 @@ export function Analytics() {
     void loadHeatmapData();
   }, [loadHeatmapData]);
 
-  // Real-time: refresh analytics when sessions are upserted (start/finish/skip)
+  // 实时更新：会话新增/完成/跳过时刷新数据
   useEffect(() => {
     let active = true;
     let unlisten: (() => void) | undefined;
@@ -383,6 +386,7 @@ export function Analytics() {
 
   const completionRate = useMemo(() => computeCompletionRate(data), [data]);
 
+  // 筛选出当前区间的会话（用于时间轴）
   const timelineSessions = useMemo(() => {
     if (!data) return [] as Session[];
     const { start, end } = displayBounds;
@@ -501,6 +505,7 @@ export function Analytics() {
     return { work, rest };
   }, [data, displayBounds]);
 
+  // 加载中状态
   if (loading) {
     return (
       <div className="page">

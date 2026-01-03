@@ -36,6 +36,7 @@ const SHIFT_BLUEPRINT: Array<{ type: SlotType; hour: number; minute: number }> =
   { type: 'break', hour: 16, minute: 0 },
 ];
 
+// 仪表盘默认贴士文案（本地随机抽取）
 const TIP_LIBRARY: Record<'zh' | 'en', string[]> = {
   zh: [
     '遵循20-20-20法则，每20分钟远眺20秒。',
@@ -59,6 +60,7 @@ const TIP_LIBRARY: Record<'zh' | 'en', string[]> = {
   ],
 };
 
+// 时间/进度计算工具：倒计时显示、进度比例等
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 
 const joinParts = (parts: Array<string | null | undefined>) =>
@@ -132,6 +134,7 @@ type CardId = 'status' | 'next' | 'progress' | 'tips' | 'clock';
 type ProgressScope = 'day' | 'week' | 'month' | 'year';
 type ProgressPalette = 'warm' | 'cool';
 
+// 进度卡片配色范围（用于生成渐变）
 const PROGRESS_TONE_RANGES: Record<ProgressPalette, { min: number; max: number }> = {
   warm: { min: 8, max: 48 },
   cool: { min: 180, max: 240 },
@@ -230,6 +233,7 @@ interface GridMetrics {
   rowSpan: number;
 }
 
+// 网格/卡片布局基础配置
 const GRID_COLUMNS = 12;
 const BASE_SPAN = 2;
 const FALLBACK_TRACK_SIZE = 120;
@@ -241,6 +245,7 @@ interface CardStylePreset {
   name: string;
 }
 
+// 读取时区下拉：过滤不可用的时区
 const SUPPORTED_TIMEZONES: Set<string> | null = (() => {
   const supportedValuesOf = (Intl as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf;
   if (typeof supportedValuesOf !== 'function') {
@@ -361,6 +366,8 @@ const PROGRESS_PRESETS: Array<{ scope: ProgressScope; layout: LayoutItem }> = [
     layout: { x: BASE_SPAN * 5, y: 0, w: BASE_SPAN, h: BASE_SPAN },
   },
 ];
+
+// 网格布局计算：限制尺寸并寻找可放置位置
 const clampLayout = (type: CardId, candidate: LayoutItem): LayoutItem => {
   const limits = CARD_LIMITS[type];
 
@@ -626,8 +633,7 @@ const persistCards = (cards: CardInstance[]) => {
   }
 };
 
-// Relative time display not used in simplified next-slot card
-
+// 进入视口时触发淡入动画（卡片出现动效）
 function useFadeInOnScroll<T extends HTMLElement>(delay: number) {
   const ref = useRef<T | null>(null);
 
@@ -658,7 +664,7 @@ function useFadeInOnScroll<T extends HTMLElement>(delay: number) {
   return ref;
 }
 
-// Title component removed per simplification
+// 卡片图标：状态/下一段/进度/时钟
 
 const WorkFocusIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg
@@ -782,6 +788,7 @@ interface FeatureCardProps {
   onKeyDown?: (event: ReactKeyboardEvent<HTMLElement>) => void;
 }
 
+// 卡片基础容器：统一标题、图标与进度背景
 function FeatureCard({
   primary,
   label,
@@ -855,6 +862,7 @@ interface PercentCardProps {
   tabIndex?: number;
 }
 
+// 百分比进度卡片（复用 FeatureCard）
 function PercentCard({
   value,
   label,
@@ -898,6 +906,7 @@ interface NextSlotCardProps {
   actionLabel?: string;
 }
 
+// 下一段提醒卡片（可选点击动作）
 function NextSlotCard({
   primary,
   secondary,
@@ -939,6 +948,7 @@ interface TipsCardProps {
   tabIndex?: number;
 }
 
+// 贴士卡片：只展示文案
 function TipsCard({ tip, delay = 0, tabIndex = 0 }: TipsCardProps) {
   const ref = useFadeInOnScroll<HTMLElement>(delay);
 
@@ -957,6 +967,7 @@ interface TipsCardRendererProps {
   tabIndex?: number;
 }
 
+// 贴士数据来源：本地随机或一言接口
 function TipsCardRenderer({ instance, language, isZh, delay = 0, tabIndex }: TipsCardRendererProps) {
   const source = instance.settings?.tips?.source ?? 'local';
   const [content, setContent] = useState(() =>
@@ -1009,6 +1020,7 @@ interface ProgressCardRendererProps {
   tabIndex?: number;
 }
 
+// 进度卡片：根据范围与配色渲染
 function ProgressCardRenderer({ instance, scopes, delay = 0, tabIndex }: ProgressCardRendererProps) {
   const progressSettings = instance.settings?.progress;
   const scope = progressSettings?.scope ?? 'day';
@@ -1041,6 +1053,7 @@ interface ClockCardProps {
   tabIndex?: number;
 }
 
+// 时钟卡片：展示指定时区时间
 function ClockCard({ time, date, timezone, delay = 0, tabIndex }: ClockCardProps) {
   return (
     <FeatureCard
@@ -1980,6 +1993,7 @@ interface DraggableCardProps {
   isActionable?: boolean;
 }
 
+// 拖拽卡片容器：负责拖动、缩放与样式弹窗
 function DraggableCard({
   id,
   item,
