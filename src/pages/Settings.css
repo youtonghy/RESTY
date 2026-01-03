@@ -556,19 +556,12 @@
     border-radius: var(--radius-lg, 18px);
   }
 
+  .settings-nav-select {
+    display: block;
+  }
+
   .settings-nav-buttons {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: var(--spacing-xs);
-  }
-
-  .settings-nav-button {
-    flex: 1 1 calc(50% - var(--spacing-xs));
-    justify-content: center;
-  }
-
-  .settings-nav-button:hover {
-    transform: translateY(-1px);
+    display: none;
   }
 
   .settings-card {
