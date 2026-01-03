@@ -1,5 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import * as api from '../utils/api';
 
 export const SUPPORTED_LANGUAGES = ['en-US', 'en-GB', 'zh-CN', 'zh-TW'] as const;
 const DEFAULT_LANGUAGE = 'en-US';
@@ -13,6 +14,8 @@ const LANGUAGE_ALIASES: Record<string, (typeof SUPPORTED_LANGUAGES)[number]> = {
   'zh-tw': 'zh-TW',
   'zh-hk': 'zh-TW',
 };
+
+const isTauri = typeof window !== 'undefined' && !!(window as { __TAURI__?: unknown }).__TAURI__;
 
 export function normalizeLanguage(lang: string): (typeof SUPPORTED_LANGUAGES)[number] {
   const lower = lang.toLowerCase();
@@ -45,8 +48,9 @@ async function loadLanguageResources(lang: string) {
   }
 
   try {
-    const response = await fetch(`/locales/${normalized}/translation.json`);
-    const translations = await response.json();
+    const translations = isTauri
+      ? await api.loadTranslation(normalized)
+      : await fetch(`/locales/${normalized}/translation.json`).then((response) => response.json());
     i18n.addResourceBundle(normalized, 'translation', translations, true, true);
   } catch (error) {
     console.error(`Failed to load language resources for ${normalized}:`, error);

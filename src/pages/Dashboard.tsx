@@ -129,30 +129,6 @@ const generateTip = (language: string): string => {
   return pool[randomIndex];
 };
 
-const normalizeQuote = (value: unknown): string | null => {
-  if (typeof value !== 'string') return null;
-  const text = value.trim();
-  return text.length ? text : null;
-};
-
-const extractViewbitsQuote = (payload: unknown): string | null => {
-  if (!payload) return null;
-  if (Array.isArray(payload)) {
-    const first = payload[0] as { q?: unknown } | undefined;
-    return normalizeQuote(first?.q);
-  }
-  if (typeof payload === 'object') {
-    const data = payload as { q?: unknown; data?: unknown };
-    const direct = normalizeQuote(data.q);
-    if (direct) return direct;
-    if (Array.isArray(data.data)) {
-      const first = data.data[0] as { q?: unknown } | undefined;
-      return normalizeQuote(first?.q);
-    }
-  }
-  return null;
-};
-
 type CardId = 'status' | 'next' | 'progress' | 'tips' | 'clock';
 
 type ProgressScope = 'day' | 'week' | 'month' | 'year';
@@ -1000,37 +976,27 @@ function TipsCardRenderer({ instance, language, isZh, delay = 0, tabIndex }: Tip
 
   useEffect(() => {
     if (source === 'hitokoto') {
-      const controller = new AbortController();
+      let ignore = false;
       setContent(isZh ? '加载中…' : 'Loading…');
-      const requestUrl = isZh
-        ? 'https://v1.hitokoto.cn/?encode=json'
-        : 'https://api.viewbits.com/v1/zenquotes?mode=random';
-      fetch(requestUrl, { signal: controller.signal })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error('Failed to fetch quote');
-          }
-          return response.json();
-        })
-        .then((data: { hitokoto?: string | null } | unknown) => {
-          if (controller.signal.aborted) return;
-          const text = isZh
-            ? normalizeQuote((data as { hitokoto?: unknown })?.hitokoto)
-            : extractViewbitsQuote(data);
+      api
+        .fetchTipQuote(language)
+        .then((text) => {
+          if (ignore) return;
           const fallback = isZh
             ? '暂时没有一言，稍后再试。'
             : 'No quote available right now.';
-          setContent(text ?? fallback);
+          const normalized = typeof text === 'string' ? text.trim() : '';
+          setContent(normalized.length ? normalized : fallback);
         })
         .catch((error: unknown) => {
-          if (controller.signal.aborted) return;
+          if (ignore) return;
           setContent(isZh ? '加载失败，稍后再试。' : 'Failed to load. Please try again.');
-          if (error instanceof Error && error.name !== 'AbortError') {
+          if (error instanceof Error) {
             console.warn('Quote fetch failed:', error);
           }
         });
       return () => {
-        controller.abort();
+        ignore = true;
       };
     }
 

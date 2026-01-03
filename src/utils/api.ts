@@ -204,3 +204,14 @@ export async function checkForUpdates(): Promise<UpdateManifest | null> {
 export async function downloadAndInstall(url: string): Promise<void> {
   return await invoke('download_and_install_update', { url });
 }
+
+// Network proxy commands
+/** 获取贴士引用文案（后端代理）。 */
+export async function fetchTipQuote(language: string): Promise<string | null> {
+  return await invoke('fetch_tip_quote', { language });
+}
+
+/** 加载翻译资源（后端代理）。 */
+export async function loadTranslation(language: string): Promise<Record<string, unknown>> {
+  return await invoke('load_translation', { language });
+}

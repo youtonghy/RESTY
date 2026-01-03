@@ -1,5 +1,6 @@
 pub mod database;
 pub mod power;
+pub mod remote;
 pub mod timer;
 pub mod updater;
 

@@ -4,6 +4,7 @@ use crate::models::{
 use crate::services::{updater::UpdateManifest, DatabaseService, TimerService};
 use crate::handle_tray_action;
 use crate::utils::AppError;
+use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
@@ -317,6 +318,22 @@ pub async fn tray_menu_action(
         last_auto_close: state.last_auto_close.clone(),
     };
     handle_tray_action(action.as_str(), app, cloned_state).await
+}
+
+/// 获取贴士引用文案（中文为一言，非中文为 Viewbits）。
+#[tauri::command]
+pub async fn fetch_tip_quote(language: String) -> Result<Option<String>, String> {
+    crate::services::remote::fetch_tip_quote(&language)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// 从打包资源或本地文件读取翻译内容。
+#[tauri::command]
+pub async fn load_translation(app: AppHandle, language: String) -> Result<Value, String> {
+    crate::services::remote::load_translation(&app, &language)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// 校验设置合法性，防止写入异常值。

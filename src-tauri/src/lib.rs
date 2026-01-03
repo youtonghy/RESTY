@@ -510,6 +510,8 @@ pub fn run() {
             commands::get_rest_music_files,
             commands::check_for_updates,
             commands::download_and_install_update,
+            commands::fetch_tip_quote,
+            commands::load_translation,
             update_tray_icon_theme,
         ])
         .run(tauri::generate_context!())
