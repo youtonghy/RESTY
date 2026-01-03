@@ -129,6 +129,30 @@ const generateTip = (language: string): string => {
   return pool[randomIndex];
 };
 
+const normalizeQuote = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null;
+  const text = value.trim();
+  return text.length ? text : null;
+};
+
+const extractViewbitsQuote = (payload: unknown): string | null => {
+  if (!payload) return null;
+  if (Array.isArray(payload)) {
+    const first = payload[0] as { q?: unknown } | undefined;
+    return normalizeQuote(first?.q);
+  }
+  if (typeof payload === 'object') {
+    const data = payload as { q?: unknown; data?: unknown };
+    const direct = normalizeQuote(data.q);
+    if (direct) return direct;
+    if (Array.isArray(data.data)) {
+      const first = data.data[0] as { q?: unknown } | undefined;
+      return normalizeQuote(first?.q);
+    }
+  }
+  return null;
+};
+
 type CardId = 'status' | 'next' | 'progress' | 'tips' | 'clock';
 
 type ProgressScope = 'day' | 'week' | 'month' | 'year';
@@ -967,7 +991,7 @@ interface TipsCardRendererProps {
   tabIndex?: number;
 }
 
-// 贴士数据来源：本地随机或一言接口
+// 贴士数据来源：本地随机或一言（中文）/ Viewbits（非中文）
 function TipsCardRenderer({ instance, language, isZh, delay = 0, tabIndex }: TipsCardRendererProps) {
   const source = instance.settings?.tips?.source ?? 'local';
   const [content, setContent] = useState(() =>
@@ -978,27 +1002,31 @@ function TipsCardRenderer({ instance, language, isZh, delay = 0, tabIndex }: Tip
     if (source === 'hitokoto') {
       const controller = new AbortController();
       setContent(isZh ? '加载中…' : 'Loading…');
-      fetch('https://v1.hitokoto.cn/?encode=json', { signal: controller.signal })
+      const requestUrl = isZh
+        ? 'https://v1.hitokoto.cn/?encode=json'
+        : 'https://api.viewbits.com/v1/zenquotes?mode=random';
+      fetch(requestUrl, { signal: controller.signal })
         .then((response) => {
           if (!response.ok) {
-            throw new Error('Failed to fetch hitokoto');
+            throw new Error('Failed to fetch quote');
           }
           return response.json();
         })
-        .then((data: { hitokoto?: string | null }) => {
+        .then((data: { hitokoto?: string | null } | unknown) => {
           if (controller.signal.aborted) return;
-          const text = typeof data?.hitokoto === 'string' && data.hitokoto.trim().length
-            ? data.hitokoto.trim()
-            : isZh
+          const text = isZh
+            ? normalizeQuote((data as { hitokoto?: unknown })?.hitokoto)
+            : extractViewbitsQuote(data);
+          const fallback = isZh
             ? '暂时没有一言，稍后再试。'
             : 'No quote available right now.';
-          setContent(text);
+          setContent(text ?? fallback);
         })
         .catch((error: unknown) => {
           if (controller.signal.aborted) return;
           setContent(isZh ? '加载失败，稍后再试。' : 'Failed to load. Please try again.');
           if (error instanceof Error && error.name !== 'AbortError') {
-            console.warn('Hitokoto fetch failed:', error);
+            console.warn('Quote fetch failed:', error);
           }
         });
       return () => {
@@ -1833,7 +1861,7 @@ export function Dashboard({ isReadOnly = false, nextCardAction }: DashboardProps
       const selectedSource = tipsSettings?.source ?? 'local';
       const sourceLabel = isZh ? '内容来源' : 'Content source';
       const localOptionLabel = isZh ? '护眼贴士' : 'Eye care tips';
-      const hitokotoOptionLabel = isZh ? '一言' : 'Hitokoto';
+      const hitokotoOptionLabel = isZh ? '一言' : 'Viewbits';
       const tipsDefaults: TipsCardSettings = { source: 'local' };
 
       const updateTipsSettings = (
