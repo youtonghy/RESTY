@@ -53,6 +53,8 @@
       "forceBreakDescription": "休息期間禁止跳過",
       "flowMode": "心流模式",
       "flowModeDescription": "開啟後持續工作，不再提醒休息，需手動結束",
+      "moreRest": "更多休息",
+      "moreRestDescription": "開啟後，工作片段之間的空白與息屏/睡眠間隔會補記為休息",
       "segmented": {
         "enable": "啟用分段工作節奏",
         "description": "自訂多段工作與休息時間，依序循環執行。",

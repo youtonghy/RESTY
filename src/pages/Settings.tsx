@@ -80,6 +80,7 @@ const enforceTrayDefaults = (settings: SettingsType): SettingsType => {
     reminderFullscreenDisplay:
       settings.reminderFullscreenDisplay ?? DEFAULT_SETTINGS.reminderFullscreenDisplay,
     floatingPosition: settings.floatingPosition ?? DEFAULT_SETTINGS.floatingPosition,
+    moreRestEnabled: settings.moreRestEnabled ?? DEFAULT_SETTINGS.moreRestEnabled,
     segmentedWorkEnabled:
       (settings.segmentedWorkEnabled ?? false) && normalizedSegments.length > 0,
     workSegments: normalizedSegments,
@@ -663,6 +664,25 @@ export function Settings() {
                   </span>
                 </label>
                 <p className="helper-text">{t('settings.timer.flowModeDescription')}</p>
+              </div>
+
+              <div className="form-group toggle-group">
+                <label className="toggle-row">
+                  <span className="toggle-text">{t('settings.timer.moreRest')}</span>
+                  <span className="switch">
+                    <input
+                      type="checkbox"
+                      checked={localSettings.moreRestEnabled}
+                      onChange={(e) => {
+                        const next = { ...localSettings, moreRestEnabled: e.target.checked };
+                        setLocalSettings(next);
+                        saveSettingsAuto(next);
+                      }}
+                    />
+                    <span className="slider" />
+                  </span>
+                </label>
+                <p className="helper-text">{t('settings.timer.moreRestDescription')}</p>
               </div>
 
               </section>

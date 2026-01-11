@@ -23,6 +23,10 @@ fn default_flow_mode() -> bool {
     false
 }
 
+fn default_more_rest_enabled() -> bool {
+    false
+}
+
 fn default_segmented_work_enabled() -> bool {
     false
 }
@@ -128,6 +132,8 @@ pub struct Settings {
     pub enable_force_break: bool,
     #[serde(default = "default_flow_mode")]
     pub flow_mode_enabled: bool,
+    #[serde(default = "default_more_rest_enabled")]
+    pub more_rest_enabled: bool,
     #[serde(default = "default_segmented_work_enabled")]
     pub segmented_work_enabled: bool,
     #[serde(default = "default_work_segments")]
@@ -170,6 +176,7 @@ impl Default for Settings {
             break_duration: 5,
             enable_force_break: false,
             flow_mode_enabled: default_flow_mode(),
+            more_rest_enabled: default_more_rest_enabled(),
             segmented_work_enabled: default_segmented_work_enabled(),
             work_segments: default_work_segments(),
             reminder_mode: ReminderMode::Fullscreen,

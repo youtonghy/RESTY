@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAppStore } from '../store';
 import * as api from '../utils/api';
 import type { AnalyticsQuery, Session } from '../types';
+import { augmentSessionsWithMoreRest } from '../utils/analytics';
 import './DailyReport.css';
 
 type ReportLevel = 'excellent' | 'good' | 'fair' | 'poor';
@@ -85,6 +87,7 @@ const calculateMaxContinuousWork = (sessions: Session[]) => {
 
 export function DailyReport() {
   const { t, i18n } = useTranslation();
+  const { settings } = useAppStore();
   const [reports, setReports] = useState<ReportCardData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -154,11 +157,12 @@ export function DailyReport() {
         };
 
         const data = await api.getAnalytics(query);
+        const sessions = augmentSessionsWithMoreRest(data.sessions, settings.moreRestEnabled);
         
         // Group sessions by date
         const sessionsByDate = new Map<string, Session[]>();
         
-        data.sessions.forEach(session => {
+        sessions.forEach(session => {
           const dateStr = new Date(session.startTime).toDateString(); // Groups by local date
           if (!sessionsByDate.has(dateStr)) {
             sessionsByDate.set(dateStr, []);
@@ -229,7 +233,7 @@ export function DailyReport() {
     };
 
     void loadData();
-  }, [t]);
+  }, [settings.moreRestEnabled, t]);
 
   // 加载中状态
   if (loading) {

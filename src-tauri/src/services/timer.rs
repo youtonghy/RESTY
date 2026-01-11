@@ -7,6 +7,9 @@ use tauri::{AppHandle, Emitter};
 use tokio::time::{self, Duration as TokioDuration, MissedTickBehavior};
 use uuid::Uuid;
 
+const POWER_INTERRUPT_BREAK_NOTE: &str = "power-interrupt-break";
+const POWER_INTERRUPT_WORK_NOTE: &str = "power-interrupt-work";
+
 /// Timer service for managing work/break cycles.
 /// 负责管理工作/休息阶段状态与事件广播。
 pub struct TimerService {
@@ -38,6 +41,7 @@ struct TimerServiceState {
     paused_due_to_display_off: bool,
     paused_due_to_system_suspend: bool,
     last_power_restart_at: Option<chrono::DateTime<Utc>>,
+    pending_power_restart: bool,
 }
 
 impl TimerServiceState {
@@ -210,6 +214,7 @@ impl TimerService {
             paused_due_to_display_off: false,
             paused_due_to_system_suspend: false,
             last_power_restart_at: None,
+            pending_power_restart: false,
         };
         state.reset_segment_progress();
 
@@ -316,7 +321,7 @@ impl TimerService {
             }
             (
                 state.phase.clone(),
-                self.create_session_record(&state, true),
+                self.create_session_record(&state, true, None),
                 state.has_segments(),
             )
         };
@@ -402,7 +407,7 @@ impl TimerService {
             if now >= end_time {
                 state.remaining_seconds = 0;
                 timer_finished = true;
-                session = Some(self.create_session_record(&state, false));
+                session = Some(self.create_session_record(&state, false, None));
                 state.phase_end_time = None;
             } else {
                 let diff = (end_time - now).num_seconds();
@@ -469,36 +474,47 @@ impl TimerService {
     /// Restart work session after a power-related resume event.
     fn restart_work_for_power_event(&self) -> AppResult<()> {
         const POWER_RESTART_DEBOUNCE_SECONDS: i64 = 3;
-        let (should_restart, session) = {
+        let should_restart = {
             let mut state = self.state.lock().unwrap();
             let now = Utc::now();
+            if !state.pending_power_restart {
+                return Ok(());
+            }
             let should_restart = match state.last_power_restart_at {
                 Some(last) => (now - last).num_seconds().abs() >= POWER_RESTART_DEBOUNCE_SECONDS,
                 None => true,
             };
-            if !should_restart {
-                (false, None)
-            } else {
+            if should_restart {
                 state.last_power_restart_at = Some(now);
-                let session = if state.phase == TimerPhase::Idle {
-                    None
-                } else {
-                    Some(self.create_session_record(&state, true))
-                };
-                (true, session)
+                state.pending_power_restart = false;
             }
+            should_restart
         };
 
         if !should_restart {
             return Ok(());
         }
 
-        if let Some(session) = session {
-            self.persist_session_finish(session);
-        }
-
-        self.stop()?;
         self.start_work()?;
+        Ok(())
+    }
+
+    fn interrupt_for_power_event(&self) -> AppResult<()> {
+        let session = {
+            let mut state = self.state.lock().unwrap();
+            if state.phase == TimerPhase::Idle {
+                return Ok(());
+            }
+            state.pending_power_restart = true;
+            let note = match state.phase {
+                TimerPhase::Break => POWER_INTERRUPT_BREAK_NOTE,
+                TimerPhase::Work => POWER_INTERRUPT_WORK_NOTE,
+                TimerPhase::Idle => POWER_INTERRUPT_WORK_NOTE,
+            };
+            self.create_session_record(&state, false, Some(note))
+        };
+        self.persist_session_finish(session);
+        self.stop()?;
         Ok(())
     }
 
@@ -513,18 +529,7 @@ impl TimerService {
             }
             self.restart_work_for_power_event()?;
         } else {
-            let should_pause = {
-                let mut state = self.state.lock().unwrap();
-                if state.state == TimerState::Running {
-                    state.paused_due_to_display_off = true;
-                    true
-                } else {
-                    false
-                }
-            };
-            if should_pause {
-                self.pause()?;
-            }
+            self.interrupt_for_power_event()?;
         }
 
         Ok(())
@@ -533,18 +538,7 @@ impl TimerService {
     /// Handle system suspend event (hibernate/sleep).
     /// 系统即将进入休眠/睡眠状态时调用，暂停计时器以防止时间漂移。
     pub fn handle_system_suspend(&self) -> AppResult<()> {
-        let should_pause = {
-            let mut state = self.state.lock().unwrap();
-            if state.state == TimerState::Running {
-                state.paused_due_to_system_suspend = true;
-                true
-            } else {
-                false
-            }
-        };
-        if should_pause {
-            self.pause()?;
-        }
+        self.interrupt_for_power_event()?;
         Ok(())
     }
 
@@ -665,7 +659,12 @@ impl TimerService {
     }
 
     /// Create session record from current state
-    fn create_session_record(&self, state: &TimerServiceState, is_skipped: bool) -> Session {
+    fn create_session_record(
+        &self,
+        state: &TimerServiceState,
+        is_skipped: bool,
+        notes: Option<&str>,
+    ) -> Session {
         let end_time = Utc::now();
         let start_time = state.current_session_start.unwrap_or(end_time);
         let actual_duration = (end_time - start_time).num_seconds();
@@ -686,7 +685,7 @@ impl TimerService {
             planned_duration: state.total_seconds as i64,
             is_skipped,
             extended_seconds: 0,
-            notes: None,
+            notes: notes.map(|note| note.to_string()),
         }
     }
 

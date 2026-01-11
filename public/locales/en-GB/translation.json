@@ -25,6 +25,8 @@
       "forceBreakDescription": "Prevent skipping during break time",
       "flowMode": "Flow mode",
       "flowModeDescription": "Stay in continuous work sessions until you stop manually",
+      "moreRest": "More rest",
+      "moreRestDescription": "Fill gaps between work sessions and screen-off/sleep intervals as breaks",
       "segmented": {
         "enable": "Segmented work durations",
         "description": "Cycle through multiple work and break combinations in order.",

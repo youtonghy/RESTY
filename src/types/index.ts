@@ -25,6 +25,7 @@ export interface Settings {
   breakDuration: number; // in minutes
   enableForceBreak: boolean;
   flowModeEnabled: boolean;
+  moreRestEnabled: boolean;
   segmentedWorkEnabled: boolean;
   workSegments: WorkSegment[];
 
@@ -142,6 +143,7 @@ export const DEFAULT_SETTINGS: Settings = {
   breakDuration: 5,
   enableForceBreak: false,
   flowModeEnabled: false,
+  moreRestEnabled: false,
   segmentedWorkEnabled: false,
   workSegments: [{ workMinutes: 25, breakMinutes: 5, repeat: 1 }],
   reminderMode: 'fullscreen',

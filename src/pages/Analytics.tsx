@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type SVGProps } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAppStore } from '../store';
 import * as api from '../utils/api';
 import type { AnalyticsData, AnalyticsQuery, Session } from '../types';
+import { augmentSessionsWithMoreRest } from '../utils/analytics';
 import './Analytics.css';
 
 type TimeRange = 'today' | 'week' | 'month' | 'custom';
@@ -132,11 +134,12 @@ const createAnalyticsQuery = (bounds: TimelineBounds): AnalyticsQuery => ({
   endDate: new Date(bounds.end).toISOString(),
 });
 
-const computeCompletionRate = (data: AnalyticsData | null): number => {
-  if (!data || data.breakCount <= 0) return 0;
-  const completed = Math.max(0, data.completedBreaks);
-  const rate = (completed / Math.max(1, data.breakCount)) * 100;
-  return Math.round(rate);
+const getSessionSeconds = (session: Session) => {
+  if (Number.isFinite(session.duration) && session.duration > 0) {
+    return session.duration;
+  }
+  const diff = (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / 1000;
+  return Math.max(0, diff);
 };
 
 const generateTimeScale = (
@@ -228,11 +231,13 @@ const generateTimeScale = (
  */
 export function Analytics() {
   const { t, i18n } = useTranslation();
+  const { settings } = useAppStore();
   const [range, setRange] = useState<TimeRange>('today');
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [heatmapData, setHeatmapData] = useState<HeatmapDay[]>([]);
   const isZh = useMemo(() => i18n.language.startsWith('zh'), [i18n.language]);
+  const moreRestEnabled = settings.moreRestEnabled;
   const isMountedRef = useRef(true);
 
   useEffect(
@@ -293,10 +298,11 @@ export function Analytics() {
       const result = await api.getAnalytics(query);
       if (!isMountedRef.current) return;
 
+      const sessions = augmentSessionsWithMoreRest(result.sessions, moreRestEnabled);
       // Process sessions into daily stats
       const dailyStats = new Map<string, { completed: number; skipped: number }>();
 
-      result.sessions.forEach(session => {
+      sessions.forEach(session => {
         if (session.type !== 'break') return;
         const date = session.startTime.split('T')[0];
         const stats = dailyStats.get(date) || { completed: 0, skipped: 0 };
@@ -334,7 +340,7 @@ export function Analytics() {
     } catch (error) {
       console.error('Failed to load heatmap data:', error);
     }
-  }, []);
+  }, [moreRestEnabled]);
 
   useEffect(() => {
     void loadAnalytics();
@@ -384,13 +390,53 @@ export function Analytics() {
     return parts.join(' ');
   };
 
-  const completionRate = useMemo(() => computeCompletionRate(data), [data]);
+  const sessionsWithMoreRest = useMemo(() => {
+    if (!data) return [] as Session[];
+    return augmentSessionsWithMoreRest(data.sessions, moreRestEnabled);
+  }, [data, moreRestEnabled]);
+
+  const derivedStats = useMemo(() => {
+    let totalWorkSeconds = 0;
+    let totalBreakSeconds = 0;
+    let breakCount = 0;
+    let completedBreaks = 0;
+    let skippedBreaks = 0;
+
+    for (const session of sessionsWithMoreRest) {
+      const duration = getSessionSeconds(session);
+      if (session.type === 'work') {
+        totalWorkSeconds += duration;
+      } else if (session.type === 'break') {
+        totalBreakSeconds += duration;
+        breakCount += 1;
+        if (session.isSkipped) {
+          skippedBreaks += 1;
+        } else {
+          completedBreaks += 1;
+        }
+      }
+    }
+
+    return {
+      totalWorkSeconds,
+      totalBreakSeconds,
+      breakCount,
+      completedBreaks,
+      skippedBreaks,
+    };
+  }, [sessionsWithMoreRest]);
+
+  const completionRate = useMemo(() => {
+    if (derivedStats.breakCount <= 0) return 0;
+    const rate = (derivedStats.completedBreaks / Math.max(1, derivedStats.breakCount)) * 100;
+    return Math.round(rate);
+  }, [derivedStats.breakCount, derivedStats.completedBreaks]);
 
   // 筛选出当前区间的会话（用于时间轴）
   const timelineSessions = useMemo(() => {
     if (!data) return [] as Session[];
     const { start, end } = displayBounds;
-    return data.sessions
+    return sessionsWithMoreRest
       .filter((s) => {
         const sStart = new Date(s.startTime).getTime();
         const sEnd = new Date(s.endTime).getTime();
@@ -398,7 +444,7 @@ export function Analytics() {
       })
       .filter((s) => !(s.type === 'break' && s.isSkipped))
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-  }, [data, displayBounds]);
+  }, [data, displayBounds, sessionsWithMoreRest]);
 
   const timeScaleMarks = useMemo<TimeScaleMark[]>(
     () => generateTimeScale(range, displayBounds, i18n.language),
@@ -414,7 +460,7 @@ export function Analytics() {
         skippedPercent: 0,
       };
     }
-    const total = Math.max(data.breakCount, data.completedBreaks + data.skippedBreaks);
+    const total = Math.max(derivedStats.breakCount, derivedStats.completedBreaks + derivedStats.skippedBreaks);
     if (total <= 0) {
       return {
         total: 0,
@@ -423,8 +469,8 @@ export function Analytics() {
         skippedPercent: 0,
       };
     }
-    const completedPercent = (data.completedBreaks / total) * 100;
-    const skippedPercent = (data.skippedBreaks / total) * 100;
+    const completedPercent = (derivedStats.completedBreaks / total) * 100;
+    const skippedPercent = (derivedStats.skippedBreaks / total) * 100;
     const gradient = `conic-gradient(var(--color-primary) 0% ${completedPercent}%, var(--color-warning) ${completedPercent}% 100%)`;
     return {
       total,
@@ -432,7 +478,7 @@ export function Analytics() {
       completedPercent,
       skippedPercent,
     };
-  }, [data]);
+  }, [data, derivedStats.breakCount, derivedStats.completedBreaks, derivedStats.skippedBreaks]);
 
   /**
    * 构建单条时间轴的线性渐变：
@@ -493,7 +539,7 @@ export function Analytics() {
     const R1 = displayBounds.end;
     let work = 0;
     let rest = 0;
-    for (const s of data.sessions) {
+    for (const s of sessionsWithMoreRest) {
       const s0 = new Date(s.startTime).getTime();
       const s1 = new Date(s.endTime).getTime();
       const overlap = Math.max(0, Math.min(s1, R1) - Math.max(s0, R0));
@@ -503,7 +549,7 @@ export function Analytics() {
       else if (s.type === 'break' && !s.isSkipped) rest += seconds;
     }
     return { work, rest };
-  }, [data, displayBounds]);
+  }, [data, displayBounds, sessionsWithMoreRest]);
 
   // 加载中状态
   if (loading) {
@@ -567,7 +613,7 @@ export function Analytics() {
                 <div className="stat-icon count">
                   <BreakCountIcon aria-hidden="true" />
                 </div>
-                <div className="stat-value">{data.breakCount}</div>
+                <div className="stat-value">{derivedStats.breakCount}</div>
                 <div className="stat-label">{t('analytics.breakCount')}</div>
               </div>
 
@@ -648,23 +694,23 @@ export function Analytics() {
                         <li className="completion-pie-legend-item">
                           <span className="completion-pie-dot completed" aria-hidden="true" />
                           <span>{t('analytics.completionLegend.completed', { defaultValue: isZh ? '已休息' : 'Completed' })}</span>
-                          <span className="completion-pie-count">{data.completedBreaks}</span>
+                          <span className="completion-pie-count">{derivedStats.completedBreaks}</span>
                         </li>
                         <li className="completion-pie-legend-item">
                           <span className="completion-pie-dot skipped" aria-hidden="true" />
                           <span>{t('analytics.completionLegend.skipped', { defaultValue: isZh ? '跳过' : 'Skipped' })}</span>
-                          <span className="completion-pie-count">{data.skippedBreaks}</span>
+                          <span className="completion-pie-count">{derivedStats.skippedBreaks}</span>
                         </li>
                       </ul>
                     </div>
                   </div>
 
-                  <div className="stat-item">
-                    <span className="stat-item-label">{t('analytics.skippedBreaks')}</span>
-                    <div className="stat-item-value text-warning">
-                      {data.skippedBreaks}
-                    </div>
+                <div className="stat-item">
+                  <span className="stat-item-label">{t('analytics.skippedBreaks')}</span>
+                  <div className="stat-item-value text-warning">
+                      {derivedStats.skippedBreaks}
                   </div>
+                </div>
                 </div>
               </section>
 
