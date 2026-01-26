@@ -27,30 +27,53 @@ export function normalizeLanguage(lang: string): (typeof SUPPORTED_LANGUAGES)[nu
   return direct ?? DEFAULT_LANGUAGE;
 }
 
+const fetchTranslations = async (lang: string, namespace: string) => {
+  const normalized = normalizeLanguage(lang);
+  if (isTauri) {
+    if (namespace !== 'translation') {
+      return {};
+    }
+    return api.loadTranslation(normalized);
+  }
+  return fetch(`/locales/${normalized}/${namespace}.json`).then((response) => response.json());
+};
+
+const backend = {
+  type: 'backend' as const,
+  read: (language: string, namespace: string, callback: (error: unknown, data: Record<string, unknown> | null) => void) => {
+    fetchTranslations(language, namespace)
+      .then((resources) => {
+        callback(null, resources as Record<string, unknown>);
+      })
+      .catch((error) => {
+        callback(error, null);
+      });
+  },
+};
+
 // Initialize i18n
 i18n
+  .use(backend)
   .use(initReactI18next)
   .init({
     fallbackLng: DEFAULT_LANGUAGE,
     lng: DEFAULT_LANGUAGE,
     supportedLngs: SUPPORTED_LANGUAGES,
+    partialBundledLanguages: true,
     interpolation: {
       escapeValue: false,
     },
-    resources: {},
   });
 
 // Load language resources dynamically
-async function loadLanguageResources(lang: string) {
+async function loadLanguageResources(lang: string, forceReload = false) {
   const normalized = normalizeLanguage(lang);
-  if (i18n.hasResourceBundle(normalized, 'translation')) {
+  if (!forceReload && i18n.hasResourceBundle(normalized, 'translation')) {
     return normalized;
   }
 
   try {
-    const translations = isTauri
-      ? await api.loadTranslation(normalized)
-      : await fetch(`/locales/${normalized}/translation.json`).then((response) => response.json());
+    const translations = await fetchTranslations(normalized, 'translation');
     i18n.addResourceBundle(normalized, 'translation', translations, true, true);
   } catch (error) {
     console.error(`Failed to load language resources for ${normalized}:`, error);

@@ -35,6 +35,18 @@
       "workDuration": "工作时长",
       "restDuration": "休息时长",
       "completionRate": "休息完成度"
+    },
+    "details": {
+      "title": "评分详情",
+      "scoreLabel": "当日得分",
+      "penaltyTitle": "扣分项",
+      "continuousPenalty": "连续工作超过40分钟 × {{count}}",
+      "screenBasePenalty": "当日屏幕使用时长超过4小时",
+      "screenExtraPenalty": "额外2小时 × {{count}}",
+      "penaltyValue": "-{{points}} 分",
+      "totalPenalty": "累计扣分",
+      "cappedNote": "已达最低分 20，超出的扣分未计入",
+      "noPenalty": "暂无扣分"
     }
   },
   "settings": {

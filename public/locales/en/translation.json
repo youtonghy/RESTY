@@ -35,6 +35,18 @@
       "workDuration": "Work Duration",
       "restDuration": "Rest Duration",
       "completionRate": "Completion Rate"
+    },
+    "details": {
+      "title": "Score Details",
+      "scoreLabel": "Daily Score",
+      "penaltyTitle": "Penalty Items",
+      "continuousPenalty": "Continuous work over 40 minutes × {{count}}",
+      "screenBasePenalty": "Screen time over 4 hours",
+      "screenExtraPenalty": "Extra 2 hours × {{count}}",
+      "penaltyValue": "-{{points}} pts",
+      "totalPenalty": "Total penalty",
+      "cappedNote": "Score capped at 20; extra penalties not applied.",
+      "noPenalty": "No penalties"
     }
   },
   "settings": {

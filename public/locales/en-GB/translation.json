@@ -6,8 +6,48 @@
   "navigation": {
     "primary": "Primary navigation",
     "dashboard": "Dashboard",
+    "dailyReport": "Daily Report",
     "analytics": "Analytics",
     "settings": "Settings"
+  },
+  "dailyReport": {
+    "title": "Daily Report",
+    "empty": "No report data available",
+    "templates": {
+      "excellent": {
+        "title": "Good",
+        "message": "Overall rhythm looks good today. Keep a balanced work-and-rest pace."
+      },
+      "good": {
+        "title": "Pass",
+        "message": "Today's status is just passing. Try shortening continuous work sessions and add more breaks."
+      },
+      "fair": {
+        "title": "Caution",
+        "message": "Work time is high or continuous sessions are too long. Take more breaks."
+      },
+      "poor": {
+        "title": "Too much - take a break",
+        "message": "The workload is heavy today. Please rest soon and give your eyes a break."
+      }
+    },
+    "metrics": {
+      "workDuration": "Work Duration",
+      "restDuration": "Rest Duration",
+      "completionRate": "Completion Rate"
+    },
+    "details": {
+      "title": "Score Details",
+      "scoreLabel": "Daily Score",
+      "penaltyTitle": "Penalty Items",
+      "continuousPenalty": "Continuous work over 40 minutes × {{count}}",
+      "screenBasePenalty": "Screen time over 4 hours",
+      "screenExtraPenalty": "Extra 2 hours × {{count}}",
+      "penaltyValue": "-{{points}} pts",
+      "totalPenalty": "Total penalty",
+      "cappedNote": "Score capped at 20; extra penalties not applied.",
+      "noPenalty": "No penalties"
+    }
   },
   "settings": {
     "title": "Settings",

@@ -22,6 +22,19 @@ interface ReportCardData extends DailyStats {
   level: ReportLevel;
   title: string;
   message: string;
+  scoreDetails: ScoreDetails;
+}
+
+interface ScoreDetails {
+  score: number;
+  continuousSteps: number;
+  continuousPenalty: number;
+  screenBasePenalty: number;
+  screenExtraSteps: number;
+  screenExtraPenalty: number;
+  rawPenalty: number;
+  appliedPenalty: number;
+  capped: boolean;
 }
 
 // 日报评分阈值与扣分配置
@@ -86,21 +99,37 @@ const calculateMaxContinuousWork = (sessions: Session[]) => {
   return maxWork;
 };
 
-const calculateDailyScore = (stats: DailyStats) => {
-  const continuousPenalty =
-    Math.floor(stats.maxContinuousWork / CONTINUOUS_WORK_STEP_SEC) * CONTINUOUS_WORK_PENALTY;
+const calculateDailyScoreDetails = (stats: DailyStats): ScoreDetails => {
+  const continuousSteps = Math.floor(stats.maxContinuousWork / CONTINUOUS_WORK_STEP_SEC);
+  const continuousPenalty = continuousSteps * CONTINUOUS_WORK_PENALTY;
 
-  let screenPenalty = 0;
+  let screenBasePenalty = 0;
+  let screenExtraSteps = 0;
+  let screenExtraPenalty = 0;
+
   if (stats.workDuration > SCREEN_BASE_SEC) {
+    screenBasePenalty = SCREEN_BASE_PENALTY;
     const extraSec = stats.workDuration - SCREEN_BASE_SEC;
-    screenPenalty =
-      SCREEN_BASE_PENALTY + Math.floor(extraSec / SCREEN_STEP_SEC) * SCREEN_STEP_PENALTY;
+    screenExtraSteps = Math.floor(extraSec / SCREEN_STEP_SEC);
+    screenExtraPenalty = screenExtraSteps * SCREEN_STEP_PENALTY;
   }
 
+  const rawPenalty = continuousPenalty + screenBasePenalty + screenExtraPenalty;
   const maxPenalty = SCORE_MAX - SCORE_MIN;
-  const totalPenalty = Math.min(maxPenalty, continuousPenalty + screenPenalty);
+  const appliedPenalty = Math.min(maxPenalty, rawPenalty);
+  const score = SCORE_MAX - appliedPenalty;
 
-  return SCORE_MAX - totalPenalty;
+  return {
+    score,
+    continuousSteps,
+    continuousPenalty,
+    screenBasePenalty,
+    screenExtraSteps,
+    screenExtraPenalty,
+    rawPenalty,
+    appliedPenalty,
+    capped: rawPenalty > maxPenalty,
+  };
 };
 
 export function DailyReport() {
@@ -108,6 +137,7 @@ export function DailyReport() {
   const { settings } = useAppStore();
   const [reports, setReports] = useState<ReportCardData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeReport, setActiveReport] = useState<ReportCardData | null>(null);
 
   // 时长格式化：用于统计指标展示
   const formatDuration = (seconds: number) => {
@@ -119,9 +149,16 @@ export function DailyReport() {
     return `${minutes}${t('common.minutes')}`;
   };
 
+  const formatReportDate = (date: string) =>
+    new Intl.DateTimeFormat(i18n.language, {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }).format(new Date(date));
+
   // 根据当天统计结果生成文案模板
-  const getTemplate = (stats: DailyStats): { level: ReportLevel; title: string; message: string } => {
-    const score = calculateDailyScore(stats);
+  const getTemplate = (score: number): { level: ReportLevel; title: string; message: string } => {
 
     let level: ReportLevel = 'poor';
 
@@ -141,6 +178,45 @@ export function DailyReport() {
   };
 
   useEffect(() => {
+    if (!activeReport) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setActiveReport(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeReport]);
+
+  const penaltyItems = activeReport
+    ? [
+        {
+          key: 'continuous',
+          show: activeReport.scoreDetails.continuousPenalty > 0,
+          label: t('dailyReport.details.continuousPenalty', {
+            count: activeReport.scoreDetails.continuousSteps,
+          }),
+          points: activeReport.scoreDetails.continuousPenalty,
+        },
+        {
+          key: 'screen-base',
+          show: activeReport.scoreDetails.screenBasePenalty > 0,
+          label: t('dailyReport.details.screenBasePenalty'),
+          points: activeReport.scoreDetails.screenBasePenalty,
+        },
+        {
+          key: 'screen-extra',
+          show: activeReport.scoreDetails.screenExtraPenalty > 0,
+          label: t('dailyReport.details.screenExtraPenalty', {
+            count: activeReport.scoreDetails.screenExtraSteps,
+          }),
+          points: activeReport.scoreDetails.screenExtraPenalty,
+        },
+      ].filter((item) => item.show)
+    : [];
+
+  useEffect(() => {
     // 加载近 14 天数据并生成日报卡片
     const loadData = async () => {
       setLoading(true);
@@ -158,12 +234,12 @@ export function DailyReport() {
         };
 
         const data = await api.getAnalytics(query);
-        const sessions = augmentSessionsWithMoreRest(data.sessions, settings.moreRestEnabled);
+        const allSessions = augmentSessionsWithMoreRest(data.sessions, settings.moreRestEnabled);
         
         // Group sessions by date
         const sessionsByDate = new Map<string, Session[]>();
         
-        sessions.forEach(session => {
+        allSessions.forEach(session => {
           const dateStr = new Date(session.startTime).toDateString(); // Groups by local date
           if (!sessionsByDate.has(dateStr)) {
             sessionsByDate.set(dateStr, []);
@@ -178,16 +254,16 @@ export function DailyReport() {
           const d = new Date(end);
           d.setDate(d.getDate() - i);
           const dateKey = d.toDateString();
-          const sessions = sessionsByDate.get(dateKey) || [];
+          const daySessions = sessionsByDate.get(dateKey) || [];
 
-          if (sessions.length === 0) continue; // Skip empty days
+          if (daySessions.length === 0) continue; // Skip empty days
 
           let workSec = 0;
           let restSec = 0;
           let totalBreaks = 0;
           let completedBreaks = 0;
 
-          sessions.forEach(s => {
+          daySessions.forEach(s => {
             const dur = getSessionSeconds(s);
             if (s.type === 'work') {
               workSec += dur;
@@ -200,7 +276,7 @@ export function DailyReport() {
             }
           });
 
-          const maxContinuousWork = calculateMaxContinuousWork(sessions);
+          const maxContinuousWork = calculateMaxContinuousWork(daySessions);
 
           // If very little activity, skip
           if (workSec < 60 && totalBreaks === 0) continue;
@@ -217,10 +293,12 @@ export function DailyReport() {
             maxContinuousWork
           };
 
-          const template = getTemplate(stats);
+          const scoreDetails = calculateDailyScoreDetails(stats);
+          const template = getTemplate(scoreDetails.score);
 
           dailyReports.push({
             ...stats,
+            scoreDetails,
             ...template
           });
         }
@@ -262,15 +340,12 @@ export function DailyReport() {
             {reports.map((report) => (
               <div key={report.date} className={`report-card-container`}>
                 <div className={`timeline-dot level-${report.level}`} />
-                <div className={`report-card level-${report.level}`}>
-                  <div className="report-date">
-                    {new Intl.DateTimeFormat(i18n.language, { 
-                      weekday: 'long', 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    }).format(new Date(report.date))}
-                  </div>
+                <button
+                  type="button"
+                  className={`report-card level-${report.level}`}
+                  onClick={() => setActiveReport(report)}
+                >
+                  <div className="report-date">{formatReportDate(report.date)}</div>
                   <div className="report-title">{report.title}</div>
                   <div className="report-message">{report.message}</div>
                   
@@ -288,9 +363,90 @@ export function DailyReport() {
                       <span className="metric-label">{t('dailyReport.metrics.completionRate')}</span>
                     </div>
                   </div>
-                </div>
+                </button>
               </div>
             ))}
+          </div>
+        )}
+        {activeReport && (
+          <div
+            className="daily-report-modal-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="daily-report-score-title"
+            onClick={() => setActiveReport(null)}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <div
+              className="daily-report-modal"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="daily-report-modal-header">
+                <div>
+                  <h2 className="daily-report-modal-title" id="daily-report-score-title">
+                    {t('dailyReport.details.title')}
+                  </h2>
+                  <div className="daily-report-modal-date">{formatReportDate(activeReport.date)}</div>
+                </div>
+                <button
+                  type="button"
+                  className="daily-report-modal-close"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setActiveReport(null);
+                  }}
+                  aria-label={t('common.close')}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="daily-report-modal-body">
+                <div className="daily-report-score">
+                  <div className="daily-report-score-label">{t('dailyReport.details.scoreLabel')}</div>
+                  <div className="daily-report-score-value">
+                    {activeReport.scoreDetails.score}
+                    <span className="daily-report-score-unit">/100</span>
+                  </div>
+                </div>
+                <div className="daily-report-penalties">
+                  <div className="daily-report-penalties-title">
+                    {t('dailyReport.details.penaltyTitle')}
+                  </div>
+                  {penaltyItems.length === 0 ? (
+                    <div className="daily-report-penalties-empty">{t('dailyReport.details.noPenalty')}</div>
+                  ) : (
+                    <ul className="daily-report-penalties-list">
+                      {penaltyItems.map((item) => (
+                        <li key={item.key} className="daily-report-penalty-item">
+                          <span className="daily-report-penalty-label">{item.label}</span>
+                          <span className="daily-report-penalty-value">
+                            {t('dailyReport.details.penaltyValue', { points: item.points })}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="daily-report-penalties-total">
+                    <span className="daily-report-penalties-total-label">
+                      {t('dailyReport.details.totalPenalty')}
+                    </span>
+                    <span className="daily-report-penalties-total-value">
+                      {t('dailyReport.details.penaltyValue', {
+                        points: activeReport.scoreDetails.appliedPenalty,
+                      })}
+                    </span>
+                  </div>
+                  {activeReport.scoreDetails.capped && (
+                    <div className="daily-report-penalties-note">
+                      {t('dailyReport.details.cappedNote')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
