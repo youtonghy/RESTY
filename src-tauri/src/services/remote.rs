@@ -92,19 +92,32 @@ pub async fn fetch_tip_quote(language: &str) -> Result<Option<String>> {
 
 pub async fn load_translation(app: &AppHandle, language: &str) -> Result<Value> {
     let asset_path = format!("locales/{}/translation.json", language);
-    if let Some(asset) = app.asset_resolver().get(asset_path.clone()) {
-        let text = std::str::from_utf8(asset.bytes())
-            .context("Failed to decode translation asset")?;
-        let json = serde_json::from_str(text).context("Failed to parse translation asset")?;
-        return Ok(json);
-    }
 
+    // 开发模式下优先从本地文件读取（确保翻译文件修改后无需重新编译即可生效）
+    #[cfg(debug_assertions)]
     if let Some(path) = resolve_local_asset_path(&asset_path) {
         let bytes = tokio::fs::read(&path)
             .await
             .with_context(|| format!("Failed to read translation file {}", path.display()))?;
-        let json = serde_json::from_slice(&bytes)
-            .context("Failed to parse translation file")?;
+        let json = serde_json::from_slice(&bytes).context("Failed to parse translation file")?;
+        return Ok(json);
+    }
+
+    // 从打包资源加载
+    if let Some(asset) = app.asset_resolver().get(asset_path.clone()) {
+        let text =
+            std::str::from_utf8(asset.bytes()).context("Failed to decode translation asset")?;
+        let json = serde_json::from_str(text).context("Failed to parse translation asset")?;
+        return Ok(json);
+    }
+
+    // 生产模式下的回退：尝试本地文件
+    #[cfg(not(debug_assertions))]
+    if let Some(path) = resolve_local_asset_path(&asset_path) {
+        let bytes = tokio::fs::read(&path)
+            .await
+            .with_context(|| format!("Failed to read translation file {}", path.display()))?;
+        let json = serde_json::from_slice(&bytes).context("Failed to parse translation file")?;
         return Ok(json);
     }
 
