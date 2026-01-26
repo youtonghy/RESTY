@@ -11,6 +11,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Settings } from './pages/Settings';
 import { Analytics } from './pages/Analytics';
 import { DailyReport } from './pages/DailyReport';
+import { Achievements } from './pages/Achievements';
 import { useAppStore } from './store';
 import type { Settings as AppSettings } from './types';
 import * as api from './utils/api';
@@ -305,6 +306,7 @@ function App() {
               <Route path="/daily-report" element={<DailyReport />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/analytics" element={<Analytics />} />
+              <Route path="/achievements" element={<Achievements />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Layout>

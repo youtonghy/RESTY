@@ -8,7 +8,41 @@
     "dashboard": "Dashboard",
     "dailyReport": "Daily Report",
     "analytics": "Analytics",
+    "achievements": "Achievements",
     "settings": "Settings"
+  },
+  "achievements": {
+    "title": "Achievements",
+    "items": {
+      "first_break": {
+        "title": "First Break",
+        "condition": "Complete your first break"
+      },
+      "first_work": {
+        "title": "First Work Session",
+        "condition": "Complete your first work session"
+      },
+      "enable_autostart": {
+        "title": "Autostart Enabled",
+        "condition": "Enable RESTY on system startup"
+      },
+      "work_100_hours": {
+        "title": "100 Hours of Work",
+        "condition": "Accumulate 100 hours of work"
+      },
+      "work_1000_hours": {
+        "title": "1000 Hours of Work",
+        "condition": "Accumulate 1000 hours of work"
+      },
+      "break_10_hours": {
+        "title": "10 Hours of Rest",
+        "condition": "Accumulate 10 hours of rest"
+      },
+      "break_100_hours": {
+        "title": "100 Hours of Rest",
+        "condition": "Accumulate 100 hours of rest"
+      }
+    }
   },
   "dailyReport": {
     "title": "Daily Report",

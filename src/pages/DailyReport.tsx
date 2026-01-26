@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
 import * as api from '../utils/api';
@@ -20,8 +20,6 @@ interface DailyStats {
 
 interface ReportCardData extends DailyStats {
   level: ReportLevel;
-  title: string;
-  message: string;
   scoreDetails: ScoreDetails;
 }
 
@@ -47,6 +45,9 @@ const SCREEN_BASE_SEC = 4 * 60 * 60;
 const SCREEN_BASE_PENALTY = 5;
 const SCREEN_STEP_SEC = 2 * 60 * 60;
 const SCREEN_STEP_PENALTY = 10;
+
+const PAGE_SIZE = 15;
+const WINDOW_DAYS = 15;
 
 const getSessionSeconds = (session: Session) => {
   if (Number.isFinite(session.duration) && session.duration > 0) {
@@ -132,12 +133,127 @@ const calculateDailyScoreDetails = (stats: DailyStats): ScoreDetails => {
   };
 };
 
+const pad2 = (value: number) => String(value).padStart(2, '0');
+
+const toLocalDateKey = (date: Date) =>
+  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+
+const toLocalMiddayISOString = (date: Date) => {
+  const d = new Date(date);
+  d.setHours(12, 0, 0, 0);
+  return d.toISOString();
+};
+
+const endOfLocalDay = (base: Date) => {
+  const d = new Date(base);
+  d.setHours(23, 59, 59, 999);
+  return d;
+};
+
+const startOfLocalDay = (base: Date) => {
+  const d = new Date(base);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+const previousLocalDayEnd = (base: Date) => {
+  const d = new Date(base);
+  d.setDate(d.getDate() - 1);
+  d.setHours(23, 59, 59, 999);
+  return d;
+};
+
+const getReportLevel = (score: number): ReportLevel => {
+  if (score >= 80) return 'excellent';
+  if (score >= 60) return 'good';
+  if (score >= 40) return 'fair';
+  return 'poor';
+};
+
+const groupSessionsByLocalDay = (sessions: Session[]) => {
+  const map = new Map<string, Session[]>();
+  sessions.forEach((session) => {
+    const key = toLocalDateKey(new Date(session.startTime));
+    const bucket = map.get(key);
+    if (bucket) {
+      bucket.push(session);
+    } else {
+      map.set(key, [session]);
+    }
+  });
+  return map;
+};
+
+const buildDailyReport = (day: Date, daySessions: Session[]): ReportCardData | null => {
+  let workSec = 0;
+  let restSec = 0;
+  let totalBreaks = 0;
+  let completedBreaks = 0;
+
+  daySessions.forEach((s) => {
+    const dur = getSessionSeconds(s);
+    if (s.type === 'work') {
+      workSec += dur;
+      return;
+    }
+    if (s.type !== 'break') return;
+    totalBreaks += 1;
+    restSec += dur;
+    if (!s.isSkipped) {
+      completedBreaks += 1;
+    }
+  });
+
+  const maxContinuousWork = calculateMaxContinuousWork(daySessions);
+
+  // If very little activity, skip
+  if (workSec < 60 && totalBreaks === 0) {
+    return null;
+  }
+
+  const completionRate =
+    totalBreaks > 0 ? Math.round((completedBreaks / Math.max(1, totalBreaks)) * 100) : 0;
+
+  const stats: DailyStats = {
+    date: toLocalMiddayISOString(day),
+    workDuration: workSec,
+    restDuration: restSec,
+    totalBreaks,
+    completedBreaks,
+    completionRate,
+    maxContinuousWork,
+  };
+
+  const scoreDetails = calculateDailyScoreDetails(stats);
+  const level = getReportLevel(scoreDetails.score);
+
+  return {
+    ...stats,
+    level,
+    scoreDetails,
+  };
+};
+
 export function DailyReport() {
   const { t, i18n } = useTranslation();
   const { settings } = useAppStore();
+  const moreRestEnabled = settings.moreRestEnabled;
   const [reports, setReports] = useState<ReportCardData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [activeReport, setActiveReport] = useState<ReportCardData | null>(null);
+
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const cursorEndRef = useRef<Date>(endOfLocalDay(new Date()));
+  const earliestStartMsRef = useRef<number | null>(null);
+  const requestSeqRef = useRef(0);
+  const hasMoreRef = useRef(true);
+  const inFlightSeqRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    hasMoreRef.current = hasMore;
+  }, [hasMore]);
 
   // 时长格式化：用于统计指标展示
   const formatDuration = (seconds: number) => {
@@ -156,26 +272,6 @@ export function DailyReport() {
       month: 'long',
       day: 'numeric',
     }).format(new Date(date));
-
-  // 根据当天统计结果生成文案模板
-  const getTemplate = (score: number): { level: ReportLevel; title: string; message: string } => {
-
-    let level: ReportLevel = 'poor';
-
-    if (score >= 80) {
-      level = 'excellent';
-    } else if (score >= 60) {
-      level = 'good';
-    } else if (score >= 40) {
-      level = 'fair';
-    }
-
-    return {
-      level,
-      title: t(`dailyReport.templates.${level}.title`),
-      message: t(`dailyReport.templates.${level}.message`),
-    };
-  };
 
   useEffect(() => {
     if (!activeReport) return;
@@ -216,103 +312,191 @@ export function DailyReport() {
       ].filter((item) => item.show)
     : [];
 
-  useEffect(() => {
-    // 加载近 14 天数据并生成日报卡片
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const end = new Date();
-        end.setHours(23, 59, 59, 999);
-        
-        const start = new Date(end);
-        start.setDate(start.getDate() - 14); // Last 14 days
-        start.setHours(0, 0, 0, 0);
+  const fetchNextPage = useCallback(
+    async (seq: number) => {
+      const page: ReportCardData[] = [];
+      let cursorEnd = cursorEndRef.current;
+
+      while (page.length < PAGE_SIZE) {
+        const earliestStartMs = earliestStartMsRef.current;
+        if (earliestStartMs !== null && cursorEnd.getTime() < earliestStartMs) {
+          break;
+        }
+
+        const windowEnd = endOfLocalDay(cursorEnd);
+        const windowStart = startOfLocalDay(windowEnd);
+        windowStart.setDate(windowStart.getDate() - (WINDOW_DAYS - 1));
 
         const query: AnalyticsQuery = {
-          startDate: start.toISOString(),
-          endDate: end.toISOString(),
+          startDate: windowStart.toISOString(),
+          endDate: windowEnd.toISOString(),
         };
 
         const data = await api.getAnalytics(query);
-        const allSessions = augmentSessionsWithMoreRest(data.sessions, settings.moreRestEnabled);
-        
-        // Group sessions by date
-        const sessionsByDate = new Map<string, Session[]>();
-        
-        allSessions.forEach(session => {
-          const dateStr = new Date(session.startTime).toDateString(); // Groups by local date
-          if (!sessionsByDate.has(dateStr)) {
-            sessionsByDate.set(dateStr, []);
-          }
-          sessionsByDate.get(dateStr)?.push(session);
-        });
-
-        const dailyReports: ReportCardData[] = [];
-
-        // Iterate through the last 14 days to ensure order
-        for (let i = 0; i < 14; i++) {
-          const d = new Date(end);
-          d.setDate(d.getDate() - i);
-          const dateKey = d.toDateString();
-          const daySessions = sessionsByDate.get(dateKey) || [];
-
-          if (daySessions.length === 0) continue; // Skip empty days
-
-          let workSec = 0;
-          let restSec = 0;
-          let totalBreaks = 0;
-          let completedBreaks = 0;
-
-          daySessions.forEach(s => {
-            const dur = getSessionSeconds(s);
-            if (s.type === 'work') {
-              workSec += dur;
-            } else if (s.type === 'break') {
-              totalBreaks++;
-              restSec += dur;
-              if (!s.isSkipped) {
-                completedBreaks++;
-              }
-            }
-          });
-
-          const maxContinuousWork = calculateMaxContinuousWork(daySessions);
-
-          // If very little activity, skip
-          if (workSec < 60 && totalBreaks === 0) continue;
-
-          const completionRate = totalBreaks > 0 ? Math.round((completedBreaks / totalBreaks) * 100) : 0;
-
-          const stats: DailyStats = {
-            date: d.toISOString(),
-            workDuration: workSec,
-            restDuration: restSec,
-            totalBreaks,
-            completedBreaks,
-            completionRate,
-            maxContinuousWork
+        if (requestSeqRef.current !== seq) {
+          return {
+            page: [] as ReportCardData[],
+            nextCursorEnd: cursorEndRef.current,
+            reachedEnd: false,
+            aborted: true,
           };
-
-          const scoreDetails = calculateDailyScoreDetails(stats);
-          const template = getTemplate(scoreDetails.score);
-
-          dailyReports.push({
-            ...stats,
-            scoreDetails,
-            ...template
-          });
         }
 
-        setReports(dailyReports);
-      } catch (err) {
-        console.error('Failed to load daily reports:', err);
+        const sessions = augmentSessionsWithMoreRest(data.sessions, moreRestEnabled);
+        const sessionsByDay = groupSessionsByLocalDay(sessions);
+
+        let lastProcessedDay = windowStart;
+
+        for (let offset = 0; offset < WINDOW_DAYS; offset += 1) {
+          const day = new Date(windowEnd);
+          day.setDate(day.getDate() - offset);
+          lastProcessedDay = day;
+
+          const dayKey = toLocalDateKey(day);
+          const daySessions = sessionsByDay.get(dayKey) ?? [];
+          if (daySessions.length === 0) {
+            continue;
+          }
+
+          const report = buildDailyReport(day, daySessions);
+          if (!report) {
+            continue;
+          }
+
+          page.push(report);
+          if (page.length >= PAGE_SIZE) {
+            break;
+          }
+        }
+
+        cursorEnd = previousLocalDayEnd(lastProcessedDay);
+      }
+
+      const earliestStartMs = earliestStartMsRef.current;
+      const reachedEnd = earliestStartMs !== null && cursorEnd.getTime() < earliestStartMs;
+
+      return {
+        page,
+        nextCursorEnd: cursorEnd,
+        reachedEnd,
+        aborted: false,
+      };
+    },
+    [moreRestEnabled]
+  );
+
+  const loadMore = useCallback(async () => {
+    const seq = requestSeqRef.current;
+    if (!hasMoreRef.current) return;
+    if (inFlightSeqRef.current === seq) return;
+
+    inFlightSeqRef.current = seq;
+    setLoadingMore(true);
+
+    try {
+      const result = await fetchNextPage(seq);
+      if (requestSeqRef.current !== seq || result.aborted) {
+        return;
+      }
+
+      cursorEndRef.current = result.nextCursorEnd;
+
+      if (result.page.length > 0) {
+        setReports((prev) => [...prev, ...result.page]);
+      }
+
+      if (result.reachedEnd) {
+        hasMoreRef.current = false;
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.error('Failed to load more daily reports:', error);
+    } finally {
+      if (inFlightSeqRef.current === seq) {
+        inFlightSeqRef.current = null;
+      }
+      if (requestSeqRef.current === seq) {
+        setLoadingMore(false);
+      }
+    }
+  }, [fetchNextPage]);
+
+  useEffect(() => {
+    let active = true;
+    requestSeqRef.current += 1;
+    const seq = requestSeqRef.current;
+
+    hasMoreRef.current = true;
+    setHasMore(true);
+    setLoading(true);
+    setLoadingMore(false);
+    setReports([]);
+    setActiveReport(null);
+    cursorEndRef.current = endOfLocalDay(new Date());
+
+    const loadInitial = async () => {
+      try {
+        const bounds = await api.getSessionsBounds();
+        if (!active || requestSeqRef.current !== seq) return;
+
+        const earliestStartMs = bounds.earliestStart
+          ? new Date(bounds.earliestStart).getTime()
+          : null;
+        earliestStartMsRef.current = earliestStartMs;
+
+        if (earliestStartMs === null) {
+          hasMoreRef.current = false;
+          setHasMore(false);
+          return;
+        }
+
+        const result = await fetchNextPage(seq);
+        if (!active || requestSeqRef.current !== seq || result.aborted) return;
+
+        cursorEndRef.current = result.nextCursorEnd;
+        setReports(result.page);
+
+        if (result.reachedEnd) {
+          hasMoreRef.current = false;
+          setHasMore(false);
+        }
+      } catch (error) {
+        console.error('Failed to load daily reports:', error);
       } finally {
+        if (!active) return;
+        if (requestSeqRef.current !== seq) return;
         setLoading(false);
       }
     };
 
-    void loadData();
-  }, [settings.moreRestEnabled, t]);
+    void loadInitial();
+
+    return () => {
+      active = false;
+    };
+  }, [fetchNextPage]);
+
+  useEffect(() => {
+    if (!hasMore) return;
+    const node = sentinelRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry?.isIntersecting) {
+          void loadMore();
+        }
+      },
+      { rootMargin: '240px 0px', threshold: 0 }
+    );
+
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMore, loadMore]);
 
   // 加载中状态
   if (loading) {
@@ -346,8 +530,12 @@ export function DailyReport() {
                   onClick={() => setActiveReport(report)}
                 >
                   <div className="report-date">{formatReportDate(report.date)}</div>
-                  <div className="report-title">{report.title}</div>
-                  <div className="report-message">{report.message}</div>
+                  <div className="report-title">
+                    {t(`dailyReport.templates.${report.level}.title`)}
+                  </div>
+                  <div className="report-message">
+                    {t(`dailyReport.templates.${report.level}.message`)}
+                  </div>
                   
                   <div className="report-metrics">
                     <div className="metric-item">
@@ -366,6 +554,20 @@ export function DailyReport() {
                 </button>
               </div>
             ))}
+
+            {hasMore && (
+              <div
+                ref={sentinelRef}
+                aria-hidden="true"
+                style={{ height: 1, width: '100%' }}
+              />
+            )}
+
+            {loadingMore && (
+              <div className="loading" style={{ padding: '1rem 0', textAlign: 'center' }}>
+                {t('common.loading')}
+              </div>
+            )}
           </div>
         )}
         {activeReport && (

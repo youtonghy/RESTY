@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type {
+  AchievementUnlock,
   Settings,
   TimerInfo,
   AnalyticsData,
@@ -8,6 +9,7 @@ import type {
   FloatingPosition,
   MonitorInfo,
   SystemStatus,
+  SessionsBounds,
   Session,
   UpdateManifest,
 } from '../types';
@@ -68,6 +70,17 @@ export async function getTimerInfo(): Promise<TimerInfo> {
 /** 按时间区间获取统计数据。 */
 export async function getAnalytics(query: AnalyticsQuery): Promise<AnalyticsData> {
   return await invoke('get_analytics', { query });
+}
+
+/** 获取会话数据的时间范围（用于分页等场景）。 */
+export async function getSessionsBounds(): Promise<SessionsBounds> {
+  return await invoke('get_sessions_bounds');
+}
+
+// Achievements commands
+/** 获取已解锁成就列表。 */
+export async function getAchievements(): Promise<AchievementUnlock[]> {
+  return await invoke('get_achievements');
 }
 
 // Config commands
@@ -192,6 +205,11 @@ export async function onOpenSettings(callback: () => void) {
 /** 订阅会话写入/更新事件（用于统计页面实时刷新）。 */
 export async function onSessionUpserted(callback: (session: Session) => void) {
   return await listen<Session>('session-upserted', (event) => callback(event.payload));
+}
+
+/** 订阅成就解锁事件。 */
+export async function onAchievementUnlocked(callback: (achievement: AchievementUnlock) => void) {
+  return await listen<AchievementUnlock>('achievement-unlocked', (event) => callback(event.payload));
 }
 
 // Update commands

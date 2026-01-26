@@ -498,6 +498,8 @@ pub fn run() {
             commands::extend_phase,
             commands::get_timer_info,
             commands::get_analytics,
+            commands::get_sessions_bounds,
+            commands::get_achievements,
             commands::import_config,
             commands::export_config,
             commands::get_monitors,

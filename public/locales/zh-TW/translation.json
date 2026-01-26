@@ -8,7 +8,41 @@
     "dashboard": "儀表板",
     "dailyReport": "每日報告",
     "analytics": "統計",
+    "achievements": "成就",
     "settings": "設定"
+  },
+  "achievements": {
+    "title": "成就",
+    "items": {
+      "first_break": {
+        "title": "第一次休息",
+        "condition": "完成第一次休息"
+      },
+      "first_work": {
+        "title": "第一次工作",
+        "condition": "完成第一次工作"
+      },
+      "enable_autostart": {
+        "title": "開機自啟",
+        "condition": "將 RESTY 設為開機自啟"
+      },
+      "work_100_hours": {
+        "title": "工作100小時",
+        "condition": "累計工作時長達到100小時"
+      },
+      "work_1000_hours": {
+        "title": "工作1000小時",
+        "condition": "累計工作時長達到1000小時"
+      },
+      "break_10_hours": {
+        "title": "休息10小時",
+        "condition": "累計休息時長達到10小時"
+      },
+      "break_100_hours": {
+        "title": "休息100小時",
+        "condition": "累計休息時長達到100小時"
+      }
+    }
   },
   "dailyReport": {
     "title": "每日報告",

@@ -54,6 +54,11 @@
   --nav-accent-bg: rgba(245, 158, 11, 0.18);
 }
 
+.nav-item--achievements {
+  --nav-accent: #f97316;
+  --nav-accent-bg: rgba(249, 115, 22, 0.2);
+}
+
 .nav-item.active {
   color: var(--nav-accent);
   background: var(--nav-accent-bg);

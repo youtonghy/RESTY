@@ -153,16 +153,16 @@
 }
 
 /* Status Colors */
-.report-card.level-excellent .timeline-dot { border-color: var(--color-success); }
+.timeline-dot.level-excellent { border-color: var(--color-success); }
 .report-card.level-excellent .report-title { color: var(--color-success); }
 
-.report-card.level-good .timeline-dot { border-color: var(--color-primary); }
+.timeline-dot.level-good { border-color: var(--color-primary); }
 .report-card.level-good .report-title { color: var(--color-primary); }
 
-.report-card.level-fair .timeline-dot { border-color: var(--color-warning); }
+.timeline-dot.level-fair { border-color: var(--color-warning); }
 .report-card.level-fair .report-title { color: var(--color-warning); }
 
-.report-card.level-poor .timeline-dot { border-color: var(--color-error); }
+.timeline-dot.level-poor { border-color: var(--color-error); }
 .report-card.level-poor .report-title { color: var(--color-error); }
 
 @media (max-width: 768px) {

@@ -1,5 +1,6 @@
 use crate::models::{
-    AnalyticsData, AnalyticsQuery, FloatingPosition, MonitorInfo, Settings, SystemStatus, TimerInfo,
+    AchievementUnlock, AnalyticsData, AnalyticsQuery, FloatingPosition, MonitorInfo, SessionsBounds,
+    Settings, SystemStatus, TimerInfo,
 };
 use crate::services::{updater::UpdateManifest, DatabaseService, TimerService};
 use crate::handle_tray_action;
@@ -184,6 +185,20 @@ pub async fn get_analytics(
 ) -> Result<AnalyticsData, String> {
     let db = state.database_service.lock().await;
     db.get_analytics(&query).await.map_err(|e| e.to_string())
+}
+
+/// Get sessions time bounds
+#[tauri::command]
+pub async fn get_sessions_bounds(state: State<'_, AppState>) -> Result<SessionsBounds, String> {
+    let db = state.database_service.lock().await;
+    db.get_sessions_bounds().await.map_err(|e| e.to_string())
+}
+
+/// Get achievements unlock list
+#[tauri::command]
+pub async fn get_achievements(state: State<'_, AppState>) -> Result<Vec<AchievementUnlock>, String> {
+    let db = state.database_service.lock().await;
+    db.get_achievements().await.map_err(|e| e.to_string())
 }
 
 /// Import configuration from JSON

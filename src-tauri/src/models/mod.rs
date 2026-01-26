@@ -214,6 +214,13 @@ pub struct Session {
     pub notes: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AchievementUnlock {
+    pub id: String,
+    pub unlocked_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum SessionType {
@@ -244,6 +251,14 @@ pub struct AnalyticsData {
     pub completed_breaks: usize,
     pub skipped_breaks: usize,
     pub sessions: Vec<Session>,
+}
+
+/// Sessions bounds
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionsBounds {
+    pub earliest_start: Option<DateTime<Utc>>,
+    pub latest_end: Option<DateTime<Utc>>,
 }
 
 /// Analytics query parameters

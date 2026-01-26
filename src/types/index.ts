@@ -83,6 +83,11 @@ export interface Session {
   notes?: string;
 }
 
+export interface AchievementUnlock {
+  id: string;
+  unlockedAt: string; // ISO 8601
+}
+
 /**
  * Timer state for UI display
  */
@@ -106,6 +111,11 @@ export interface AnalyticsData {
   completedBreaks: number;
   skippedBreaks: number;
   sessions: Session[];
+}
+
+export interface SessionsBounds {
+  earliestStart: string | null;
+  latestEnd: string | null;
 }
 
 /**

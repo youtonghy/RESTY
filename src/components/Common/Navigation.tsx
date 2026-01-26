@@ -140,6 +140,28 @@ const SettingsIcon = ({ className }: IconProps) => (
   </svg>
 );
 
+const AchievementsIcon = ({ className }: IconProps) => (
+  <svg
+    className={className}
+    width="32"
+    height="32"
+    viewBox="0 0 24 24"
+    fill="none"
+    strokeWidth={1.5}
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+    <path
+      d="M12 7L13.7 10.5L17.6 11.1L14.8 13.8L15.5 17.6L12 15.7L8.5 17.6L9.2 13.8L6.4 11.1L10.3 10.5L12 7Z"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 /**
  * 主导航组件：根据当前路由高亮菜单，并提供多语言标签。
  */
@@ -152,6 +174,7 @@ export function Navigation() {
   const dashboardLabel = t('navigation.dashboard', { defaultValue: 'Dashboard' });
   const dailyReportLabel = t('navigation.dailyReport', { defaultValue: 'Daily Report' });
   const analyticsLabel = t('navigation.analytics', { defaultValue: 'Analytics' });
+  const achievementsLabel = t('navigation.achievements', { defaultValue: 'Achievements' });
   const settingsLabel = t('navigation.settings', { defaultValue: 'Settings' });
 
   return (
@@ -181,6 +204,15 @@ export function Navigation() {
         title={analyticsLabel}
       >
         <AnalyticsIcon className="nav-icon" />
+      </Link>
+
+      <Link
+        to="/achievements"
+        className={`nav-item nav-item--achievements ${isActive('/achievements') ? 'active' : ''}`}
+        aria-label={achievementsLabel}
+        title={achievementsLabel}
+      >
+        <AchievementsIcon className="nav-icon" />
       </Link>
 
       <Link

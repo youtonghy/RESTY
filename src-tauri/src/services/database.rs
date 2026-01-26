@@ -1,11 +1,29 @@
 use crate::models::{
-    default_work_segments, rest_music_directory_default, AnalyticsData, AnalyticsQuery, Session,
-    Settings,
+    default_work_segments, rest_music_directory_default, AchievementUnlock, AnalyticsData,
+    AnalyticsQuery, Session, SessionType, SessionsBounds, Settings,
 };
 use crate::utils::{AppError, AppResult};
+use chrono::Utc;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::Mutex;
+
+const ACHIEVEMENT_FIRST_BREAK: &str = "first_break";
+const ACHIEVEMENT_FIRST_WORK: &str = "first_work";
+const ACHIEVEMENT_ENABLE_AUTOSTART: &str = "enable_autostart";
+const ACHIEVEMENT_WORK_100_HOURS: &str = "work_100_hours";
+const ACHIEVEMENT_WORK_1000_HOURS: &str = "work_1000_hours";
+const ACHIEVEMENT_BREAK_10_HOURS: &str = "break_10_hours";
+const ACHIEVEMENT_BREAK_100_HOURS: &str = "break_100_hours";
+
+const POWER_INTERRUPT_BREAK_NOTE: &str = "power-interrupt-break";
+const POWER_INTERRUPT_WORK_NOTE: &str = "power-interrupt-work";
+
+const SECONDS_PER_HOUR: i64 = 3600;
+const WORK_100_HOURS_SECONDS: i64 = 100 * SECONDS_PER_HOUR;
+const WORK_1000_HOURS_SECONDS: i64 = 1000 * SECONDS_PER_HOUR;
+const BREAK_10_HOURS_SECONDS: i64 = 10 * SECONDS_PER_HOUR;
+const BREAK_100_HOURS_SECONDS: i64 = 100 * SECONDS_PER_HOUR;
 
 /// Database service for managing persistent data.
 /// 使用本地 JSON 文件持久化设置与会话历史。
@@ -13,6 +31,7 @@ pub struct DatabaseService {
     app: AppHandle,
     settings: Mutex<Settings>,
     sessions: Mutex<Vec<Session>>,
+    achievements: Mutex<Vec<AchievementUnlock>>,
     data_dir: PathBuf,
 }
 
@@ -30,6 +49,7 @@ impl DatabaseService {
             app,
             settings: Mutex::new(Settings::default()),
             sessions: Mutex::new(Vec::new()),
+            achievements: Mutex::new(Vec::new()),
             data_dir,
         }
     }
@@ -50,6 +70,12 @@ impl DatabaseService {
         // Load sessions from file
         self.load_sessions_from_file().await?;
 
+        // Load achievements from file
+        self.load_achievements_from_file().await?;
+
+        // Reconcile achievements for existing data
+        self.reconcile_achievements().await?;
+
         Ok(())
     }
 
@@ -61,6 +87,11 @@ impl DatabaseService {
     /// Get sessions file path
     fn sessions_file(&self) -> PathBuf {
         self.data_dir.join("sessions.json")
+    }
+
+    /// Get achievements file path
+    fn achievements_file(&self) -> PathBuf {
+        self.data_dir.join("achievements.json")
     }
 
     /// Load settings from file
@@ -101,6 +132,197 @@ impl DatabaseService {
         Ok(())
     }
 
+    /// Load achievements from file
+    async fn load_achievements_from_file(&self) -> AppResult<()> {
+        let file_path = self.achievements_file();
+
+        if file_path.exists() {
+            let content = std::fs::read_to_string(&file_path).map_err(|e| {
+                AppError::DatabaseError(format!("Failed to read achievements file: {}", e))
+            })?;
+
+            let loaded: Vec<AchievementUnlock> = serde_json::from_str(&content)
+                .map_err(|e| AppError::DatabaseError(format!("Failed to parse achievements: {}", e)))?;
+
+            let mut achievements = self.achievements.lock().await;
+            *achievements = loaded;
+        }
+
+        Ok(())
+    }
+
+    fn is_completed_work(session: &Session) -> bool {
+        matches!(session.session_type, SessionType::Work)
+            && !session.is_skipped
+            && session.duration > 0
+    }
+
+    fn is_completed_break(session: &Session) -> bool {
+        matches!(session.session_type, SessionType::Break)
+            && !session.is_skipped
+            && session.duration > 0
+    }
+
+    fn session_seconds(session: &Session) -> i64 {
+        if session.duration > 0 {
+            return session.duration;
+        }
+        let diff = session.end_time - session.start_time;
+        diff.num_seconds().max(0)
+    }
+
+    fn total_work_seconds(sessions: &[Session]) -> i64 {
+        sessions
+            .iter()
+            .filter(|session| matches!(session.session_type, SessionType::Work))
+            .map(Self::session_seconds)
+            .sum()
+    }
+
+    fn total_break_seconds(sessions: &[Session], include_more_rest: bool) -> i64 {
+        let mut total: i64 = sessions
+            .iter()
+            .filter(|session| matches!(session.session_type, SessionType::Break))
+            .map(Self::session_seconds)
+            .sum();
+
+        if include_more_rest {
+            total += Self::more_rest_gap_seconds(sessions);
+        }
+
+        total
+    }
+
+    fn more_rest_gap_seconds(sessions: &[Session]) -> i64 {
+        if sessions.len() < 2 {
+            return 0;
+        }
+
+        let mut ordered = sessions.to_vec();
+        ordered.sort_by_key(|session| session.start_time);
+
+        let mut total = 0;
+        for idx in 0..ordered.len().saturating_sub(1) {
+            let prev = &ordered[idx];
+            let next = &ordered[idx + 1];
+            let gap_seconds = (next.start_time - prev.end_time).num_seconds();
+            if gap_seconds <= 0 {
+                continue;
+            }
+            let prev_note = prev.notes.as_deref();
+            let should_fill =
+                (matches!(prev.session_type, SessionType::Work)
+                    && matches!(next.session_type, SessionType::Work)
+                    && prev_note != Some(POWER_INTERRUPT_WORK_NOTE))
+                    || prev_note == Some(POWER_INTERRUPT_BREAK_NOTE);
+            if !should_fill {
+                continue;
+            }
+            total += gap_seconds;
+        }
+
+        total
+    }
+
+    fn persist_achievements(&self, achievements: &[AchievementUnlock]) -> AppResult<()> {
+        let json = serde_json::to_string_pretty(achievements)
+            .map_err(|e| AppError::DatabaseError(format!("Failed to serialize achievements: {}", e)))?;
+
+        std::fs::write(self.achievements_file(), json).map_err(|e| {
+            AppError::DatabaseError(format!("Failed to write achievements file: {}", e))
+        })?;
+
+        Ok(())
+    }
+
+    async fn unlock_achievement(&self, id: &str) -> AppResult<Option<AchievementUnlock>> {
+        let mut achievements = self.achievements.lock().await;
+        if achievements.iter().any(|item| item.id == id) {
+            return Ok(None);
+        }
+
+        let unlock = AchievementUnlock {
+            id: id.to_string(),
+            unlocked_at: Utc::now(),
+        };
+        achievements.push(unlock.clone());
+        self.persist_achievements(&achievements)?;
+
+        let _ = self.app.emit("achievement-unlocked", unlock.clone());
+
+        Ok(Some(unlock))
+    }
+
+    async fn unlock_for_session(&self, session: &Session) -> AppResult<()> {
+        if Self::is_completed_work(session) {
+            let _ = self.unlock_achievement(ACHIEVEMENT_FIRST_WORK).await?;
+        }
+        if Self::is_completed_break(session) {
+            let _ = self.unlock_achievement(ACHIEVEMENT_FIRST_BREAK).await?;
+        }
+        Ok(())
+    }
+
+    async fn unlock_duration_achievements(
+        &self,
+        sessions: &[Session],
+        more_rest_enabled: bool,
+    ) -> AppResult<()> {
+        let total_work_seconds = Self::total_work_seconds(sessions);
+        let total_break_seconds = Self::total_break_seconds(sessions, more_rest_enabled);
+
+        if total_work_seconds >= WORK_100_HOURS_SECONDS {
+            let _ = self.unlock_achievement(ACHIEVEMENT_WORK_100_HOURS).await?;
+        }
+        if total_work_seconds >= WORK_1000_HOURS_SECONDS {
+            let _ = self.unlock_achievement(ACHIEVEMENT_WORK_1000_HOURS).await?;
+        }
+        if total_break_seconds >= BREAK_10_HOURS_SECONDS {
+            let _ = self.unlock_achievement(ACHIEVEMENT_BREAK_10_HOURS).await?;
+        }
+        if total_break_seconds >= BREAK_100_HOURS_SECONDS {
+            let _ = self.unlock_achievement(ACHIEVEMENT_BREAK_100_HOURS).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn reconcile_achievements(&self) -> AppResult<()> {
+        let sessions_snapshot = {
+            let sessions = self.sessions.lock().await;
+            sessions.clone()
+        };
+        let settings_snapshot = {
+            let settings = self.settings.lock().await;
+            settings.clone()
+        };
+
+        if settings_snapshot.autostart {
+            let _ = self.unlock_achievement(ACHIEVEMENT_ENABLE_AUTOSTART).await?;
+        }
+
+        if sessions_snapshot.iter().any(Self::is_completed_work) {
+            let _ = self.unlock_achievement(ACHIEVEMENT_FIRST_WORK).await?;
+        }
+
+        if sessions_snapshot.iter().any(Self::is_completed_break) {
+            let _ = self.unlock_achievement(ACHIEVEMENT_FIRST_BREAK).await?;
+        }
+
+        self.unlock_duration_achievements(
+            &sessions_snapshot,
+            settings_snapshot.more_rest_enabled,
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_achievements(&self) -> AppResult<Vec<AchievementUnlock>> {
+        let achievements = self.achievements.lock().await;
+        Ok(achievements.clone())
+    }
+
     /// Save settings to database
     /// 同步写入内存缓存与 `settings.json`。
     pub async fn save_settings(&self, settings: &Settings) -> AppResult<()> {
@@ -135,6 +357,17 @@ impl DatabaseService {
                 )));
             }
         }
+
+        if normalized.autostart {
+            let _ = self.unlock_achievement(ACHIEVEMENT_ENABLE_AUTOSTART).await?;
+        }
+
+        let sessions_snapshot = {
+            let sessions = self.sessions.lock().await;
+            sessions.clone()
+        };
+        self.unlock_duration_achievements(&sessions_snapshot, normalized.more_rest_enabled)
+            .await?;
 
         Ok(())
     }
@@ -192,20 +425,30 @@ impl DatabaseService {
     /// Save a completed session
     /// 追加会话记录并写入 `sessions.json`。
     pub async fn save_session(&self, session: &Session) -> AppResult<()> {
-        // Add to in-memory sessions
-        let mut sessions = self.sessions.lock().await;
-        sessions.push(session.clone());
+        let sessions_snapshot = {
+            let mut sessions = self.sessions.lock().await;
+            sessions.push(session.clone());
 
-        // Persist to file
-        let json = serde_json::to_string_pretty(&*sessions)
-            .map_err(|e| AppError::DatabaseError(format!("Failed to serialize sessions: {}", e)))?;
+            let json = serde_json::to_string_pretty(&*sessions)
+                .map_err(|e| AppError::DatabaseError(format!("Failed to serialize sessions: {}", e)))?;
 
-        std::fs::write(self.sessions_file(), json).map_err(|e| {
-            AppError::DatabaseError(format!("Failed to write sessions file: {}", e))
-        })?;
+            std::fs::write(self.sessions_file(), json).map_err(|e| {
+                AppError::DatabaseError(format!("Failed to write sessions file: {}", e))
+            })?;
+
+            sessions.clone()
+        };
+        let settings_snapshot = {
+            let settings = self.settings.lock().await;
+            settings.clone()
+        };
 
         // Notify frontend listeners for real-time updates
         let _ = self.app.emit("session-upserted", session.clone());
+
+        self.unlock_for_session(session).await?;
+        self.unlock_duration_achievements(&sessions_snapshot, settings_snapshot.more_rest_enabled)
+            .await?;
 
         Ok(())
     }
@@ -213,23 +456,35 @@ impl DatabaseService {
     /// Insert or update a session by `id`.
     /// 如果已存在相同 `id` 的会话，则更新其字段；否则追加。
     pub async fn save_or_update_session(&self, session: &Session) -> AppResult<()> {
-        let mut sessions = self.sessions.lock().await;
+        let sessions_snapshot = {
+            let mut sessions = self.sessions.lock().await;
 
-        if let Some(existing) = sessions.iter_mut().find(|s| s.id == session.id) {
-            *existing = session.clone();
-        } else {
-            sessions.push(session.clone());
-        }
+            if let Some(existing) = sessions.iter_mut().find(|s| s.id == session.id) {
+                *existing = session.clone();
+            } else {
+                sessions.push(session.clone());
+            }
 
-        let json = serde_json::to_string_pretty(&*sessions)
-            .map_err(|e| AppError::DatabaseError(format!("Failed to serialize sessions: {}", e)))?;
+            let json = serde_json::to_string_pretty(&*sessions)
+                .map_err(|e| AppError::DatabaseError(format!("Failed to serialize sessions: {}", e)))?;
 
-        std::fs::write(self.sessions_file(), json).map_err(|e| {
-            AppError::DatabaseError(format!("Failed to write sessions file: {}", e))
-        })?;
+            std::fs::write(self.sessions_file(), json).map_err(|e| {
+                AppError::DatabaseError(format!("Failed to write sessions file: {}", e))
+            })?;
+
+            sessions.clone()
+        };
+        let settings_snapshot = {
+            let settings = self.settings.lock().await;
+            settings.clone()
+        };
 
         // Notify frontend listeners for real-time updates
         let _ = self.app.emit("session-upserted", session.clone());
+
+        self.unlock_for_session(session).await?;
+        self.unlock_duration_achievements(&sessions_snapshot, settings_snapshot.more_rest_enabled)
+            .await?;
 
         Ok(())
     }
@@ -283,6 +538,18 @@ impl DatabaseService {
             completed_breaks,
             skipped_breaks,
             sessions: filtered.iter().map(|s| (*s).clone()).collect(),
+        })
+    }
+
+    /// Get sessions time bounds
+    /// 获取会话数据的时间范围（最早开始/最晚结束）。
+    pub async fn get_sessions_bounds(&self) -> AppResult<SessionsBounds> {
+        let sessions = self.sessions.lock().await;
+        let earliest_start = sessions.iter().map(|s| s.start_time).min();
+        let latest_end = sessions.iter().map(|s| s.end_time).max();
+        Ok(SessionsBounds {
+            earliest_start,
+            latest_end,
         })
     }
 }
