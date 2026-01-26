@@ -220,7 +220,14 @@
       "today": "今天",
       "week": "本周",
       "month": "本月",
+      "year": "今年",
       "custom": "自定义"
+    },
+    "customRange": {
+      "start": "开始日期",
+      "end": "结束日期",
+      "apply": "应用",
+      "invalidRange": "开始日期需早于结束日期"
     },
     "timeline": "时间轴",
     "noData": "所选时段暂无数据",

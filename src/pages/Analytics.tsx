@@ -6,7 +6,7 @@ import type { AnalyticsData, AnalyticsQuery, Session } from '../types';
 import { augmentSessionsWithMoreRest } from '../utils/analytics';
 import './Analytics.css';
 
-type TimeRange = 'today' | 'week' | 'month' | 'custom';
+type TimeRange = 'today' | 'week' | 'month' | 'year' | 'custom';
 
 // 热力图数据结构
 type HeatmapDay = {
@@ -103,30 +103,81 @@ type TimeScaleMark = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// 根据区间类型计算时间范围（包含结束日）
-const getDisplayBounds = (range: TimeRange): TimelineBounds => {
-  const end = new Date();
-  end.setHours(23, 59, 59, 999);
+const formatDateInputValue = (date: Date) => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
-  const start = new Date(end);
+const parseDateInputValue = (value: string): Date | null => {
+  if (!value) return null;
+  const [yearRaw, monthRaw, dayRaw] = value.split('-');
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  const day = Number(dayRaw);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null;
+  }
+  return date;
+};
+
+// 根据区间类型计算时间范围（包含结束日）
+const getPresetBounds = (range: TimeRange): TimelineBounds => {
+  const now = new Date();
+  const start = new Date(now);
+  const end = new Date(now);
   switch (range) {
     case 'today':
       start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
       break;
-    case 'week':
-      start.setDate(start.getDate() - 6);
+    case 'week': {
+      const day = start.getDay();
+      const diff = (day + 6) % 7;
+      start.setDate(start.getDate() - diff);
       start.setHours(0, 0, 0, 0);
+      end.setTime(start.getTime());
+      end.setDate(end.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
       break;
+    }
     case 'month':
-      start.setMonth(start.getMonth() - 1);
+      start.setDate(1);
       start.setHours(0, 0, 0, 0);
+      end.setFullYear(start.getFullYear(), start.getMonth() + 1, 0);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case 'year':
+      start.setMonth(0, 1);
+      start.setHours(0, 0, 0, 0);
+      end.setFullYear(start.getFullYear(), 11, 31);
+      end.setHours(23, 59, 59, 999);
       break;
     default:
       start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
       break;
   }
 
   return { start: start.getTime(), end: end.getTime() };
+};
+
+const getCustomBounds = (startValue: string, endValue: string): TimelineBounds | null => {
+  const startDate = parseDateInputValue(startValue);
+  const endDate = parseDateInputValue(endValue);
+  if (!startDate || !endDate) return null;
+  startDate.setHours(0, 0, 0, 0);
+  endDate.setHours(23, 59, 59, 999);
+  if (startDate.getTime() > endDate.getTime()) return null;
+  return { start: startDate.getTime(), end: endDate.getTime() };
 };
 
 const createAnalyticsQuery = (bounds: TimelineBounds): AnalyticsQuery => ({
@@ -155,13 +206,19 @@ const generateTimeScale = (
   const formatter = (() => {
     switch (range) {
       case 'today':
-        return new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' });
+        return new Intl.DateTimeFormat(locale, {
+          hour: '2-digit',
+          minute: '2-digit',
+          hourCycle: 'h23',
+        });
       case 'week':
         return new Intl.DateTimeFormat(locale, {
           month: 'short',
           day: 'numeric',
           weekday: 'short',
         });
+      case 'year':
+        return new Intl.DateTimeFormat(locale, { month: 'short' });
       default:
         return new Intl.DateTimeFormat(locale, {
           month: 'short',
@@ -171,7 +228,11 @@ const generateTimeScale = (
   })();
 
   const marks: TimeScaleMark[] = [];
-  const addMark = (timestamp: number, position: TimeScaleMark['position']) => {
+  const addMark = (
+    timestamp: number,
+    position: TimeScaleMark['position'],
+    labelOverride?: string
+  ) => {
     const clamped = Math.min(bounds.end, Math.max(bounds.start, timestamp));
     const left = ((clamped - bounds.start) / total) * 100;
     if (marks.some((mark) => Math.abs(mark.left - left) < 0.01)) {
@@ -180,7 +241,7 @@ const generateTimeScale = (
     marks.push({
       key: `${position}-${clamped}`,
       left,
-      label: formatter.format(new Date(clamped)),
+      label: labelOverride ?? formatter.format(new Date(clamped)),
       position,
     });
   };
@@ -192,7 +253,7 @@ const generateTimeScale = (
       addMark(bounds.start + sixHours, 'middle');
       addMark(bounds.start + sixHours * 2, 'middle');
       addMark(bounds.start + sixHours * 3, 'middle');
-      addMark(bounds.end, 'end');
+      addMark(bounds.end, 'end', '24:00');
       break;
     }
     case 'week': {
@@ -211,6 +272,7 @@ const generateTimeScale = (
       break;
     }
     case 'month':
+    case 'year':
     case 'custom':
     default: {
       addMark(bounds.start, 'start');
@@ -233,6 +295,10 @@ export function Analytics() {
   const { t, i18n } = useTranslation();
   const { settings } = useAppStore();
   const [range, setRange] = useState<TimeRange>('today');
+  const [customDraftStart, setCustomDraftStart] = useState(() => formatDateInputValue(new Date()));
+  const [customDraftEnd, setCustomDraftEnd] = useState(() => formatDateInputValue(new Date()));
+  const [customAppliedStart, setCustomAppliedStart] = useState(() => formatDateInputValue(new Date()));
+  const [customAppliedEnd, setCustomAppliedEnd] = useState(() => formatDateInputValue(new Date()));
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [heatmapData, setHeatmapData] = useState<HeatmapDay[]>([]);
@@ -247,11 +313,35 @@ export function Analytics() {
     []
   );
 
-  const displayBounds = useMemo<TimelineBounds>(() => getDisplayBounds(range), [range]);
+  const presetBounds = useMemo<TimelineBounds>(() => getPresetBounds(range), [range]);
+  const customAppliedBounds = useMemo(
+    () => getCustomBounds(customAppliedStart, customAppliedEnd),
+    [customAppliedStart, customAppliedEnd]
+  );
+  const displayBounds = useMemo<TimelineBounds>(() => {
+    if (range === 'custom' && customAppliedBounds) {
+      return customAppliedBounds;
+    }
+    return presetBounds;
+  }, [customAppliedBounds, presetBounds, range]);
   const analyticsQuery = useMemo<AnalyticsQuery>(
     () => createAnalyticsQuery(displayBounds),
     [displayBounds]
   );
+
+  const customDraftStatus = useMemo(() => {
+    const startDate = parseDateInputValue(customDraftStart);
+    const endDate = parseDateInputValue(customDraftEnd);
+    if (!startDate || !endDate) {
+      return { isValid: false, isReady: false, isOrderInvalid: false };
+    }
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+    if (startDate.getTime() > endDate.getTime()) {
+      return { isValid: false, isReady: true, isOrderInvalid: true };
+    }
+    return { isValid: true, isReady: true, isOrderInvalid: false };
+  }, [customDraftStart, customDraftEnd]);
 
   const loadAnalytics = useCallback(async () => {
     if (!isMountedRef.current) return;
@@ -268,6 +358,24 @@ export function Analytics() {
       }
     }
   }, [analyticsQuery]);
+
+  const handleApplyCustomRange = useCallback(() => {
+    if (!customDraftStatus.isValid) return;
+    setCustomAppliedStart(customDraftStart);
+    setCustomAppliedEnd(customDraftEnd);
+  }, [customDraftStatus.isValid, customDraftStart, customDraftEnd]);
+
+  const handleSelectRange = useCallback(
+    (nextRange: TimeRange) => {
+      if (nextRange === range) return;
+      if (nextRange === 'custom') {
+        setCustomDraftStart(customAppliedStart);
+        setCustomDraftEnd(customAppliedEnd);
+      }
+      setRange(nextRange);
+    },
+    [customAppliedEnd, customAppliedStart, range]
+  );
 
   // 生成最近 6 个月日期序列（用于热力图底板）
   const generateHeatmapDates = () => {
@@ -570,24 +678,85 @@ export function Analytics() {
         {/* Time Range Selector */}
         <div className="range-selector">
           <button
+            type="button"
             className={`range-btn ${range === 'today' ? 'active' : ''}`}
-            onClick={() => setRange('today')}
+            onClick={() => handleSelectRange('today')}
           >
             {t('analytics.timeRange.today')}
           </button>
           <button
+            type="button"
             className={`range-btn ${range === 'week' ? 'active' : ''}`}
-            onClick={() => setRange('week')}
+            onClick={() => handleSelectRange('week')}
           >
             {t('analytics.timeRange.week')}
           </button>
           <button
+            type="button"
             className={`range-btn ${range === 'month' ? 'active' : ''}`}
-            onClick={() => setRange('month')}
+            onClick={() => handleSelectRange('month')}
           >
             {t('analytics.timeRange.month')}
           </button>
+          <button
+            type="button"
+            className={`range-btn ${range === 'year' ? 'active' : ''}`}
+            onClick={() => handleSelectRange('year')}
+          >
+            {t('analytics.timeRange.year')}
+          </button>
+          <button
+            type="button"
+            className={`range-btn ${range === 'custom' ? 'active' : ''}`}
+            onClick={() => handleSelectRange('custom')}
+          >
+            {t('analytics.timeRange.custom')}
+          </button>
         </div>
+
+        {range === 'custom' && (
+          <div className="custom-range-panel">
+            <div className="custom-range-field">
+              <label className="custom-range-label" htmlFor="custom-range-start">
+                {t('analytics.customRange.start')}
+              </label>
+              <input
+                id="custom-range-start"
+                className="custom-range-input"
+                type="date"
+                value={customDraftStart}
+                max={customDraftEnd || undefined}
+                onChange={(event) => setCustomDraftStart(event.currentTarget.value)}
+              />
+            </div>
+            <div className="custom-range-field">
+              <label className="custom-range-label" htmlFor="custom-range-end">
+                {t('analytics.customRange.end')}
+              </label>
+              <input
+                id="custom-range-end"
+                className="custom-range-input"
+                type="date"
+                value={customDraftEnd}
+                min={customDraftStart || undefined}
+                onChange={(event) => setCustomDraftEnd(event.currentTarget.value)}
+              />
+            </div>
+            <button
+              type="button"
+              className="range-apply-btn"
+              onClick={handleApplyCustomRange}
+              disabled={!customDraftStatus.isValid}
+            >
+              {t('analytics.customRange.apply')}
+            </button>
+            {customDraftStatus.isOrderInvalid && (
+              <div className="custom-range-error" role="alert">
+                {t('analytics.customRange.invalidRange')}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Overview Stats */}
         {data && (

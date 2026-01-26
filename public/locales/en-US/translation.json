@@ -221,7 +221,14 @@
       "today": "Today",
       "week": "This Week",
       "month": "This Month",
+      "year": "This Year",
       "custom": "Custom Range"
+    },
+    "customRange": {
+      "start": "Start Date",
+      "end": "End Date",
+      "apply": "Apply",
+      "invalidRange": "Start date must be earlier than end date"
     },
     "timeline": "Timeline",
     "noData": "No data available for selected period",
