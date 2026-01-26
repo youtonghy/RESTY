@@ -24,15 +24,16 @@ interface ReportCardData extends DailyStats {
   message: string;
 }
 
-// 日报评分阈值与比率配置
+// 日报评分阈值与扣分配置
 const MIN_EFFECTIVE_BREAK_SEC = 180;
-const LONG_WORK_THRESHOLD_SEC = 60 * 60;
-const VERY_LONG_WORK_THRESHOLD_SEC = 2 * 60 * 60;
-const REST_RATIO_MIN = 0.05;
-const REST_RATIO_IDEAL = 0.2;
-
-// 日报统计工具方法
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const SCORE_MAX = 100;
+const SCORE_MIN = 20;
+const CONTINUOUS_WORK_STEP_SEC = 40 * 60;
+const CONTINUOUS_WORK_PENALTY = 5;
+const SCREEN_BASE_SEC = 4 * 60 * 60;
+const SCREEN_BASE_PENALTY = 5;
+const SCREEN_STEP_SEC = 2 * 60 * 60;
+const SCREEN_STEP_PENALTY = 10;
 
 const getSessionSeconds = (session: Session) => {
   if (Number.isFinite(session.duration) && session.duration > 0) {
@@ -85,6 +86,23 @@ const calculateMaxContinuousWork = (sessions: Session[]) => {
   return maxWork;
 };
 
+const calculateDailyScore = (stats: DailyStats) => {
+  const continuousPenalty =
+    Math.floor(stats.maxContinuousWork / CONTINUOUS_WORK_STEP_SEC) * CONTINUOUS_WORK_PENALTY;
+
+  let screenPenalty = 0;
+  if (stats.workDuration > SCREEN_BASE_SEC) {
+    const extraSec = stats.workDuration - SCREEN_BASE_SEC;
+    screenPenalty =
+      SCREEN_BASE_PENALTY + Math.floor(extraSec / SCREEN_STEP_SEC) * SCREEN_STEP_PENALTY;
+  }
+
+  const maxPenalty = SCORE_MAX - SCORE_MIN;
+  const totalPenalty = Math.min(maxPenalty, continuousPenalty + screenPenalty);
+
+  return SCORE_MAX - totalPenalty;
+};
+
 export function DailyReport() {
   const { t, i18n } = useTranslation();
   const { settings } = useAppStore();
@@ -103,32 +121,15 @@ export function DailyReport() {
 
   // 根据当天统计结果生成文案模板
   const getTemplate = (stats: DailyStats): { level: ReportLevel; title: string; message: string } => {
-    const { completionRate, workDuration, restDuration, maxContinuousWork } = stats;
-
-    const restRatio = workDuration > 0 ? restDuration / workDuration : 0;
-    const restRatioScore = clamp(
-      (restRatio - REST_RATIO_MIN) / (REST_RATIO_IDEAL - REST_RATIO_MIN),
-      0,
-      1
-    );
-    const completionScore = clamp(completionRate / 100, 0, 1);
-
-    const longWorkPenalty =
-      maxContinuousWork >= VERY_LONG_WORK_THRESHOLD_SEC
-        ? 0.3
-        : maxContinuousWork >= LONG_WORK_THRESHOLD_SEC
-          ? 0.2
-          : 0;
-
-    const fatigueScore = clamp(restRatioScore * 0.6 + completionScore * 0.4 - longWorkPenalty, 0, 1);
+    const score = calculateDailyScore(stats);
 
     let level: ReportLevel = 'poor';
 
-    if (fatigueScore >= 0.8) {
+    if (score >= 80) {
       level = 'excellent';
-    } else if (fatigueScore >= 0.6) {
+    } else if (score >= 60) {
       level = 'good';
-    } else if (fatigueScore >= 0.4) {
+    } else if (score >= 40) {
       level = 'fair';
     }
 

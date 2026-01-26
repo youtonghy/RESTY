@@ -15,20 +15,20 @@
     "empty": "No report data available",
     "templates": {
       "excellent": {
-        "title": "Perfect Day",
-        "message": "You had a very regular schedule today, balancing work and rest perfectly. Keep it up!"
+        "title": "Good",
+        "message": "Overall rhythm looks good today. Keep a balanced work-and-rest pace."
       },
       "good": {
-        "title": "Good Rhythm",
-        "message": "Great performance today, you took breaks most of the time. There is still room for improvement!"
+        "title": "Pass",
+        "message": "Today's status is just passing. Try shortening continuous work sessions and add more breaks."
       },
       "fair": {
-        "title": "Needs Attention",
-        "message": "Although you took breaks, the work intensity seems high. Try adding some short breaks."
+        "title": "Caution",
+        "message": "Work time is high or continuous sessions are too long. Take more breaks."
       },
       "poor": {
-        "title": "Overwork Warning",
-        "message": "You worked for long hours today with very few breaks. Please rest more for your eye health!"
+        "title": "Too much - take a break",
+        "message": "The workload is heavy today. Please rest soon and give your eyes a break."
       }
     },
     "metrics": {
