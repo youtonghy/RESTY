@@ -486,6 +486,12 @@
   margin-top: var(--spacing-xl);
 }
 
+.data-transfer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+}
+
 .about-list {
   display: grid;
   gap: var(--spacing-sm);

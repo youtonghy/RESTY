@@ -133,6 +133,17 @@
         "confirmButton": "Delete data",
         "clearing": "Clearing...",
         "clearFailed": "Failed to clear analytics data"
+      },
+      "dataTransfer": {
+        "title": "Data Export & Import",
+        "description": "Export settings and analytics to a backup file, or restore from one.",
+        "import": "Import data",
+        "export": "Export data",
+        "exportDialogTitle": "Export data",
+        "importDialogTitle": "Import data",
+        "importConfirmTitle": "Import data",
+        "importConfirmMessage": "Importing will overwrite current settings and analytics data. Continue?",
+        "fileType": "RESTY backup"
       }
     },
     "language": {
@@ -251,13 +262,17 @@
     "timerResumed": "Timer resumed",
     "settingsSaved": "Settings saved successfully",
     "configImported": "Configuration imported",
-    "configExported": "Configuration exported"
+    "configExported": "Configuration exported",
+    "dataImported": "Data imported successfully",
+    "dataExported": "Data exported successfully"
   },
   "errors": {
     "invalidDuration": "Duration must be between 1 and 120 minutes",
     "invalidOpacity": "Opacity must be between 0 and 100",
     "importFailed": "Failed to import configuration",
     "exportFailed": "Failed to export configuration",
+    "dataImportFailed": "Failed to import data",
+    "dataExportFailed": "Failed to export data",
     "saveFailed": "Failed to save settings",
     "loadFailed": "Failed to load settings",
     "unknown": "An unexpected error occurred",

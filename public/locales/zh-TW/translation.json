@@ -167,6 +167,17 @@
         "confirmButton": "確認刪除",
         "clearing": "正在清除...",
         "clearFailed": "清除統計資料失敗"
+      },
+      "dataTransfer": {
+        "title": "資料匯入/匯出",
+        "description": "匯出設定與統計資料到備份檔，或從備份還原。",
+        "import": "匯入資料",
+        "export": "匯出資料",
+        "exportDialogTitle": "匯出資料",
+        "importDialogTitle": "匯入資料",
+        "importConfirmTitle": "匯入資料",
+        "importConfirmMessage": "匯入將覆蓋目前設定與統計資料，是否繼續？",
+        "fileType": "RESTY 備份檔"
       }
     },
     "language": {
@@ -285,13 +296,17 @@
     "timerResumed": "計時器已恢復",
     "settingsSaved": "設定儲存成功",
     "configImported": "設定匯入成功",
-    "configExported": "設定匯出成功"
+    "configExported": "設定匯出成功",
+    "dataImported": "資料匯入成功",
+    "dataExported": "資料匯出成功"
   },
   "errors": {
     "invalidDuration": "時長必須介於 1 到 120 分鐘之間",
     "invalidOpacity": "透明度必須介於 0 到 100",
     "importFailed": "匯入設定失敗",
     "exportFailed": "匯出設定失敗",
+    "dataImportFailed": "匯入資料失敗",
+    "dataExportFailed": "匯出資料失敗",
     "saveFailed": "儲存設定失敗",
     "loadFailed": "載入設定失敗",
     "unknown": "發生未知錯誤",

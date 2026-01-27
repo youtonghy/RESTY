@@ -323,9 +323,65 @@ impl DatabaseService {
         Ok(achievements.clone())
     }
 
+    pub async fn get_sessions(&self) -> AppResult<Vec<Session>> {
+        let sessions = self.sessions.lock().await;
+        Ok(sessions.clone())
+    }
+
+    pub async fn replace_sessions(&self, sessions: Vec<Session>) -> AppResult<()> {
+        let json = serde_json::to_string_pretty(&sessions).map_err(|e| {
+            AppError::DatabaseError(format!("Failed to serialize sessions: {}", e))
+        })?;
+
+        {
+            let mut stored = self.sessions.lock().await;
+            *stored = sessions.clone();
+        }
+
+        std::fs::write(self.sessions_file(), json).map_err(|e| {
+            AppError::DatabaseError(format!("Failed to write sessions file: {}", e))
+        })?;
+
+        Ok(())
+    }
+
+    pub async fn replace_achievements(&self, achievements: Vec<AchievementUnlock>) -> AppResult<()> {
+        {
+            let mut stored = self.achievements.lock().await;
+            *stored = achievements.clone();
+        }
+
+        self.persist_achievements(&achievements)?;
+
+        Ok(())
+    }
+
     /// Save settings to database
     /// 同步写入内存缓存与 `settings.json`。
     pub async fn save_settings(&self, settings: &Settings) -> AppResult<()> {
+        let normalized = self.persist_settings(settings).await?;
+
+        if normalized.autostart {
+            let _ = self.unlock_achievement(ACHIEVEMENT_ENABLE_AUTOSTART).await?;
+        }
+
+        let sessions_snapshot = {
+            let sessions = self.sessions.lock().await;
+            sessions.clone()
+        };
+        self.unlock_duration_achievements(&sessions_snapshot, normalized.more_rest_enabled)
+            .await?;
+
+        Ok(())
+    }
+
+    /// 保存设置但不触发成就更新（用于导入场景）。
+    pub async fn save_settings_without_achievements(&self, settings: &Settings) -> AppResult<()> {
+        let _ = self.persist_settings(settings).await?;
+        Ok(())
+    }
+
+    async fn persist_settings(&self, settings: &Settings) -> AppResult<Settings> {
         let mut normalized = settings.clone();
         normalized.minimize_to_tray = true;
         normalized.close_to_tray = true;
@@ -358,18 +414,7 @@ impl DatabaseService {
             }
         }
 
-        if normalized.autostart {
-            let _ = self.unlock_achievement(ACHIEVEMENT_ENABLE_AUTOSTART).await?;
-        }
-
-        let sessions_snapshot = {
-            let sessions = self.sessions.lock().await;
-            sessions.clone()
-        };
-        self.unlock_duration_achievements(&sessions_snapshot, normalized.more_rest_enabled)
-            .await?;
-
-        Ok(())
+        Ok(normalized)
     }
 
     /// Load settings from database

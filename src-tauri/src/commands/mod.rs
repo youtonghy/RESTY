@@ -1,10 +1,12 @@
 use crate::models::{
-    AchievementUnlock, AnalyticsData, AnalyticsQuery, FloatingPosition, MonitorInfo, SessionsBounds,
-    Settings, SystemStatus, TimerInfo,
+    AchievementUnlock, AnalyticsData, AnalyticsQuery, FloatingPosition, MonitorInfo, Session,
+    SessionsBounds, Settings, SystemStatus, TimerInfo,
 };
 use crate::services::{updater::UpdateManifest, DatabaseService, TimerService};
 use crate::handle_tray_action;
 use crate::utils::AppError;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -250,6 +252,110 @@ pub async fn export_config(state: State<'_, AppState>) -> Result<String, String>
 
     serde_json::to_string_pretty(&settings)
         .map_err(|e| AppError::ExportFailed(e.to_string()).to_string())
+}
+
+fn default_schema_version() -> u32 {
+    1
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AppDataPackage {
+    #[serde(default = "default_schema_version")]
+    schema_version: u32,
+    #[serde(default)]
+    exported_at: Option<DateTime<Utc>>,
+    settings: Settings,
+    #[serde(default)]
+    sessions: Vec<Session>,
+    #[serde(default)]
+    achievements: Vec<AchievementUnlock>,
+}
+
+/// Export settings and analytics data to a file
+#[tauri::command]
+pub async fn export_app_data_to_file(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<(), String> {
+    let target = PathBuf::from(path.trim());
+    if target.as_os_str().is_empty() {
+        return Err(AppError::ExportFailed("Missing export path".to_string()).to_string());
+    }
+    if let Some(parent) = target.parent() {
+        if let Err(err) = std::fs::create_dir_all(parent) {
+            return Err(AppError::ExportFailed(err.to_string()).to_string());
+        }
+    }
+
+    let db = state.database_service.lock().await;
+    let settings = db.load_settings().await.map_err(|e| e.to_string())?;
+    let sessions = db.get_sessions().await.map_err(|e| e.to_string())?;
+    let achievements = db.get_achievements().await.map_err(|e| e.to_string())?;
+
+    let payload = AppDataPackage {
+        schema_version: default_schema_version(),
+        exported_at: Some(Utc::now()),
+        settings,
+        sessions,
+        achievements,
+    };
+
+    let json = serde_json::to_string_pretty(&payload)
+        .map_err(|e| AppError::ExportFailed(e.to_string()).to_string())?;
+
+    std::fs::write(&target, json)
+        .map_err(|e| AppError::ExportFailed(e.to_string()).to_string())?;
+
+    Ok(())
+}
+
+/// Import settings and analytics data from a file
+#[tauri::command]
+pub async fn import_app_data_from_file(
+    path: String,
+    state: State<'_, AppState>,
+) -> Result<Settings, String> {
+    let target = PathBuf::from(path.trim());
+    if target.as_os_str().is_empty() {
+        return Err(AppError::ImportFailed("Missing import path".to_string()).to_string());
+    }
+
+    let content = std::fs::read_to_string(&target)
+        .map_err(|e| AppError::ImportFailed(e.to_string()).to_string())?;
+    let payload: AppDataPackage =
+        serde_json::from_str(&content).map_err(|e| AppError::ImportFailed(e.to_string()).to_string())?;
+
+    let mut settings = payload.settings;
+    if !settings.autostart && settings.silent_autostart {
+        settings.silent_autostart = false;
+    }
+
+    validate_settings(&settings)?;
+
+    state.timer_service.update_timer_configuration(
+        settings.work_duration,
+        settings.break_duration,
+        settings.segmented_work_enabled,
+        settings.work_segments.clone(),
+    );
+    state
+        .timer_service
+        .update_flow_mode(settings.flow_mode_enabled)
+        .map_err(|e| e.to_string())?;
+
+    let db = state.database_service.lock().await;
+    db.replace_sessions(payload.sessions)
+        .await
+        .map_err(|e| e.to_string())?;
+    db.replace_achievements(payload.achievements)
+        .await
+        .map_err(|e| e.to_string())?;
+    db.save_settings_without_achievements(&settings)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(settings)
 }
 
 /// Get list of monitors

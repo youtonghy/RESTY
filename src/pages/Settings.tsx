@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener';
+import { confirm as confirmDialog, open, save } from '@tauri-apps/plugin-dialog';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
 import * as api from '../utils/api';
@@ -56,6 +57,14 @@ const normalizeSegments = (
   return source
     .map((segment) => normalizeSegmentWithFallback(segment, fallbackWork, fallbackBreak))
     .slice(0, MAX_SEGMENTS);
+};
+
+const buildBackupFilename = () => {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `resty-backup-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(
+    now.getDate()
+  )}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.json`;
 };
 
 const enforceTrayDefaults = (settings: SettingsType): SettingsType => {
@@ -129,6 +138,7 @@ export function Settings() {
   const [showClearAnalyticsModal, setShowClearAnalyticsModal] = useState(false);
   const [clearAnalyticsInput, setClearAnalyticsInput] = useState('');
   const [isClearingAnalytics, setIsClearingAnalytics] = useState(false);
+  const [isTransferringData, setIsTransferringData] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
   const sectionDefs = useMemo(
@@ -393,6 +403,82 @@ export function Settings() {
     }
   }, [analyticsConfirmPhrase, clearAnalyticsInput, t]);
 
+  const handleExportData = useCallback(async () => {
+    setMessage('');
+    setIsTransferringData(true);
+    try {
+      const path = await save({
+        title: t('settings.system.dataTransfer.exportDialogTitle'),
+        defaultPath: buildBackupFilename(),
+        filters: [
+          {
+            name: t('settings.system.dataTransfer.fileType'),
+            extensions: ['json'],
+          },
+        ],
+      });
+      if (!path) return;
+      await api.exportAppDataToFile(path);
+      if (!isMountedRef.current) return;
+      setMessage(t('notifications.dataExported'));
+    } catch (error) {
+      console.error('Failed to export data:', error);
+      if (!isMountedRef.current) return;
+      setMessage(t('errors.dataExportFailed'));
+    } finally {
+      if (isMountedRef.current) {
+        setIsTransferringData(false);
+      }
+    }
+  }, [t]);
+
+  const handleImportData = useCallback(async () => {
+    setMessage('');
+    setIsTransferringData(true);
+    try {
+      const selected = await open({
+        title: t('settings.system.dataTransfer.importDialogTitle'),
+        filters: [
+          {
+            name: t('settings.system.dataTransfer.fileType'),
+            extensions: ['json'],
+          },
+        ],
+        multiple: false,
+      });
+      if (!selected || Array.isArray(selected)) return;
+
+      const confirmed = await confirmDialog(
+        t('settings.system.dataTransfer.importConfirmMessage'),
+        {
+          title: t('settings.system.dataTransfer.importConfirmTitle'),
+          kind: 'warning',
+          okLabel: t('common.confirm'),
+          cancelLabel: t('common.cancel'),
+        }
+      );
+      if (!confirmed) return;
+
+      const imported = await api.importAppDataFromFile(selected);
+      if (!isMountedRef.current) return;
+      const normalized = enforceTrayDefaults(imported);
+      setSettings(normalized);
+      setLocalSettings(normalized);
+      setMessage(t('notifications.dataImported'));
+      api.setAutostart(normalized.autostart).catch((err) => {
+        console.error('Failed to sync autostart:', err);
+      });
+    } catch (error) {
+      console.error('Failed to import data:', error);
+      if (!isMountedRef.current) return;
+      setMessage(t('errors.dataImportFailed'));
+    } finally {
+      if (isMountedRef.current) {
+        setIsTransferringData(false);
+      }
+    }
+  }, [setSettings, t]);
+
   // 外部链接/目录打开
   const handleOpenMusicDirectory = useCallback(async () => {
     const directory = localSettings.restMusicDirectory;
@@ -416,8 +502,6 @@ export function Settings() {
       }
     }
   }, []);
-
-  // 已移除导入/导出：改为实时自动保存
 
   const isSegmented = localSettings.segmentedWorkEnabled;
 
@@ -935,6 +1019,29 @@ export function Settings() {
                   </span>
                 </label>
                 <p className="helper-text">{t('settings.system.analytics.disableHint')}</p>
+              </div>
+
+              <h3 className="card-subtitle">{t('settings.system.dataTransfer.title')}</h3>
+              <div className="form-group">
+                <p className="helper-text">{t('settings.system.dataTransfer.description')}</p>
+                <div className="data-transfer-actions">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleImportData}
+                    disabled={isTransferringData}
+                  >
+                    {t('settings.system.dataTransfer.import')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={handleExportData}
+                    disabled={isTransferringData}
+                  >
+                    {t('settings.system.dataTransfer.export')}
+                  </button>
+                </div>
               </div>
 
               <h3 className="card-subtitle">{t('settings.system.analytics.dangerTitle')}</h3>

@@ -209,6 +209,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--autostart".into()]),
@@ -503,6 +504,8 @@ pub fn run() {
             commands::get_achievements,
             commands::import_config,
             commands::export_config,
+            commands::export_app_data_to_file,
+            commands::import_app_data_from_file,
             commands::get_monitors,
             commands::get_system_status,
             commands::open_reminder_window,

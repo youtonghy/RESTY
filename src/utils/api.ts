@@ -99,6 +99,17 @@ export async function exportConfig(): Promise<string> {
   return await invoke('export_config');
 }
 
+// Data transfer commands
+/** 导出设置与统计数据到指定路径。 */
+export async function exportAppDataToFile(path: string): Promise<void> {
+  return await invoke('export_app_data_to_file', { path });
+}
+
+/** 从指定路径导入设置与统计数据。 */
+export async function importAppDataFromFile(path: string): Promise<Settings> {
+  return await invoke('import_app_data_from_file', { path });
+}
+
 // Monitor commands
 /** 获取显示器信息（当前为占位实现）。 */
 export async function getMonitors(): Promise<MonitorInfo[]> {
