@@ -499,6 +499,7 @@ pub fn run() {
             commands::get_timer_info,
             commands::get_analytics,
             commands::get_sessions_bounds,
+            commands::clear_analytics_data,
             commands::get_achievements,
             commands::import_config,
             commands::export_config,

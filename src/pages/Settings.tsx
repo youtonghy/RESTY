@@ -81,6 +81,7 @@ const enforceTrayDefaults = (settings: SettingsType): SettingsType => {
       settings.reminderFullscreenDisplay ?? DEFAULT_SETTINGS.reminderFullscreenDisplay,
     floatingPosition: settings.floatingPosition ?? DEFAULT_SETTINGS.floatingPosition,
     moreRestEnabled: settings.moreRestEnabled ?? DEFAULT_SETTINGS.moreRestEnabled,
+    disableAnalytics: settings.disableAnalytics ?? DEFAULT_SETTINGS.disableAnalytics,
     segmentedWorkEnabled:
       (settings.segmentedWorkEnabled ?? false) && normalizedSegments.length > 0,
     workSegments: normalizedSegments,
@@ -125,6 +126,9 @@ export function Settings() {
   const [localSettings, setLocalSettings] = useState<SettingsType>(enforceTrayDefaults(settings));
   const [message, setMessage] = useState('');
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [showClearAnalyticsModal, setShowClearAnalyticsModal] = useState(false);
+  const [clearAnalyticsInput, setClearAnalyticsInput] = useState('');
+  const [isClearingAnalytics, setIsClearingAnalytics] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
   const sectionDefs = useMemo(
@@ -149,6 +153,10 @@ export function Settings() {
       }
     };
   }, []);
+
+  const analyticsConfirmPhrase = t('settings.system.analytics.confirmPhrase', {
+    defaultValue: '清除统计数据',
+  });
 
   /** 从后端加载配置并同步全局 store。 */
   const loadSettings = useCallback(async () => {
@@ -353,6 +361,37 @@ export function Settings() {
       setLocalSettings(enforceTrayDefaults(settings));
     }
   }, [settings, t]);
+
+  const handleOpenClearAnalytics = useCallback(() => {
+    setClearAnalyticsInput('');
+    setShowClearAnalyticsModal(true);
+  }, []);
+
+  const handleCloseClearAnalytics = useCallback(() => {
+    if (isClearingAnalytics) return;
+    setShowClearAnalyticsModal(false);
+    setClearAnalyticsInput('');
+  }, [isClearingAnalytics]);
+
+  const handleClearAnalytics = useCallback(async () => {
+    if (clearAnalyticsInput.trim() !== analyticsConfirmPhrase) return;
+    setIsClearingAnalytics(true);
+    setMessage('');
+    try {
+      await api.clearAnalyticsData();
+      if (!isMountedRef.current) return;
+      setShowClearAnalyticsModal(false);
+      setClearAnalyticsInput('');
+    } catch (error) {
+      console.error('Failed to clear analytics data:', error);
+      if (!isMountedRef.current) return;
+      setMessage(t('settings.system.analytics.clearFailed'));
+    } finally {
+      if (isMountedRef.current) {
+        setIsClearingAnalytics(false);
+      }
+    }
+  }, [analyticsConfirmPhrase, clearAnalyticsInput, t]);
 
   // 外部链接/目录打开
   const handleOpenMusicDirectory = useCallback(async () => {
@@ -878,6 +917,38 @@ export function Settings() {
                 </label>
                 <p className="helper-text">{t('settings.system.silentAutostartHint')}</p>
               </div>
+
+              <div className="form-group toggle-group">
+                <label className="toggle-row">
+                  <span className="toggle-text">{t('settings.system.analytics.disable')}</span>
+                  <span className="switch">
+                    <input
+                      type="checkbox"
+                      checked={localSettings.disableAnalytics}
+                      onChange={(e) => {
+                        const next = { ...localSettings, disableAnalytics: e.target.checked };
+                        setLocalSettings(next);
+                        saveSettingsAuto(next);
+                      }}
+                    />
+                    <span className="slider" />
+                  </span>
+                </label>
+                <p className="helper-text">{t('settings.system.analytics.disableHint')}</p>
+              </div>
+
+              <h3 className="card-subtitle">{t('settings.system.analytics.dangerTitle')}</h3>
+              <div className="form-group">
+                <p className="helper-text">{t('settings.system.analytics.clearDescription')}</p>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={handleOpenClearAnalytics}
+                  disabled={isClearingAnalytics}
+                >
+                  {t('settings.system.analytics.clearButton')}
+                </button>
+              </div>
               </section>
             )}
 
@@ -938,6 +1009,79 @@ export function Settings() {
                   </div>
                 </dl>
               </section>
+            )}
+
+            {showClearAnalyticsModal && (
+              <div
+                className="settings-modal-overlay"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="clear-analytics-title"
+                onClick={handleCloseClearAnalytics}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                <div className="settings-modal" onClick={(event) => event.stopPropagation()}>
+                  <div className="settings-modal-header">
+                    <h2 className="settings-modal-title" id="clear-analytics-title">
+                      {t('settings.system.analytics.clearTitle')}
+                    </h2>
+                    <button
+                      type="button"
+                      className="settings-modal-close"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        handleCloseClearAnalytics();
+                      }}
+                      aria-label={t('common.close')}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="settings-modal-body">
+                    <p className="settings-modal-description">
+                      {t('settings.system.analytics.clearHint', {
+                        phrase: analyticsConfirmPhrase,
+                      })}
+                    </p>
+                    <label className="settings-modal-label" htmlFor="clear-analytics-input">
+                      {t('settings.system.analytics.confirmLabel')}
+                    </label>
+                    <input
+                      id="clear-analytics-input"
+                      className="input"
+                      type="text"
+                      value={clearAnalyticsInput}
+                      placeholder={analyticsConfirmPhrase}
+                      autoFocus
+                      onChange={(event) => setClearAnalyticsInput(event.target.value)}
+                    />
+                  </div>
+                  <div className="settings-modal-actions">
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={handleCloseClearAnalytics}
+                      disabled={isClearingAnalytics}
+                    >
+                      {t('common.cancel')}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-danger"
+                      onClick={handleClearAnalytics}
+                      disabled={
+                        isClearingAnalytics ||
+                        clearAnalyticsInput.trim() !== analyticsConfirmPhrase
+                      }
+                    >
+                      {isClearingAnalytics
+                        ? t('settings.system.analytics.clearing')
+                        : t('settings.system.analytics.confirmButton')}
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* Actions: 仅保留重置，移除手动保存/导出/导入 */}

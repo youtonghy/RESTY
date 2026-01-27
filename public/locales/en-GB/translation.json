@@ -153,7 +153,21 @@
       "silentAutostart": "Silent start-up",
       "silentAutostartHint": "Keep the window hidden and leave only the tray icon when launching automatically.",
       "minimizeToTray": "Minimise to system tray",
-      "closeToTray": "Close to system tray"
+      "closeToTray": "Close to system tray",
+      "analytics": {
+        "disable": "Disable analytics",
+        "disableHint": "Hide the daily report, analytics, and achievements pages when enabled.",
+        "dangerTitle": "Analytics data",
+        "clearDescription": "This will delete saved analytics data and cannot be undone.",
+        "clearButton": "Clear analytics data",
+        "clearTitle": "Clear analytics data",
+        "clearHint": "Type \"{{phrase}}\" to confirm clearing analytics data.",
+        "confirmLabel": "Confirmation phrase",
+        "confirmPhrase": "清除统计数据",
+        "confirmButton": "Delete data",
+        "clearing": "Clearing...",
+        "clearFailed": "Failed to clear analytics data"
+      }
     },
     "language": {
       "title": "Language",

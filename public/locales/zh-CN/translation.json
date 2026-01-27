@@ -153,7 +153,21 @@
       "silentAutostart": "静默启动",
       "silentAutostartHint": "开启后,开机自启时仅在后台运行,不会弹出主窗口。",
       "minimizeToTray": "最小化到托盘",
-      "closeToTray": "关闭到托盘"
+      "closeToTray": "关闭到托盘",
+      "analytics": {
+        "disable": "禁用统计",
+        "disableHint": "开启后将隐藏每日报告、统计与成就页面。",
+        "dangerTitle": "统计数据",
+        "clearDescription": "此操作将删除已保存的统计数据，且无法恢复。",
+        "clearButton": "清除统计数据",
+        "clearTitle": "清除统计数据",
+        "clearHint": "请输入“{{phrase}}”以确认删除统计数据。",
+        "confirmLabel": "确认短语",
+        "confirmPhrase": "清除统计数据",
+        "confirmButton": "确认删除",
+        "clearing": "正在清除...",
+        "clearFailed": "清除统计数据失败"
+      }
     },
     "language": {
       "title": "语言",

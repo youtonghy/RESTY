@@ -489,6 +489,24 @@ impl DatabaseService {
         Ok(())
     }
 
+    /// Clear all session records and persist empty sessions.json
+    pub async fn clear_sessions(&self) -> AppResult<()> {
+        let empty: Vec<Session> = Vec::new();
+        {
+            let mut sessions = self.sessions.lock().await;
+            *sessions = empty.clone();
+        }
+
+        let json = serde_json::to_string_pretty(&empty)
+            .map_err(|e| AppError::DatabaseError(format!("Failed to serialize sessions: {}", e)))?;
+
+        std::fs::write(self.sessions_file(), json).map_err(|e| {
+            AppError::DatabaseError(format!("Failed to write sessions file: {}", e))
+        })?;
+
+        Ok(())
+    }
+
     /// Get analytics data for a date range
     /// 按时间区间筛选会话，计算统计指标。
     pub async fn get_analytics(&self, query: &AnalyticsQuery) -> AppResult<AnalyticsData> {

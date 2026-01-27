@@ -46,6 +46,7 @@ export interface Settings {
   silentAutostart: boolean;
   minimizeToTray: boolean;
   closeToTray: boolean;
+  disableAnalytics: boolean;
 
   // Language
   language: Language;
@@ -168,6 +169,7 @@ export const DEFAULT_SETTINGS: Settings = {
   silentAutostart: false,
   minimizeToTray: true,
   closeToTray: true,
+  disableAnalytics: false,
   language: 'en-US',
   version: '0.1.0',
   updatedAt: new Date().toISOString(),

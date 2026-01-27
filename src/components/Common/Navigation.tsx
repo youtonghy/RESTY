@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useAppStore } from '../../store';
 import './Navigation.css';
 
 interface IconProps {
@@ -168,6 +169,8 @@ const AchievementsIcon = ({ className }: IconProps) => (
 export function Navigation() {
   const { t } = useTranslation();
   const location = useLocation();
+  const { settings } = useAppStore();
+  const analyticsDisabled = settings.disableAnalytics;
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -188,32 +191,38 @@ export function Navigation() {
         <DashboardIcon className="nav-icon" />
       </Link>
 
-      <Link
-        to="/daily-report"
-        className={`nav-item nav-item--daily-report ${isActive('/daily-report') ? 'active' : ''}`}
-        aria-label={dailyReportLabel}
-        title={dailyReportLabel}
-      >
-        <DailyReportIcon className="nav-icon" />
-      </Link>
+      {!analyticsDisabled && (
+        <Link
+          to="/daily-report"
+          className={`nav-item nav-item--daily-report ${isActive('/daily-report') ? 'active' : ''}`}
+          aria-label={dailyReportLabel}
+          title={dailyReportLabel}
+        >
+          <DailyReportIcon className="nav-icon" />
+        </Link>
+      )}
 
-      <Link
-        to="/analytics"
-        className={`nav-item nav-item--analytics ${isActive('/analytics') ? 'active' : ''}`}
-        aria-label={analyticsLabel}
-        title={analyticsLabel}
-      >
-        <AnalyticsIcon className="nav-icon" />
-      </Link>
+      {!analyticsDisabled && (
+        <Link
+          to="/analytics"
+          className={`nav-item nav-item--analytics ${isActive('/analytics') ? 'active' : ''}`}
+          aria-label={analyticsLabel}
+          title={analyticsLabel}
+        >
+          <AnalyticsIcon className="nav-icon" />
+        </Link>
+      )}
 
-      <Link
-        to="/achievements"
-        className={`nav-item nav-item--achievements ${isActive('/achievements') ? 'active' : ''}`}
-        aria-label={achievementsLabel}
-        title={achievementsLabel}
-      >
-        <AchievementsIcon className="nav-icon" />
-      </Link>
+      {!analyticsDisabled && (
+        <Link
+          to="/achievements"
+          className={`nav-item nav-item--achievements ${isActive('/achievements') ? 'active' : ''}`}
+          aria-label={achievementsLabel}
+          title={achievementsLabel}
+        >
+          <AchievementsIcon className="nav-icon" />
+        </Link>
+      )}
 
       <Link
         to="/settings"

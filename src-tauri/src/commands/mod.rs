@@ -194,6 +194,13 @@ pub async fn get_sessions_bounds(state: State<'_, AppState>) -> Result<SessionsB
     db.get_sessions_bounds().await.map_err(|e| e.to_string())
 }
 
+/// Clear analytics session data
+#[tauri::command]
+pub async fn clear_analytics_data(state: State<'_, AppState>) -> Result<(), String> {
+    let db = state.database_service.lock().await;
+    db.clear_sessions().await.map_err(|e| e.to_string())
+}
+
 /// Get achievements unlock list
 #[tauri::command]
 pub async fn get_achievements(state: State<'_, AppState>) -> Result<Vec<AchievementUnlock>, String> {

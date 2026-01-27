@@ -77,6 +77,11 @@ export async function getSessionsBounds(): Promise<SessionsBounds> {
   return await invoke('get_sessions_bounds');
 }
 
+/** 清除统计数据（会话记录）。 */
+export async function clearAnalyticsData(): Promise<void> {
+  return await invoke('clear_analytics_data');
+}
+
 // Achievements commands
 /** 获取已解锁成就列表。 */
 export async function getAchievements(): Promise<AchievementUnlock[]> {

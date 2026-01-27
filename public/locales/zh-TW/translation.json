@@ -153,7 +153,21 @@
       "silentAutostart": "靜默啟動",
       "silentAutostartHint": "啟用後，自動啟動時僅在背景執行，不會彈出主視窗。",
       "minimizeToTray": "最小化到系統匣",
-      "closeToTray": "關閉到系統匣"
+      "closeToTray": "關閉到系統匣",
+      "analytics": {
+        "disable": "停用統計",
+        "disableHint": "啟用後將隱藏每日報告、統計與成就頁面。",
+        "dangerTitle": "統計資料",
+        "clearDescription": "此操作會刪除已保存的統計資料，且無法恢復。",
+        "clearButton": "清除統計資料",
+        "clearTitle": "清除統計資料",
+        "clearHint": "請輸入「{{phrase}}」以確認刪除統計資料。",
+        "confirmLabel": "確認短語",
+        "confirmPhrase": "清除统计数据",
+        "confirmButton": "確認刪除",
+        "clearing": "正在清除...",
+        "clearFailed": "清除統計資料失敗"
+      }
     },
     "language": {
       "title": "語言",

@@ -160,6 +160,8 @@ pub struct Settings {
     pub silent_autostart: bool,
     pub minimize_to_tray: bool,
     pub close_to_tray: bool,
+    #[serde(default)]
+    pub disable_analytics: bool,
 
     // Language
     pub language: Language,
@@ -191,6 +193,7 @@ impl Default for Settings {
             silent_autostart: false,
             minimize_to_tray: true,
             close_to_tray: true,
+            disable_analytics: false,
             language: Language::EnglishUnitedStates,
             version: "1.0.0".to_string(),
             updated_at: Utc::now(),

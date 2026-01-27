@@ -47,6 +47,7 @@ const cleanupUnsubscribers = (
 function App() {
   const { i18n } = useTranslation();
   const { settings, timerInfo, setTimerInfo, setAppVersion, setUpdateManifest } = useAppStore();
+  const analyticsDisabled = settings.disableAnalytics;
 
   const isReminderWindow = (() => {
     if (typeof window === 'undefined') return false;
@@ -303,10 +304,14 @@ function App() {
           <Layout>
             <Routes>
               <Route path="/" element={<Dashboard />} />
-              <Route path="/daily-report" element={<DailyReport />} />
+              {!analyticsDisabled && (
+                <Route path="/daily-report" element={<DailyReport />} />
+              )}
               <Route path="/settings" element={<Settings />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/achievements" element={<Achievements />} />
+              {!analyticsDisabled && <Route path="/analytics" element={<Analytics />} />}
+              {!analyticsDisabled && (
+                <Route path="/achievements" element={<Achievements />} />
+              )}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Layout>
