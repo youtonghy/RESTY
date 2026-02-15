@@ -22,6 +22,11 @@
       "expand": "Expand",
       "collapse": "Collapse"
     },
+    "unlockModal": {
+      "title": "Achievement Unlocked",
+      "body": "Unlocked achievement: {{name}}",
+      "close": "Close"
+    },
     "items": {
       "first_break": {
         "title": "First Break",

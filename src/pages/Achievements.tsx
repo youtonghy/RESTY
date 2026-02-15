@@ -1,33 +1,17 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode, type SVGProps } from 'react';
 import { useTranslation } from 'react-i18next';
+import {
+  ACHIEVEMENT_DEFINITIONS,
+  getAchievementDefinitionById,
+  type AchievementDefinition,
+  type AchievementGroup,
+  type AchievementId,
+} from '../features/achievements/definitions';
 import type { AchievementUnlock } from '../types';
 import * as api from '../utils/api';
 import './Achievements.css';
 
-type AchievementId =
-  | 'first_break'
-  | 'first_work'
-  | 'enable_autostart'
-  | 'work_10_hours'
-  | 'work_100_hours'
-  | 'work_500_hours'
-  | 'work_1000_hours'
-  | 'break_10_hours'
-  | 'break_100_hours'
-  | 'break_200_hours'
-  | 'break_300_hours'
-  | 'break_400_hours'
-  | 'break_500_hours'
-  | 'break_750_hours'
-  | 'break_1000_hours';
-
-type AchievementGroup = 'system' | 'work' | 'rest';
-
-interface AchievementDefinition {
-  id: AchievementId;
-  group: AchievementGroup;
-  titleKey: string;
-  conditionKey: string;
+interface AchievementCardDefinition extends AchievementDefinition {
   icon: ReactNode;
 }
 
@@ -110,124 +94,51 @@ const AutostartAchievementIcon = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-const ACHIEVEMENTS: AchievementDefinition[] = [
-  {
-    id: 'first_work',
-    group: 'work',
-    titleKey: 'achievements.items.first_work.title',
-    conditionKey: 'achievements.items.first_work.condition',
-    icon: <WorkAchievementIcon />,
-  },
-  {
-    id: 'work_10_hours',
-    group: 'work',
-    titleKey: 'achievements.items.work_10_hours.title',
-    conditionKey: 'achievements.items.work_10_hours.condition',
-    icon: <WorkAchievementIcon />,
-  },
-  {
-    id: 'work_100_hours',
-    group: 'work',
-    titleKey: 'achievements.items.work_100_hours.title',
-    conditionKey: 'achievements.items.work_100_hours.condition',
-    icon: <WorkAchievementIcon />,
-  },
-  {
-    id: 'work_500_hours',
-    group: 'work',
-    titleKey: 'achievements.items.work_500_hours.title',
-    conditionKey: 'achievements.items.work_500_hours.condition',
-    icon: <WorkAchievementIcon />,
-  },
-  {
-    id: 'work_1000_hours',
-    group: 'work',
-    titleKey: 'achievements.items.work_1000_hours.title',
-    conditionKey: 'achievements.items.work_1000_hours.condition',
-    icon: <WorkAchievementIcon />,
-  },
-  {
-    id: 'first_break',
-    group: 'rest',
-    titleKey: 'achievements.items.first_break.title',
-    conditionKey: 'achievements.items.first_break.condition',
-    icon: <BreakAchievementIcon />,
-  },
-  {
-    id: 'break_10_hours',
-    group: 'rest',
-    titleKey: 'achievements.items.break_10_hours.title',
-    conditionKey: 'achievements.items.break_10_hours.condition',
-    icon: <BreakAchievementIcon />,
-  },
-  {
-    id: 'break_100_hours',
-    group: 'rest',
-    titleKey: 'achievements.items.break_100_hours.title',
-    conditionKey: 'achievements.items.break_100_hours.condition',
-    icon: <BreakAchievementIcon />,
-  },
-  {
-    id: 'break_200_hours',
-    group: 'rest',
-    titleKey: 'achievements.items.break_200_hours.title',
-    conditionKey: 'achievements.items.break_200_hours.condition',
-    icon: <BreakAchievementIcon />,
-  },
-  {
-    id: 'break_300_hours',
-    group: 'rest',
-    titleKey: 'achievements.items.break_300_hours.title',
-    conditionKey: 'achievements.items.break_300_hours.condition',
-    icon: <BreakAchievementIcon />,
-  },
-  {
-    id: 'break_400_hours',
-    group: 'rest',
-    titleKey: 'achievements.items.break_400_hours.title',
-    conditionKey: 'achievements.items.break_400_hours.condition',
-    icon: <BreakAchievementIcon />,
-  },
-  {
-    id: 'break_500_hours',
-    group: 'rest',
-    titleKey: 'achievements.items.break_500_hours.title',
-    conditionKey: 'achievements.items.break_500_hours.condition',
-    icon: <BreakAchievementIcon />,
-  },
-  {
-    id: 'break_750_hours',
-    group: 'rest',
-    titleKey: 'achievements.items.break_750_hours.title',
-    conditionKey: 'achievements.items.break_750_hours.condition',
-    icon: <BreakAchievementIcon />,
-  },
-  {
-    id: 'break_1000_hours',
-    group: 'rest',
-    titleKey: 'achievements.items.break_1000_hours.title',
-    conditionKey: 'achievements.items.break_1000_hours.condition',
-    icon: <BreakAchievementIcon />,
-  },
-  {
-    id: 'enable_autostart',
-    group: 'system',
-    titleKey: 'achievements.items.enable_autostart.title',
-    conditionKey: 'achievements.items.enable_autostart.condition',
-    icon: <AutostartAchievementIcon />,
-  },
-];
+const ACHIEVEMENT_ICONS: Record<AchievementId, ReactNode> = {
+  first_break: <BreakAchievementIcon />,
+  first_work: <WorkAchievementIcon />,
+  enable_autostart: <AutostartAchievementIcon />,
+  work_10_hours: <WorkAchievementIcon />,
+  work_100_hours: <WorkAchievementIcon />,
+  work_500_hours: <WorkAchievementIcon />,
+  work_1000_hours: <WorkAchievementIcon />,
+  break_10_hours: <BreakAchievementIcon />,
+  break_100_hours: <BreakAchievementIcon />,
+  break_200_hours: <BreakAchievementIcon />,
+  break_300_hours: <BreakAchievementIcon />,
+  break_400_hours: <BreakAchievementIcon />,
+  break_500_hours: <BreakAchievementIcon />,
+  break_750_hours: <BreakAchievementIcon />,
+  break_1000_hours: <BreakAchievementIcon />,
+};
+
+const ACHIEVEMENTS: AchievementCardDefinition[] = ACHIEVEMENT_DEFINITIONS.map((item) => ({
+  ...item,
+  icon: ACHIEVEMENT_ICONS[item.id],
+}));
+
+const POPUP_AUTO_CLOSE_MS = 4000;
 
 export function Achievements() {
   const { t } = useTranslation();
   const [unlocks, setUnlocks] = useState<AchievementUnlock[]>([]);
   const [flipped, setFlipped] = useState<Partial<Record<AchievementId, boolean>>>({});
+  const [unlockPopupQueue, setUnlockPopupQueue] = useState<AchievementUnlock[]>([]);
+  const [activePopup, setActivePopup] = useState<AchievementUnlock | null>(null);
   const [expandedGroups, setExpandedGroups] =
     useState<Record<AchievementGroup, boolean>>(DEFAULT_EXPANDED_GROUPS);
 
   const unlockedIds = useMemo(() => new Set(unlocks.map((item) => item.id)), [unlocks]);
+  const activePopupDefinition = useMemo(
+    () => (activePopup ? getAchievementDefinitionById(activePopup.id) : undefined),
+    [activePopup]
+  );
+  const activePopupAchievementName = activePopupDefinition
+    ? t(activePopupDefinition.titleKey)
+    : activePopup?.id;
+
   const orderedAchievementsByGroup = useMemo(() => {
-    return ACHIEVEMENT_GROUPS.reduce<Record<AchievementGroup, AchievementDefinition[]>>(
+    return ACHIEVEMENT_GROUPS.reduce<Record<AchievementGroup, AchievementCardDefinition[]>>(
       (result, group) => {
         const inGroup = ACHIEVEMENTS.filter((item) => item.group === group.id);
         const unlocked = inGroup.filter((item) => unlockedIds.has(item.id));
@@ -278,9 +189,14 @@ export function Achievements() {
     const subscribe = async () => {
       try {
         unlisten = await api.onAchievementUnlocked((achievement) => {
-          setUnlocks((prev) =>
-            prev.some((item) => item.id === achievement.id) ? prev : [...prev, achievement]
-          );
+          setUnlocks((prev) => {
+            if (prev.some((item) => item.id === achievement.id)) {
+              return prev;
+            }
+
+            setUnlockPopupQueue((queue) => [...queue, achievement]);
+            return [...prev, achievement];
+          });
         });
       } catch (error) {
         console.error('Failed to subscribe to achievement updates:', error);
@@ -294,9 +210,59 @@ export function Achievements() {
     };
   }, []);
 
+  const closeActivePopup = useCallback(() => {
+    setActivePopup(null);
+  }, []);
+
+  useEffect(() => {
+    if (activePopup || unlockPopupQueue.length === 0) {
+      return;
+    }
+    setActivePopup(unlockPopupQueue[0]);
+    setUnlockPopupQueue((queue) => queue.slice(1));
+  }, [activePopup, unlockPopupQueue]);
+
+  useEffect(() => {
+    if (!activePopup) {
+      return;
+    }
+
+    const timerId = window.setTimeout(() => {
+      closeActivePopup();
+    }, POPUP_AUTO_CLOSE_MS);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [activePopup, closeActivePopup]);
+
   return (
     <div className="page achievements-page">
       <div className="container">
+        {activePopup && (
+          <div className="achievement-unlock-popup" role="status" aria-live="polite">
+            <div className="achievement-unlock-popup__header">
+              <h2 className="achievement-unlock-popup__title">
+                {t('achievements.unlockModal.title', { defaultValue: 'Achievement Unlocked' })}
+              </h2>
+              <button
+                type="button"
+                className="achievement-unlock-popup__close"
+                onClick={closeActivePopup}
+                aria-label={t('achievements.unlockModal.close', { defaultValue: 'Close' })}
+                title={t('achievements.unlockModal.close', { defaultValue: 'Close' })}
+              >
+                ×
+              </button>
+            </div>
+            <p className="achievement-unlock-popup__body">
+              {t('achievements.unlockModal.body', {
+                defaultValue: 'Unlocked achievement: {{name}}',
+                name: activePopupAchievementName,
+              })}
+            </p>
+          </div>
+        )}
         <h1 className="page-title">{t('achievements.title', { defaultValue: 'Achievements' })}</h1>
         <div className="achievement-groups">
           {ACHIEVEMENT_GROUPS.map((group) => {

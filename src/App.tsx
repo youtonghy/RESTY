@@ -12,6 +12,8 @@ import { Settings } from './pages/Settings';
 import { Analytics } from './pages/Analytics';
 import { DailyReport } from './pages/DailyReport';
 import { Achievements } from './pages/Achievements';
+import { getAchievementDefinitionById } from './features/achievements/definitions';
+import { notifyAchievementUnlocked } from './services/notifications';
 import { useAppStore } from './store';
 import type { Settings as AppSettings } from './types';
 import * as api from './utils/api';
@@ -65,6 +67,7 @@ function App() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentTrackRef = useRef<string | null>(null);
+  const notifiedAchievementKeysRef = useRef<Set<string>>(new Set());
 
   const stopRestMusic = useCallback(() => {
     const audio = audioRef.current;
@@ -290,6 +293,45 @@ function App() {
 
     void checkForUpdates();
   }, [isSpecialWindow, setAppVersion, setUpdateManifest]);
+
+  useEffect(() => {
+    if (isSpecialWindow) {
+      return;
+    }
+
+    const isMountedRef = { current: true };
+    const unsubscribers: Array<Promise<() => void>> = [];
+
+    unsubscribers.push(
+      api.onAchievementUnlocked((achievement) => {
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        const dedupeKey = `${achievement.id}:${achievement.unlockedAt ?? ''}`;
+        if (notifiedAchievementKeysRef.current.has(dedupeKey)) {
+          return;
+        }
+        notifiedAchievementKeysRef.current.add(dedupeKey);
+
+        const definition = getAchievementDefinitionById(achievement.id);
+        const achievementName = definition ? i18n.t(definition.titleKey) : achievement.id;
+
+        void notifyAchievementUnlocked(
+          i18n.t('achievements.unlockModal.title', { defaultValue: 'Achievement Unlocked' }),
+          i18n.t('achievements.unlockModal.body', {
+            defaultValue: 'Unlocked achievement: {{name}}',
+            name: achievementName,
+          })
+        );
+      })
+    );
+
+    return () => {
+      isMountedRef.current = false;
+      cleanupUnsubscribers(unsubscribers, isMountedRef);
+    };
+  }, [i18n, isSpecialWindow]);
 
   return (
     <ThemeProvider>

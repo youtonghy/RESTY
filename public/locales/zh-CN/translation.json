@@ -22,6 +22,11 @@
       "expand": "展开",
       "collapse": "收起"
     },
+    "unlockModal": {
+      "title": "成就达成",
+      "body": "已达成 {{name}}",
+      "close": "关闭"
+    },
     "items": {
       "first_break": {
         "title": "第一次休息",
