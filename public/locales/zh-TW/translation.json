@@ -35,9 +35,17 @@
         "title": "開機自啟",
         "condition": "將 RESTY 設為開機自啟"
       },
+      "work_10_hours": {
+        "title": "工作10小時",
+        "condition": "累計工作時長達到10小時"
+      },
       "work_100_hours": {
         "title": "工作100小時",
         "condition": "累計工作時長達到100小時"
+      },
+      "work_500_hours": {
+        "title": "工作500小時",
+        "condition": "累計工作時長達到500小時"
       },
       "work_1000_hours": {
         "title": "工作1000小時",
@@ -50,6 +58,30 @@
       "break_100_hours": {
         "title": "休息100小時",
         "condition": "累計休息時長達到100小時"
+      },
+      "break_200_hours": {
+        "title": "休息200小時",
+        "condition": "累計休息時長達到200小時"
+      },
+      "break_300_hours": {
+        "title": "休息300小時",
+        "condition": "累計休息時長達到300小時"
+      },
+      "break_400_hours": {
+        "title": "休息400小時",
+        "condition": "累計休息時長達到400小時"
+      },
+      "break_500_hours": {
+        "title": "休息500小時",
+        "condition": "累計休息時長達到500小時"
+      },
+      "break_750_hours": {
+        "title": "休息750小時",
+        "condition": "累計休息時長達到750小時"
+      },
+      "break_1000_hours": {
+        "title": "休息1000小時",
+        "condition": "累計休息時長達到1000小時"
       }
     }
   },

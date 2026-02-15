@@ -8,10 +8,18 @@ type AchievementId =
   | 'first_break'
   | 'first_work'
   | 'enable_autostart'
+  | 'work_10_hours'
   | 'work_100_hours'
+  | 'work_500_hours'
   | 'work_1000_hours'
   | 'break_10_hours'
-  | 'break_100_hours';
+  | 'break_100_hours'
+  | 'break_200_hours'
+  | 'break_300_hours'
+  | 'break_400_hours'
+  | 'break_500_hours'
+  | 'break_750_hours'
+  | 'break_1000_hours';
 
 type AchievementGroup = 'system' | 'work' | 'rest';
 
@@ -111,10 +119,24 @@ const ACHIEVEMENTS: AchievementDefinition[] = [
     icon: <WorkAchievementIcon />,
   },
   {
+    id: 'work_10_hours',
+    group: 'work',
+    titleKey: 'achievements.items.work_10_hours.title',
+    conditionKey: 'achievements.items.work_10_hours.condition',
+    icon: <WorkAchievementIcon />,
+  },
+  {
     id: 'work_100_hours',
     group: 'work',
     titleKey: 'achievements.items.work_100_hours.title',
     conditionKey: 'achievements.items.work_100_hours.condition',
+    icon: <WorkAchievementIcon />,
+  },
+  {
+    id: 'work_500_hours',
+    group: 'work',
+    titleKey: 'achievements.items.work_500_hours.title',
+    conditionKey: 'achievements.items.work_500_hours.condition',
     icon: <WorkAchievementIcon />,
   },
   {
@@ -143,6 +165,48 @@ const ACHIEVEMENTS: AchievementDefinition[] = [
     group: 'rest',
     titleKey: 'achievements.items.break_100_hours.title',
     conditionKey: 'achievements.items.break_100_hours.condition',
+    icon: <BreakAchievementIcon />,
+  },
+  {
+    id: 'break_200_hours',
+    group: 'rest',
+    titleKey: 'achievements.items.break_200_hours.title',
+    conditionKey: 'achievements.items.break_200_hours.condition',
+    icon: <BreakAchievementIcon />,
+  },
+  {
+    id: 'break_300_hours',
+    group: 'rest',
+    titleKey: 'achievements.items.break_300_hours.title',
+    conditionKey: 'achievements.items.break_300_hours.condition',
+    icon: <BreakAchievementIcon />,
+  },
+  {
+    id: 'break_400_hours',
+    group: 'rest',
+    titleKey: 'achievements.items.break_400_hours.title',
+    conditionKey: 'achievements.items.break_400_hours.condition',
+    icon: <BreakAchievementIcon />,
+  },
+  {
+    id: 'break_500_hours',
+    group: 'rest',
+    titleKey: 'achievements.items.break_500_hours.title',
+    conditionKey: 'achievements.items.break_500_hours.condition',
+    icon: <BreakAchievementIcon />,
+  },
+  {
+    id: 'break_750_hours',
+    group: 'rest',
+    titleKey: 'achievements.items.break_750_hours.title',
+    conditionKey: 'achievements.items.break_750_hours.condition',
+    icon: <BreakAchievementIcon />,
+  },
+  {
+    id: 'break_1000_hours',
+    group: 'rest',
+    titleKey: 'achievements.items.break_1000_hours.title',
+    conditionKey: 'achievements.items.break_1000_hours.condition',
     icon: <BreakAchievementIcon />,
   },
   {
