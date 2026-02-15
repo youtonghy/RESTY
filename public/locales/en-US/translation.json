@@ -13,6 +13,15 @@
   },
   "achievements": {
     "title": "Achievements",
+    "groups": {
+      "system": "System",
+      "work": "Work",
+      "rest": "Rest"
+    },
+    "actions": {
+      "expand": "Expand",
+      "collapse": "Collapse"
+    },
     "items": {
       "first_break": {
         "title": "First Break",

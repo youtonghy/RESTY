@@ -13,6 +13,15 @@
   },
   "achievements": {
     "title": "成就",
+    "groups": {
+      "system": "系統",
+      "work": "工作",
+      "rest": "休息"
+    },
+    "actions": {
+      "expand": "展開",
+      "collapse": "收合"
+    },
     "items": {
       "first_break": {
         "title": "第一次休息",

@@ -13,12 +13,33 @@ type AchievementId =
   | 'break_10_hours'
   | 'break_100_hours';
 
+type AchievementGroup = 'system' | 'work' | 'rest';
+
 interface AchievementDefinition {
   id: AchievementId;
+  group: AchievementGroup;
   titleKey: string;
   conditionKey: string;
   icon: ReactNode;
 }
+
+interface AchievementGroupDefinition {
+  id: AchievementGroup;
+  titleKey: string;
+  defaultTitle: string;
+}
+
+const ACHIEVEMENT_GROUPS: AchievementGroupDefinition[] = [
+  { id: 'system', titleKey: 'achievements.groups.system', defaultTitle: 'System' },
+  { id: 'work', titleKey: 'achievements.groups.work', defaultTitle: 'Work' },
+  { id: 'rest', titleKey: 'achievements.groups.rest', defaultTitle: 'Rest' },
+];
+
+const DEFAULT_EXPANDED_GROUPS: Record<AchievementGroup, boolean> = {
+  system: true,
+  work: true,
+  rest: true,
+};
 
 const BreakAchievementIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg
@@ -84,42 +105,49 @@ const AutostartAchievementIcon = (props: SVGProps<SVGSVGElement>) => (
 const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'first_work',
+    group: 'work',
     titleKey: 'achievements.items.first_work.title',
     conditionKey: 'achievements.items.first_work.condition',
     icon: <WorkAchievementIcon />,
   },
   {
     id: 'work_100_hours',
+    group: 'work',
     titleKey: 'achievements.items.work_100_hours.title',
     conditionKey: 'achievements.items.work_100_hours.condition',
     icon: <WorkAchievementIcon />,
   },
   {
     id: 'work_1000_hours',
+    group: 'work',
     titleKey: 'achievements.items.work_1000_hours.title',
     conditionKey: 'achievements.items.work_1000_hours.condition',
     icon: <WorkAchievementIcon />,
   },
   {
     id: 'first_break',
+    group: 'rest',
     titleKey: 'achievements.items.first_break.title',
     conditionKey: 'achievements.items.first_break.condition',
     icon: <BreakAchievementIcon />,
   },
   {
     id: 'break_10_hours',
+    group: 'rest',
     titleKey: 'achievements.items.break_10_hours.title',
     conditionKey: 'achievements.items.break_10_hours.condition',
     icon: <BreakAchievementIcon />,
   },
   {
     id: 'break_100_hours',
+    group: 'rest',
     titleKey: 'achievements.items.break_100_hours.title',
     conditionKey: 'achievements.items.break_100_hours.condition',
     icon: <BreakAchievementIcon />,
   },
   {
     id: 'enable_autostart',
+    group: 'system',
     titleKey: 'achievements.items.enable_autostart.title',
     conditionKey: 'achievements.items.enable_autostart.condition',
     icon: <AutostartAchievementIcon />,
@@ -129,19 +157,39 @@ const ACHIEVEMENTS: AchievementDefinition[] = [
 export function Achievements() {
   const { t } = useTranslation();
   const [unlocks, setUnlocks] = useState<AchievementUnlock[]>([]);
-  const [flipped, setFlipped] = useState<Record<string, boolean>>({});
+  const [flipped, setFlipped] = useState<Partial<Record<AchievementId, boolean>>>({});
+  const [expandedGroups, setExpandedGroups] =
+    useState<Record<AchievementGroup, boolean>>(DEFAULT_EXPANDED_GROUPS);
 
   const unlockedIds = useMemo(() => new Set(unlocks.map((item) => item.id)), [unlocks]);
-  const orderedAchievements = useMemo(() => {
-    const unlocked = ACHIEVEMENTS.filter((item) => unlockedIds.has(item.id));
-    const locked = ACHIEVEMENTS.filter((item) => !unlockedIds.has(item.id));
-    return [...unlocked, ...locked];
+  const orderedAchievementsByGroup = useMemo(() => {
+    return ACHIEVEMENT_GROUPS.reduce<Record<AchievementGroup, AchievementDefinition[]>>(
+      (result, group) => {
+        const inGroup = ACHIEVEMENTS.filter((item) => item.group === group.id);
+        const unlocked = inGroup.filter((item) => unlockedIds.has(item.id));
+        const locked = inGroup.filter((item) => !unlockedIds.has(item.id));
+        result[group.id] = [...unlocked, ...locked];
+        return result;
+      },
+      {
+        system: [],
+        work: [],
+        rest: [],
+      }
+    );
   }, [unlockedIds]);
 
   const toggleFlip = useCallback((id: AchievementId) => {
     setFlipped((prev) => ({
       ...prev,
       [id]: !prev[id],
+    }));
+  }, []);
+
+  const toggleGroup = useCallback((group: AchievementGroup) => {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [group]: !prev[group],
     }));
   }, []);
 
@@ -186,41 +234,76 @@ export function Achievements() {
     <div className="page achievements-page">
       <div className="container">
         <h1 className="page-title">{t('achievements.title', { defaultValue: 'Achievements' })}</h1>
-        <div className="achievements-grid" role="list">
-          {orderedAchievements.map((achievement) => {
-            const title = t(achievement.titleKey);
-            const condition = t(achievement.conditionKey);
-            const isUnlocked = unlockedIds.has(achievement.id);
-            const isFlipped = Boolean(flipped[achievement.id]);
+        <div className="achievement-groups">
+          {ACHIEVEMENT_GROUPS.map((group) => {
+            const groupTitle = t(group.titleKey, { defaultValue: group.defaultTitle });
+            const groupContentId = `achievements-group-${group.id}`;
+            const isExpanded = expandedGroups[group.id];
+            const toggleLabel = isExpanded
+              ? t('achievements.actions.collapse', { defaultValue: 'Collapse' })
+              : t('achievements.actions.expand', { defaultValue: 'Expand' });
+            const groupedAchievements = orderedAchievementsByGroup[group.id];
+
             return (
-              <div className="achievement-cell" role="listitem" key={achievement.id}>
-                <button
-                  type="button"
-                  className={[
-                    'achievement-card',
-                    `achievement-card--${achievement.id}`,
-                    isUnlocked ? 'is-unlocked' : 'is-locked',
-                    isFlipped ? 'is-flipped' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  onClick={() => toggleFlip(achievement.id)}
-                  aria-pressed={isFlipped}
-                  aria-label={`${title} - ${condition}`}
+              <section className="achievement-group" key={group.id}>
+                <div className="achievement-group__header">
+                  <h2 className="achievement-group__title">{groupTitle}</h2>
+                  <button
+                    type="button"
+                    className="achievement-group__toggle"
+                    onClick={() => toggleGroup(group.id)}
+                    aria-expanded={isExpanded}
+                    aria-controls={groupContentId}
+                    aria-label={`${toggleLabel} ${groupTitle}`}
+                  >
+                    {toggleLabel}
+                  </button>
+                </div>
+                <div
+                  id={groupContentId}
+                  className={`achievement-group__content ${isExpanded ? 'is-expanded' : 'is-collapsed'}`}
+                  hidden={!isExpanded}
                 >
-                  <div className="achievement-card__inner">
-                    <div className="achievement-card__face achievement-card__front">
-                      <span className="achievement-icon" aria-hidden="true">
-                        {achievement.icon}
-                      </span>
-                      <span className="achievement-title">{title}</span>
-                    </div>
-                    <div className="achievement-card__face achievement-card__back">
-                      <span className="achievement-condition">{condition}</span>
-                    </div>
+                  <div className="achievements-grid" role="list">
+                    {groupedAchievements.map((achievement) => {
+                      const title = t(achievement.titleKey);
+                      const condition = t(achievement.conditionKey);
+                      const isUnlocked = unlockedIds.has(achievement.id);
+                      const isFlipped = Boolean(flipped[achievement.id]);
+                      return (
+                        <div className="achievement-cell" role="listitem" key={achievement.id}>
+                          <button
+                            type="button"
+                            className={[
+                              'achievement-card',
+                              `achievement-card--${achievement.id}`,
+                              isUnlocked ? 'is-unlocked' : 'is-locked',
+                              isFlipped ? 'is-flipped' : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' ')}
+                            onClick={() => toggleFlip(achievement.id)}
+                            aria-pressed={isFlipped}
+                            aria-label={`${title} - ${condition}`}
+                          >
+                            <div className="achievement-card__inner">
+                              <div className="achievement-card__face achievement-card__front">
+                                <span className="achievement-icon" aria-hidden="true">
+                                  {achievement.icon}
+                                </span>
+                                <span className="achievement-title">{title}</span>
+                              </div>
+                              <div className="achievement-card__face achievement-card__back">
+                                <span className="achievement-condition">{condition}</span>
+                              </div>
+                            </div>
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
-                </button>
-              </div>
+                </div>
+              </section>
             );
           })}
         </div>
