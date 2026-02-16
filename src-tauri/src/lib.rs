@@ -6,7 +6,7 @@ mod utils;
 use crate::models::{FloatingPosition, Theme as SettingsTheme};
 use commands::AppState;
 use dark_light::Mode as SystemTheme;
-use services::{DatabaseService, TimerService};
+use services::{updater, DatabaseService, TimerService};
 use std::sync::Arc;
 use tauri::image::Image;
 use tauri::tray::{TrayIcon, TrayIconBuilder};
@@ -296,6 +296,16 @@ pub fn run() {
                 database_service: db_clone_for_state,
                 last_auto_close,
             });
+
+            // 后台自动更新任务（仅 Windows 生效，其他平台为 no-op）。
+            {
+                let state = app.state::<AppState>();
+                updater::start_windows_auto_updater(
+                    app.handle().clone(),
+                    state.timer_service.clone(),
+                    state.database_service.clone(),
+                );
+            }
 
             // Determine if this is a silent autostart launch
             let launched_from_autostart = std::env::args().any(|arg| arg == "--autostart");

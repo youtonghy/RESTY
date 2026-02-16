@@ -31,6 +31,10 @@ fn default_segmented_work_enabled() -> bool {
     false
 }
 
+fn default_auto_silent_update_enabled() -> bool {
+    false
+}
+
 fn default_segment_repeat() -> u32 {
     1
 }
@@ -158,6 +162,8 @@ pub struct Settings {
     pub autostart: bool,
     #[serde(default)]
     pub silent_autostart: bool,
+    #[serde(default = "default_auto_silent_update_enabled")]
+    pub auto_silent_update_enabled: bool,
     pub minimize_to_tray: bool,
     pub close_to_tray: bool,
     #[serde(default)]
@@ -191,6 +197,7 @@ impl Default for Settings {
             theme: Theme::Auto,
             autostart: false,
             silent_autostart: false,
+            auto_silent_update_enabled: false,
             minimize_to_tray: true,
             close_to_tray: true,
             disable_analytics: false,

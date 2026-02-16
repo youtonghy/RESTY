@@ -280,6 +280,16 @@ function App() {
         const currentVersion = await getVersion();
         setAppVersion(currentVersion);
 
+        const isWindowsPlatform =
+          typeof navigator !== 'undefined' && /windows/i.test(navigator.userAgent);
+        const shouldRunAutoSilentUpdate =
+          isWindowsPlatform && settings.autoSilentUpdateEnabled;
+
+        if (shouldRunAutoSilentUpdate) {
+          setUpdateManifest(null);
+          return;
+        }
+
         const manifest = await api.checkForUpdates();
         if (manifest?.version && isNewerVersion(manifest.version, currentVersion)) {
           setUpdateManifest(manifest);
@@ -292,7 +302,7 @@ function App() {
     };
 
     void checkForUpdates();
-  }, [isSpecialWindow, setAppVersion, setUpdateManifest]);
+  }, [isSpecialWindow, setAppVersion, setUpdateManifest, settings.autoSilentUpdateEnabled]);
 
   useEffect(() => {
     if (isSpecialWindow) {

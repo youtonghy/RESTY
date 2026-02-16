@@ -45,6 +45,8 @@ export const useAppStore = create<AppStore>((set) => ({
       if (!merged.autostart) {
         merged.silentAutostart = false;
       }
+      merged.autoSilentUpdateEnabled =
+        merged.autoSilentUpdateEnabled ?? DEFAULT_SETTINGS.autoSilentUpdateEnabled;
       merged.segmentedWorkEnabled = merged.segmentedWorkEnabled ?? false;
       merged.workSegments = cloneSegments(
         merged.workSegments?.length ? merged.workSegments : DEFAULT_SETTINGS.workSegments

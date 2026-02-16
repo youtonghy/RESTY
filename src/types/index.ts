@@ -44,6 +44,7 @@ export interface Settings {
   // System
   autostart: boolean;
   silentAutostart: boolean;
+  autoSilentUpdateEnabled: boolean;
   minimizeToTray: boolean;
   closeToTray: boolean;
   disableAnalytics: boolean;
@@ -167,6 +168,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'auto',
   autostart: false,
   silentAutostart: false,
+  autoSilentUpdateEnabled: false,
   minimizeToTray: true,
   closeToTray: true,
   disableAnalytics: false,

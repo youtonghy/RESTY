@@ -224,7 +224,9 @@
         "importConfirmTitle": "导入数据",
         "importConfirmMessage": "导入将覆盖当前设置与统计数据，是否继续？",
         "fileType": "RESTY 备份文件"
-      }
+      },
+      "autoSilentUpdate": "自动静默更新（仅 Windows）",
+      "autoSilentUpdateHint": "检测到新版本后会在后台下载，并在应用空闲且无全屏窗口时自动安装并重启。"
     },
     "language": {
       "title": "语言",
@@ -388,6 +390,7 @@
     "install": "一键更新",
     "installing": "正在更新…",
     "dismiss": "稍后提醒",
-    "failed": "更新失败，请稍后再试"
+    "failed": "更新失败，请稍后再试",
+    "failedWithReason": "更新失败：{{reason}}"
   }
 }

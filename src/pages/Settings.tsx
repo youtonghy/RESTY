@@ -15,6 +15,8 @@ import './Settings.css';
 const MAX_SEGMENTS = 12;
 const MAX_DURATION_MINUTES = 120;
 const MAX_REPEAT = 12;
+const IS_WINDOWS_PLATFORM =
+  typeof navigator !== 'undefined' && /windows/i.test(navigator.userAgent);
 
 // 设置数值归一化工具
 const clampNumber = (value: number, min: number, max: number) =>
@@ -90,6 +92,8 @@ const enforceTrayDefaults = (settings: SettingsType): SettingsType => {
       settings.reminderFullscreenDisplay ?? DEFAULT_SETTINGS.reminderFullscreenDisplay,
     floatingPosition: settings.floatingPosition ?? DEFAULT_SETTINGS.floatingPosition,
     moreRestEnabled: settings.moreRestEnabled ?? DEFAULT_SETTINGS.moreRestEnabled,
+    autoSilentUpdateEnabled:
+      settings.autoSilentUpdateEnabled ?? DEFAULT_SETTINGS.autoSilentUpdateEnabled,
     disableAnalytics: settings.disableAnalytics ?? DEFAULT_SETTINGS.disableAnalytics,
     segmentedWorkEnabled:
       (settings.segmentedWorkEnabled ?? false) && normalizedSegments.length > 0,
@@ -132,6 +136,7 @@ const FLOATING_POSITION_OPTIONS: Array<{
 export function Settings() {
   const { t } = useTranslation();
   const { settings, setSettings, appVersion } = useAppStore();
+  const isWindows = useMemo(() => IS_WINDOWS_PLATFORM, []);
   const [localSettings, setLocalSettings] = useState<SettingsType>(enforceTrayDefaults(settings));
   const [message, setMessage] = useState('');
   const [showSuccessToast, setShowSuccessToast] = useState(false);
@@ -191,7 +196,10 @@ export function Settings() {
       if (!isMountedRef.current) return;
       setMessage('');
       try {
-        const normalized = enforceTrayDefaults(next);
+        const normalized = enforceTrayDefaults({
+          ...next,
+          autoSilentUpdateEnabled: isWindows ? next.autoSilentUpdateEnabled : false,
+        });
         await api.saveSettings(normalized);
         if (!isMountedRef.current) return;
         setSettings(normalized);
@@ -217,7 +225,7 @@ export function Settings() {
         setMessage(t('errors.saveFailed'));
       }
     },
-    [setSettings, t]
+    [isWindows, setSettings, t]
   );
 
   // 分段番茄的增删改：本地更新并按需持久化
@@ -1020,6 +1028,32 @@ export function Settings() {
                 </label>
                 <p className="helper-text">{t('settings.system.analytics.disableHint')}</p>
               </div>
+
+              {isWindows && (
+                <div className="form-group toggle-group">
+                  <label className="toggle-row">
+                    <span className="toggle-text">
+                      {t('settings.system.autoSilentUpdate')}
+                    </span>
+                    <span className="switch">
+                      <input
+                        type="checkbox"
+                        checked={localSettings.autoSilentUpdateEnabled}
+                        onChange={(e) => {
+                          const next = {
+                            ...localSettings,
+                            autoSilentUpdateEnabled: e.target.checked,
+                          };
+                          setLocalSettings(next);
+                          saveSettingsAuto(next);
+                        }}
+                      />
+                      <span className="slider" />
+                    </span>
+                  </label>
+                  <p className="helper-text">{t('settings.system.autoSilentUpdateHint')}</p>
+                </div>
+              )}
 
               <h3 className="card-subtitle">{t('settings.system.dataTransfer.title')}</h3>
               <div className="form-group">

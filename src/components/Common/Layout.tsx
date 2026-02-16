@@ -63,7 +63,17 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
       await downloadAndInstall(updateManifest.downloadUrl);
     } catch (error) {
       console.error('Failed to install update:', error);
-      setUpdateError(t('updates.failed'));
+      const reason =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : '';
+      setUpdateError(
+        reason
+          ? t('updates.failedWithReason', { reason })
+          : t('updates.failed')
+      );
     } finally {
       setUpdating(false);
     }

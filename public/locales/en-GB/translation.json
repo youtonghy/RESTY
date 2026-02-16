@@ -224,7 +224,9 @@
         "importConfirmTitle": "Import data",
         "importConfirmMessage": "Importing will overwrite current settings and analytics data. Continue?",
         "fileType": "RESTY backup"
-      }
+      },
+      "autoSilentUpdate": "Automatic silent updates (Windows only)",
+      "autoSilentUpdateHint": "When a new version is found, RESTY downloads it in the background and installs it automatically when the app is idle and no window is fullscreen."
     },
     "language": {
       "title": "Language",
@@ -388,6 +390,7 @@
     "install": "Update now",
     "installing": "Updating…",
     "dismiss": "Dismiss",
-    "failed": "Update failed. Please try again."
+    "failed": "Update failed. Please try again.",
+    "failedWithReason": "Update failed: {{reason}}"
   }
 }

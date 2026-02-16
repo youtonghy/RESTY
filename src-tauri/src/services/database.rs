@@ -417,6 +417,10 @@ impl DatabaseService {
         if !normalized.autostart && normalized.silent_autostart {
             normalized.silent_autostart = false;
         }
+        #[cfg(not(target_os = "windows"))]
+        {
+            normalized.auto_silent_update_enabled = false;
+        }
 
         // Update in-memory settings
         {
@@ -467,6 +471,11 @@ impl DatabaseService {
             }
             if settings.silent_autostart && !settings.autostart {
                 settings.silent_autostart = false;
+                persist_flag = true;
+            }
+            #[cfg(not(target_os = "windows"))]
+            if settings.auto_silent_update_enabled {
+                settings.auto_silent_update_enabled = false;
                 persist_flag = true;
             }
             if settings.work_segments.is_empty() {
