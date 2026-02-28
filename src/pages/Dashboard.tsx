@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
@@ -786,6 +787,7 @@ interface FeatureCardProps {
   ariaLabel?: string;
   onClick?: () => void;
   onKeyDown?: (event: ReactKeyboardEvent<HTMLElement>) => void;
+  onBlur?: (event: ReactFocusEvent<HTMLElement>) => void;
 }
 
 // 卡片基础容器：统一标题、图标与进度背景
@@ -804,6 +806,7 @@ function FeatureCard({
   ariaLabel,
   onClick,
   onKeyDown,
+  onBlur,
 }: FeatureCardProps) {
   const ref = useFadeInOnScroll<HTMLElement>(delay);
   const classes = [
@@ -832,6 +835,7 @@ function FeatureCard({
       aria-label={ariaLabel}
       onClick={onClick}
       onKeyDown={onKeyDown}
+      onBlur={onBlur}
     >
       <div className="tile-primary-row">
         {icon && (
@@ -904,6 +908,24 @@ interface NextSlotCardProps {
   tabIndex?: number;
   onActivate?: () => void;
   actionLabel?: string;
+  splitActions?: {
+    enabled: boolean;
+    left: {
+      label: string;
+      onClick: () => void | Promise<void>;
+      disabled?: boolean;
+      title?: string;
+      ariaLabel?: string;
+    };
+    right: {
+      label: string;
+      onClick: () => void | Promise<void>;
+      disabled?: boolean;
+      title?: string;
+      ariaLabel?: string;
+    };
+    touchFallback?: boolean;
+  };
 }
 
 // 下一段提醒卡片（可选点击动作）
@@ -914,16 +936,105 @@ function NextSlotCard({
   tabIndex,
   onActivate,
   actionLabel,
+  splitActions,
 }: NextSlotCardProps) {
+  const leftActionRef = useRef<HTMLButtonElement | null>(null);
+  const [supportsHover, setSupportsHover] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  });
+  const [isTouchActionsOpen, setTouchActionsOpen] = useState(false);
+  const isSplitEnabled = splitActions?.enabled === true;
+  const supportsTouchFallback = splitActions?.touchFallback !== false;
+  const canUseTouchFallback = isSplitEnabled && supportsTouchFallback && !supportsHover;
   const isActionable = typeof onActivate === 'function';
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia('(hover: hover) and (pointer: fine)');
+    const handleChange = () => setSupportsHover(media.matches);
+    handleChange();
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', handleChange);
+      return () => media.removeEventListener('change', handleChange);
+    }
+    media.addListener(handleChange);
+    return () => media.removeListener(handleChange);
+  }, []);
+
+  useEffect(() => {
+    if (!isTouchActionsOpen) return;
+    if (!canUseTouchFallback) {
+      setTouchActionsOpen(false);
+    }
+  }, [canUseTouchFallback, isTouchActionsOpen]);
+
+  useEffect(() => {
+    if (!isTouchActionsOpen) return;
+    leftActionRef.current?.focus();
+  }, [isTouchActionsOpen]);
+
+  const runSplitAction = useCallback(
+    (action: NonNullable<NextSlotCardProps['splitActions']>['left']) => {
+      if (action.disabled) return;
+      if (canUseTouchFallback) {
+        setTouchActionsOpen(false);
+      }
+      void action.onClick();
+    },
+    [canUseTouchFallback]
+  );
+
+  const handleCardBlur = (event: ReactFocusEvent<HTMLElement>) => {
+    if (!canUseTouchFallback || !isTouchActionsOpen) return;
+    const nextTarget = event.relatedTarget as Node | null;
+    if (nextTarget && event.currentTarget.contains(nextTarget)) return;
+    setTouchActionsOpen(false);
+  };
+
+  const handleCardClick = () => {
+    if (isSplitEnabled) {
+      if (canUseTouchFallback) {
+        setTouchActionsOpen((open) => !open);
+      }
+      return;
+    }
+    if (isActionable) {
+      onActivate?.();
+    }
+  };
+
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (isSplitEnabled) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setTouchActionsOpen(false);
+        return;
+      }
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        if (canUseTouchFallback) {
+          setTouchActionsOpen((open) => !open);
+        } else {
+          leftActionRef.current?.focus();
+        }
+      }
+      return;
+    }
     if (!isActionable) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       onActivate?.();
     }
   };
-  const resolvedTabIndex = isActionable ? 0 : tabIndex;
+  const resolvedTabIndex = isActionable || isSplitEnabled ? 0 : tabIndex;
+  const cardClassName = [
+    isActionable || isSplitEnabled ? 'tile-card-actionable' : undefined,
+    isSplitEnabled ? 'tile-card-next-split' : undefined,
+    canUseTouchFallback && isTouchActionsOpen ? 'is-touch-actions-open' : undefined,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <FeatureCard
@@ -933,12 +1044,47 @@ function NextSlotCard({
       iconTone="neutral"
       delay={delay}
       tabIndex={resolvedTabIndex}
-      className={isActionable ? 'tile-card-actionable' : undefined}
+      className={cardClassName || undefined}
       role={isActionable ? 'button' : undefined}
-      ariaLabel={isActionable ? actionLabel ?? secondary : undefined}
-      onClick={isActionable ? onActivate : undefined}
-      onKeyDown={isActionable ? handleKeyDown : undefined}
-    />
+      ariaLabel={isActionable || isSplitEnabled ? actionLabel ?? secondary : undefined}
+      onClick={isActionable || isSplitEnabled ? handleCardClick : undefined}
+      onKeyDown={isActionable || isSplitEnabled ? handleKeyDown : undefined}
+      onBlur={isSplitEnabled ? handleCardBlur : undefined}
+    >
+      {isSplitEnabled && splitActions && (
+        <div className="next-split-overlay" aria-hidden={false}>
+          <button
+            ref={leftActionRef}
+            type="button"
+            className="next-split-action next-split-action-left"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              runSplitAction(splitActions.left);
+            }}
+            disabled={splitActions.left.disabled}
+            title={splitActions.left.title}
+            aria-label={splitActions.left.ariaLabel ?? splitActions.left.label}
+          >
+            {splitActions.left.label}
+          </button>
+          <button
+            type="button"
+            className="next-split-action next-split-action-right"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              runSplitAction(splitActions.right);
+            }}
+            disabled={splitActions.right.disabled}
+            title={splitActions.right.title}
+            aria-label={splitActions.right.ariaLabel ?? splitActions.right.label}
+          >
+            {splitActions.right.label}
+          </button>
+        </div>
+      )}
+    </FeatureCard>
   );
 }
 
@@ -1069,6 +1215,7 @@ interface DashboardProps {
     secondary?: string;
     onActivate?: () => void;
     actionLabel?: string;
+    splitActions?: NextSlotCardProps['splitActions'];
   };
 }
 
@@ -1283,7 +1430,9 @@ export function Dashboard({ isReadOnly = false, nextCardAction }: DashboardProps
   const nextSecondary = slotTypeLabel;
   const nextCardPrimary = nextCardAction?.primary ?? nextPrimary;
   const nextCardSecondary = nextCardAction?.secondary ?? nextSecondary;
-  const nextCardTabIndex = nextCardAction?.onActivate ? 0 : cardTabIndex;
+  const hasNextSplitActions = nextCardAction?.splitActions?.enabled === true;
+  const nextCardTabIndex =
+    typeof nextCardAction?.onActivate === 'function' || hasNextSplitActions ? 0 : cardTabIndex;
 
   const dayLabel = t('dashboard.progress.day.label', {
     defaultValue: isZh ? '今天进度' : 'Today progress',
@@ -1489,6 +1638,7 @@ export function Dashboard({ isReadOnly = false, nextCardAction }: DashboardProps
             tabIndex={nextCardTabIndex}
             onActivate={nextCardAction?.onActivate}
             actionLabel={nextCardAction?.actionLabel}
+            splitActions={nextCardAction?.splitActions}
           />
         ),
       },
@@ -1558,6 +1708,7 @@ export function Dashboard({ isReadOnly = false, nextCardAction }: DashboardProps
       i18n.language,
       nextCardAction?.actionLabel,
       nextCardAction?.onActivate,
+      nextCardAction?.splitActions,
       nextCardPrimary,
       nextCardSecondary,
       nextCardTabIndex,
@@ -1602,7 +1753,10 @@ export function Dashboard({ isReadOnly = false, nextCardAction }: DashboardProps
     const styleModalTitle = isZh ? '自定义卡片样式' : 'Customize card style';
     const styleModalCloseLabel = isZh ? '关闭' : 'Close';
     const isActionable =
-      isReadOnly && card.type === 'next' && typeof nextCardAction?.onActivate === 'function';
+      isReadOnly &&
+      card.type === 'next' &&
+      (typeof nextCardAction?.onActivate === 'function' ||
+        nextCardAction?.splitActions?.enabled === true);
     let renderCustomContent: ((close: () => void) => ReactNode) | undefined;
 
     if (card.type === 'clock') {
