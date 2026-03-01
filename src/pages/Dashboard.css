@@ -573,6 +573,15 @@
 .tile-card.tile-card-next-split {
   position: relative;
   overflow: hidden;
+  --split-left-bg: #2563eb;
+  --split-left-bg-hover: #1d4ed8;
+  --split-left-bg-pressed: #1e40af;
+  --split-left-text: #eff6ff;
+  --split-right-bg: #ffffff;
+  --split-right-bg-hover: #f8fafc;
+  --split-right-bg-pressed: #e2e8f0;
+  --split-right-text: #0f172a;
+  --split-focus-ring: #22d3ee;
 }
 
 .next-split-overlay {
@@ -582,46 +591,121 @@
   grid-template-columns: 1fr 1fr;
   z-index: 3;
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateY(10px) scale(0.985);
+  filter: blur(1px);
   pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .tile-card.tile-card-next-split:hover .next-split-overlay,
 .tile-card.tile-card-next-split:focus-within .next-split-overlay,
 .tile-card.tile-card-next-split.is-touch-actions-open .next-split-overlay {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
+  filter: blur(0);
   pointer-events: auto;
 }
 
 .next-split-action {
   border: none;
-  background: rgba(15, 23, 42, 0.78);
-  color: #f8fafc;
+  position: relative;
+  isolation: isolate;
   font-size: clamp(1rem, 1.7vw, 1.2rem);
   font-weight: 700;
   letter-spacing: 0.02em;
+  line-height: 1;
   cursor: pointer;
-  transition: background 0.18s ease;
+  transform: translateY(0);
+  transition:
+    transform 0.12s ease,
+    background-color 0.12s ease,
+    box-shadow 0.12s ease,
+    color 0.12s ease;
+}
+
+.next-split-action::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0) 38%);
+}
+
+.next-split-action > * {
+  position: relative;
+  z-index: 1;
+}
+
+.next-split-action-left {
+  background: var(--split-left-bg);
+  color: var(--split-left-text);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -3px 0 rgba(15, 23, 42, 0.18),
+    0 12px 18px rgba(37, 99, 235, 0.32);
+}
+
+.next-split-action-right {
+  background: var(--split-right-bg);
+  color: var(--split-right-text);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    inset 0 -3px 0 rgba(15, 23, 42, 0.14),
+    0 12px 18px rgba(15, 23, 42, 0.16);
 }
 
 .next-split-action + .next-split-action {
-  border-left: 1px solid rgba(248, 250, 252, 0.2);
+  border-left: 1px solid rgba(15, 23, 42, 0.16);
 }
 
-.next-split-action:hover {
-  background: rgba(15, 23, 42, 0.92);
+.next-split-action-left:hover,
+.next-split-action-left:focus-visible,
+.next-split-action-left:active {
+  background: var(--split-left-bg-hover);
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.16),
+    0 6px 10px rgba(37, 99, 235, 0.26);
+}
+
+.next-split-action-right:hover,
+.next-split-action-right:focus-visible,
+.next-split-action-right:active {
+  background: var(--split-right-bg-hover);
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.12),
+    0 6px 10px rgba(15, 23, 42, 0.12);
 }
 
 .next-split-action:focus-visible {
-  outline: 2px solid rgba(94, 160, 255, 0.78);
+  outline: 2px solid var(--split-focus-ring);
   outline-offset: -2px;
 }
 
 .next-split-action:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: 1;
+  transform: translateY(0);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -2px 0 rgba(15, 23, 42, 0.1);
+}
+
+.next-split-action-left:disabled {
+  background: #93c5fd;
+  color: #e0f2fe;
+}
+
+.next-split-action-right:disabled {
+  background: #e2e8f0;
+  color: #64748b;
 }
 
 .tile-card.is-visible {
@@ -650,6 +734,28 @@
 .dashboard-page.is-readonly .tile-card.tile-card-next-split:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .next-split-overlay {
+    transition: opacity 0.01ms linear;
+    transform: none;
+    filter: none;
+  }
+
+  .next-split-action {
+    transition: none;
+    transform: none;
+  }
+
+  .next-split-action-left:hover,
+  .next-split-action-left:focus-visible,
+  .next-split-action-left:active,
+  .next-split-action-right:hover,
+  .next-split-action-right:focus-visible,
+  .next-split-action-right:active {
+    transform: none;
+  }
 }
 
 .tile-span-4 {
