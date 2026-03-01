@@ -37,28 +37,54 @@ const SHIFT_BLUEPRINT: Array<{ type: SlotType; hour: number; minute: number }> =
   { type: 'break', hour: 16, minute: 0 },
 ];
 
-// 仪表盘默认贴士文案（本地随机抽取）
-const TIP_LIBRARY: Record<'zh' | 'en', string[]> = {
-  zh: [
-    '遵循20-20-20法则，每20分钟远眺20秒。',
-    '显示器亮度略高于环境，减少瞳孔疲劳。',
-    '每小时起身伸展肩颈，缓解肌肉紧绷。',
-    '保持眨眼频率，每次眨眼都让角膜滋润。',
-    '饮水分散在全天，维持泪膜稳定。',
-    '屏幕顶部略低于视线，放松颈部发力。',
-    '午后开启暖色温模式，柔化蓝光刺激。',
-    '阅读合适字号，避免眼睛长时间聚焦。',
-  ],
-  en: [
-    'Follow the 20-20-20 rule; focus far regularly.',
-    'Align screen brightness with ambient light levels.',
-    'Blink deliberately ten times each hour to refresh tears.',
-    'Keep monitor top slightly below relaxed eye level.',
-    'Stand and stretch every 60 minutes to relax posture.',
-    'Sip water often to keep your tear film stable.',
-    'Enable night mode after sunset to soften blue light.',
-    'Increase text size to avoid squinting or leaning in.',
-  ],
+type LocalTipSource = 'local' | 'health';
+
+// 仪表盘默认贴士文案（i18n 资源缺失时回退）
+const TIP_LIBRARY_FALLBACK: Record<'zh' | 'en', Record<LocalTipSource, string[]>> = {
+  zh: {
+    local: [
+      '遵循20-20-20法则，每20分钟远眺20秒。',
+      '显示器亮度略高于环境，减少瞳孔疲劳。',
+      '每小时起身伸展肩颈，缓解肌肉紧绷。',
+      '保持眨眼频率，每次眨眼都让角膜滋润。',
+      '饮水分散在全天，维持泪膜稳定。',
+      '屏幕顶部略低于视线，放松颈部发力。',
+      '午后开启暖色温模式，柔化蓝光刺激。',
+      '阅读合适字号，避免眼睛长时间聚焦。',
+    ],
+    health: [
+      '拒绝久坐，每45分钟起身活动2到3分钟。',
+      '每小时喝一杯水，别等口渴才补水。',
+      '耳朵与肩膀保持一线，防止脖子前倾。',
+      '键盘靠近身体，手肘约90度减轻肩腕负担。',
+      '双脚平放地面，让腰背获得稳定支撑。',
+      '午休闭目10分钟，缓解大脑与眼部疲劳。',
+      '接电话时别夹手机，避免颈侧肌肉紧张。',
+      '下班前做肩胛后缩训练，舒缓圆肩驼背。',
+    ],
+  },
+  en: {
+    local: [
+      'Follow the 20-20-20 rule; focus far regularly.',
+      'Align screen brightness with ambient light levels.',
+      'Blink deliberately ten times each hour to refresh tears.',
+      'Keep monitor top slightly below relaxed eye level.',
+      'Stand and stretch every 60 minutes to relax posture.',
+      'Sip water often to keep your tear film stable.',
+      'Enable night mode after sunset to soften blue light.',
+      'Increase text size to avoid squinting or leaning in.',
+    ],
+    health: [
+      'Avoid prolonged sitting; stand up for 2-3 minutes every 45 minutes.',
+      'Drink water each hour instead of waiting to feel thirsty.',
+      'Keep ears aligned over shoulders to prevent forward-head posture.',
+      'Keep the keyboard close and elbows near 90 degrees.',
+      'Keep both feet flat on the floor to support your lower back.',
+      'Take a 10-minute eye-closed break at lunch to reset fatigue.',
+      'Do not cradle your phone between shoulder and neck during calls.',
+      'Do scapular retraction stretches before ending the workday.',
+    ],
+  },
 };
 
 // 时间/进度计算工具：倒计时显示、进度比例等
@@ -123,11 +149,22 @@ const generatePlaceholderSlots = (reference: Date): PlaceholderSlot[] => {
   return slots.sort((a, b) => a.start.getTime() - b.start.getTime());
 };
 
-const generateTip = (language: string): string => {
-  const key: 'zh' | 'en' = language.startsWith('zh') ? 'zh' : 'en';
-  const pool = TIP_LIBRARY[key];
+const normalizeTipPool = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter((item) => item.length > 0);
+};
+
+const generateTip = (pool: string[], fallback: string): string => {
+  if (!pool.length) {
+    return fallback;
+  }
   const randomIndex = Math.floor(Math.random() * pool.length);
-  return pool[randomIndex];
+  return pool[randomIndex] ?? fallback;
 };
 
 type CardId = 'status' | 'next' | 'progress' | 'tips' | 'clock';
@@ -203,7 +240,7 @@ interface ClockCardSettings {
 }
 
 interface TipsCardSettings {
-  source: 'local' | 'hitokoto';
+  source: 'local' | 'health' | 'hitokoto';
 }
 
 interface ProgressCardSettings {
@@ -294,6 +331,9 @@ const sanitizeTipsSettings = (settings: unknown): TipsCardSettings | undefined =
   const source = (settings as TipsCardSettings).source;
   if (source === 'hitokoto') {
     return { source: 'hitokoto' };
+  }
+  if (source === 'health') {
+    return { source: 'health' };
   }
   return undefined;
 };
@@ -1107,36 +1147,57 @@ function TipsCard({ tip, delay = 0, tabIndex = 0 }: TipsCardProps) {
 
 interface TipsCardRendererProps {
   instance: CardInstance;
-  language: string;
-  isZh: boolean;
   delay?: number;
   tabIndex?: number;
 }
 
 // 贴士数据来源：本地随机或一言（中文）/ Viewbits（非中文）
-function TipsCardRenderer({ instance, language, isZh, delay = 0, tabIndex }: TipsCardRendererProps) {
+function TipsCardRenderer({ instance, delay = 0, tabIndex }: TipsCardRendererProps) {
+  const { t, i18n } = useTranslation();
+  const isZh = i18n.language.startsWith('zh');
   const source = instance.settings?.tips?.source ?? 'local';
+  const languageBucket: 'zh' | 'en' = isZh ? 'zh' : 'en';
+  const loadingText = t('dashboard.tips.state.loading', {
+    defaultValue: isZh ? '加载中…' : 'Loading…',
+  });
+  const emptyQuoteText = t('dashboard.tips.state.empty', {
+    defaultValue: isZh ? '暂时没有一言，稍后再试。' : 'No quote available right now.',
+  });
+  const failedText = t('dashboard.tips.state.failed', {
+    defaultValue: isZh ? '加载失败，稍后再试。' : 'Failed to load. Please try again.',
+  );
+  const resolveLocalTip = useCallback(
+    (localSource: LocalTipSource) => {
+      const fallbackPool = TIP_LIBRARY_FALLBACK[languageBucket][localSource];
+      const tipKey =
+        localSource === 'health'
+          ? 'dashboard.tips.library.health'
+          : 'dashboard.tips.library.eyeCare';
+      const localizedPool = normalizeTipPool(t(tipKey, { returnObjects: true }) as unknown);
+      const pool = localizedPool.length ? localizedPool : fallbackPool;
+      return generateTip(pool, fallbackPool[0] ?? '');
+    },
+    [languageBucket, t]
+  );
+  const localSource: LocalTipSource = source === 'health' ? 'health' : 'local';
   const [content, setContent] = useState(() =>
-    source === 'hitokoto' ? (isZh ? '加载中…' : 'Loading…') : generateTip(language)
+    source === 'hitokoto' ? loadingText : resolveLocalTip(localSource)
   );
 
   useEffect(() => {
     if (source === 'hitokoto') {
       let ignore = false;
-      setContent(isZh ? '加载中…' : 'Loading…');
+      setContent(loadingText);
       api
-        .fetchTipQuote(language)
+        .fetchTipQuote(i18n.language)
         .then((text) => {
           if (ignore) return;
-          const fallback = isZh
-            ? '暂时没有一言，稍后再试。'
-            : 'No quote available right now.';
           const normalized = typeof text === 'string' ? text.trim() : '';
-          setContent(normalized.length ? normalized : fallback);
+          setContent(normalized.length ? normalized : emptyQuoteText);
         })
         .catch((error: unknown) => {
           if (ignore) return;
-          setContent(isZh ? '加载失败，稍后再试。' : 'Failed to load. Please try again.');
+          setContent(failedText);
           if (error instanceof Error) {
             console.warn('Quote fetch failed:', error);
           }
@@ -1146,9 +1207,9 @@ function TipsCardRenderer({ instance, language, isZh, delay = 0, tabIndex }: Tip
       };
     }
 
-    setContent(generateTip(language));
+    setContent(resolveLocalTip(localSource));
     return undefined;
-  }, [source, language, isZh]);
+  }, [source, i18n.language, loadingText, emptyQuoteText, failedText, resolveLocalTip, localSource]);
 
   return <TipsCard tip={content} delay={delay} tabIndex={tabIndex} />;
 }
@@ -1279,7 +1340,7 @@ export function Dashboard({ isReadOnly = false, nextCardAction }: DashboardProps
     return () => window.clearInterval(id);
   }, []);
 
-  
+
   const dateKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
 
   const placeholderSlots = useMemo(() => generatePlaceholderSlots(now), [dateKey]);
@@ -1660,8 +1721,6 @@ export function Dashboard({ isReadOnly = false, nextCardAction }: DashboardProps
         render: (instance, delay: number) => (
           <TipsCardRenderer
             instance={instance}
-            language={i18n.language}
-            isZh={isZh}
             delay={delay}
             tabIndex={cardTabIndex}
           />
@@ -1979,9 +2038,18 @@ export function Dashboard({ isReadOnly = false, nextCardAction }: DashboardProps
     if (card.type === 'tips') {
       const tipsSettings = card.settings?.tips;
       const selectedSource = tipsSettings?.source ?? 'local';
-      const sourceLabel = isZh ? '内容来源' : 'Content source';
-      const localOptionLabel = isZh ? '护眼贴士' : 'Eye care tips';
-      const hitokotoOptionLabel = isZh ? '一言' : 'Viewbits';
+      const sourceLabel = t('dashboard.tips.sourceLabel', {
+        defaultValue: isZh ? '内容来源' : 'Content source',
+      });
+      const localOptionLabel = t('dashboard.tips.source.eyeCare', {
+        defaultValue: isZh ? '护眼贴士' : 'Eye care tips',
+      });
+      const healthOptionLabel = t('dashboard.tips.source.health', {
+        defaultValue: isZh ? '健康' : 'Health',
+      });
+      const hitokotoOptionLabel = t('dashboard.tips.source.quote', {
+        defaultValue: isZh ? '一言' : 'Quote',
+      });
       const tipsDefaults: TipsCardSettings = { source: 'local' };
 
       const updateTipsSettings = (
@@ -1990,8 +2058,11 @@ export function Dashboard({ isReadOnly = false, nextCardAction }: DashboardProps
         handleUpdateSettings(card.instanceId, (prev) => {
           const base = prev?.tips ?? tipsDefaults;
           const next = updater({ ...base });
-          const normalized: TipsCardSettings =
-            next.source === 'hitokoto' ? { source: 'hitokoto' } : { source: 'local' };
+          const normalized: TipsCardSettings = (() => {
+            if (next.source === 'hitokoto') return { source: 'hitokoto' };
+            if (next.source === 'health') return { source: 'health' };
+            return { source: 'local' };
+          })();
           if (normalized.source === 'local') {
             if (!prev) return undefined;
             const { tips: _omit, ...rest } = prev;
@@ -2023,6 +2094,24 @@ export function Dashboard({ isReadOnly = false, nextCardAction }: DashboardProps
                 />
                 <span className="card-style-choice-marker" aria-hidden="true" />
                 <span className="card-style-choice-text">{localOptionLabel}</span>
+              </label>
+              <label
+                className={`card-style-choice${selectedSource === 'health' ? ' is-selected' : ''}`}
+                htmlFor={`${card.instanceId}-tips-source-health`}
+              >
+                <input
+                  id={`${card.instanceId}-tips-source-health`}
+                  className="card-style-choice-input"
+                  type="radio"
+                  name={`${card.instanceId}-tips-source`}
+                  value="health"
+                  checked={selectedSource === 'health'}
+                  onChange={() => {
+                    updateTipsSettings((prevTips) => ({ ...prevTips, source: 'health' }));
+                  }}
+                />
+                <span className="card-style-choice-marker" aria-hidden="true" />
+                <span className="card-style-choice-text">{healthOptionLabel}</span>
               </label>
               <label
                 className={`card-style-choice${selectedSource === 'hitokoto' ? ' is-selected' : ''}`}

@@ -382,7 +382,42 @@
     "takeBreak": "Take a Break Now",
     "nextBreakAt": "Next break at {{time}}",
     "nextWorkAt": "Next work at {{time}}",
-    "nextEventUnavailable": "Schedule pending"
+    "nextEventUnavailable": "Schedule pending",
+    "tips": {
+      "sourceLabel": "Content source",
+      "source": {
+        "eyeCare": "Eye care tips",
+        "health": "Health",
+        "quote": "Quote"
+      },
+      "state": {
+        "loading": "Loading…",
+        "empty": "No quote available right now.",
+        "failed": "Failed to load. Please try again."
+      },
+      "library": {
+        "eyeCare": [
+          "Follow the 20-20-20 rule; focus far regularly.",
+          "Align screen brightness with ambient light levels.",
+          "Blink deliberately ten times each hour to refresh tears.",
+          "Keep monitor top slightly below relaxed eye level.",
+          "Stand and stretch every 60 minutes to relax posture.",
+          "Sip water often to keep your tear film stable.",
+          "Enable night mode after sunset to soften blue light.",
+          "Increase text size to avoid squinting or leaning in."
+        ],
+        "health": [
+          "Avoid prolonged sitting; stand up for 2-3 minutes every 45 minutes.",
+          "Drink water each hour instead of waiting to feel thirsty.",
+          "Keep ears aligned over shoulders to prevent forward-head posture.",
+          "Keep the keyboard close and elbows near 90 degrees.",
+          "Keep both feet flat on the floor to support your lower back.",
+          "Take a 10-minute eye-closed break at lunch to reset fatigue.",
+          "Do not cradle your phone between shoulder and neck during calls.",
+          "Do scapular retraction stretches before ending the workday."
+        ]
+      }
+    }
   },
   "updates": {
     "available": "New version {{version}} available",
