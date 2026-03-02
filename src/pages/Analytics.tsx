@@ -305,13 +305,15 @@ export function Analytics() {
   const isZh = useMemo(() => i18n.language.startsWith('zh'), [i18n.language]);
   const moreRestEnabled = settings.moreRestEnabled;
   const isMountedRef = useRef(true);
+  const analyticsRequestSeqRef = useRef(0);
+  const heatmapRequestSeqRef = useRef(0);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
       isMountedRef.current = false;
-    },
-    []
-  );
+    };
+  }, []);
 
   const presetBounds = useMemo<TimelineBounds>(() => getPresetBounds(range), [range]);
   const customAppliedBounds = useMemo(
@@ -345,15 +347,17 @@ export function Analytics() {
 
   const loadAnalytics = useCallback(async () => {
     if (!isMountedRef.current) return;
+    const requestSeq = ++analyticsRequestSeqRef.current;
     setLoading(true);
     try {
       const result = await api.getAnalytics(analyticsQuery);
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current || requestSeq !== analyticsRequestSeqRef.current) return;
       setData(result);
     } catch (error) {
+      if (requestSeq !== analyticsRequestSeqRef.current) return;
       console.error('Failed to load analytics:', error);
     } finally {
-      if (isMountedRef.current) {
+      if (isMountedRef.current && requestSeq === analyticsRequestSeqRef.current) {
         setLoading(false);
       }
     }
@@ -396,6 +400,7 @@ export function Analytics() {
 
   // 加载热力图数据：按天统计休息完成度
   const loadHeatmapData = useCallback(async () => {
+    const requestSeq = ++heatmapRequestSeqRef.current;
     const { start, end, dates } = generateHeatmapDates();
     const query: AnalyticsQuery = {
       startDate: start.toISOString(),
@@ -404,7 +409,7 @@ export function Analytics() {
 
     try {
       const result = await api.getAnalytics(query);
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current || requestSeq !== heatmapRequestSeqRef.current) return;
 
       const sessions = augmentSessionsWithMoreRest(result.sessions, moreRestEnabled);
       // Process sessions into daily stats
@@ -444,8 +449,10 @@ export function Analytics() {
         };
       });
 
+      if (!isMountedRef.current || requestSeq !== heatmapRequestSeqRef.current) return;
       setHeatmapData(heatmap);
     } catch (error) {
+      if (requestSeq !== heatmapRequestSeqRef.current) return;
       console.error('Failed to load heatmap data:', error);
     }
   }, [moreRestEnabled]);
