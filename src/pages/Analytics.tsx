@@ -70,7 +70,7 @@ const BreakCountIcon = (props: SVGProps<SVGSVGElement>) => (
   >
     <path d="M12 11.5V16.5" />
     <path d="M12 7.51L12.01 7.49889" />
-    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 2 12 22Z" />
+    <circle cx="12" cy="12" r="10" />
   </svg>
 );
 
@@ -495,6 +495,10 @@ export function Analytics() {
     const totalSeconds = Math.max(0, Math.round(seconds));
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+    if (hours >= 100) {
+      return `${hours}${t('common.hours')}`;
+    }
 
     const parts: string[] = [];
     if (hours > 0) {
