@@ -825,10 +825,12 @@ const BreakFocusIcon = (props: SVGProps<SVGSVGElement>) => (
 
 interface ClockIconProps extends SVGProps<SVGSVGElement> {
   hour?: number;
+  minute?: number;
 }
 
-const ClockIcon = ({ hour = 3, ...props }: ClockIconProps) => {
-  const rotation = (hour % 12) * 30;
+const ClockIcon = ({ hour = 3, minute = 0, ...props }: ClockIconProps) => {
+  const hourRotation = (hour % 12) * 30 + minute * 0.5;
+  const minuteRotation = minute * 6;
 
   return (
     <svg
@@ -846,32 +848,43 @@ const ClockIcon = ({ hour = 3, ...props }: ClockIconProps) => {
       {...props}
     >
       <path d="M12 6V12" />
-      <path d="M12 6V12" transform={`rotate(${rotation} 12 12)`} />
+      <path d="M12 6V12" transform={`rotate(${minuteRotation} 12 12)`} />
+      <path d="M12 6V12" transform={`rotate(${hourRotation} 12 12)`} />
       <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" />
     </svg>
   );
 };
 
-const ProgressIcon = (props: SVGProps<SVGSVGElement>) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    width="100%"
-    height="100%"
-    stroke="currentColor"
-    strokeWidth={1.5}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-    focusable="false"
-    {...props}
-  >
-    <path d="M12 6V12H18" />
-    <path d="M21.8883 10.5C21.1645 5.68874 17.013 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C16.1006 22 19.6248 19.5318 21.1679 16" />
-    <path d="M17 16H21.4C21.7314 16 22 16.2686 22 16.6V21" />
-  </svg>
-);
+interface ProgressIconProps extends SVGProps<SVGSVGElement> {
+  progress?: number;
+}
+
+const ProgressIcon = ({ progress = 0, ...props }: ProgressIconProps) => {
+  // 精确到10%
+  const stepProgress = Math.round(progress * 10) / 10;
+  const rotation = stepProgress * 360;
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      width="100%"
+      height="100%"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+      {...props}
+    >
+      <path d="M12 6V12" transform={`rotate(${rotation} 12 12)`} />
+      <path d="M21.8883 10.5C21.1645 5.68874 17.013 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C16.1006 22 19.6248 19.5318 21.1679 16" />
+      <path d="M17 16H21.4C21.7314 16 22 16.2686 22 16.6V21" />
+    </svg>
+  );
+};
 
 const NextSessionIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg
@@ -1030,7 +1043,7 @@ function PercentCard({
     <FeatureCard
       primary={formatted}
       label={joinParts([label, info])}
-      icon={<ProgressIcon />}
+      icon={<ProgressIcon progress={clamp01(value)} />}
       iconTone="progress"
       progress={clamp01(value)}
       delay={delay}
@@ -1389,6 +1402,7 @@ interface ClockCardProps {
   date: string;
   timezone: string;
   hour?: number;
+  minute?: number;
   delay?: number;
   tabIndex?: number;
 }
@@ -1958,12 +1972,19 @@ export function Dashboard({
           });
           const hour = parseInt(hourFormatter.format(now), 10);
 
+          const minuteFormatter = new Intl.DateTimeFormat("en-US", {
+            minute: "numeric",
+            timeZone,
+          });
+          const minute = parseInt(minuteFormatter.format(now), 10);
+
           return (
             <ClockCard
               time={timeString}
               date={dateString}
               timezone={timeZone}
               hour={hour}
+              minute={minute}
               delay={delay}
               tabIndex={cardTabIndex}
             />
