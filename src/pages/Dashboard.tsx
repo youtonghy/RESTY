@@ -222,14 +222,19 @@ const generateProgressGradient = (seed: string, tone: ProgressPalette) => {
   const rng = createSeededRandom(`${tone}:${seed}`);
   const range = PROGRESS_TONE_RANGES[tone];
   const baseHue = range.min + rng() * (range.max - range.min);
-  const accentHue = clampHue(baseHue + (rng() - 0.5) * 14);
-  const baseSaturation = 70 + rng() * 12; // 70-82
-  const accentSaturation = Math.min(100, baseSaturation + (rng() - 0.5) * 10);
-  const baseLightness = 52 + rng() * 12; // 52-64
-  const accentLightness = Math.min(92, baseLightness + (rng() - 0.2) * 16);
+  const accentHue = clampHue(baseHue + (rng() - 0.5) * 45); // 增加渐变色相偏移，提高对比度
+  const baseSaturation = 85 + rng() * 15; // 85-100 更饱满
+  const accentSaturation = 90 + rng() * 10; // 90-100
+  const baseLightness = 45 + rng() * 15; // 45-60 更鲜明，避免过白
+  const accentLightness = 45 + rng() * 15; // 45-60
 
   const colorStart = toHsl(baseHue, baseSaturation, baseLightness);
   const colorEnd = toHsl(accentHue, accentSaturation, accentLightness);
+  
+  // 为 SVG 图标单独生成一个对比色（稍微偏移色相，提高饱和度，降低亮度）
+  const iconHue = clampHue(accentHue + (rng() > 0.5 ? 30 : -30));
+  const iconColor = toHsl(iconHue, 100, 40);
+
   const glow = toHsla(
     accentHue,
     (baseSaturation + accentSaturation) / 2,
@@ -240,7 +245,7 @@ const generateProgressGradient = (seed: string, tone: ProgressPalette) => {
   return {
     gradient: `linear-gradient(90deg, ${colorStart} 0%, ${colorEnd} 100%)`,
     glow,
-    accent: colorEnd,
+    accent: iconColor,
   };
 };
 
