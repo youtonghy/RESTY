@@ -1165,7 +1165,7 @@ function TipsCardRenderer({ instance, delay = 0, tabIndex }: TipsCardRendererPro
   });
   const failedText = t('dashboard.tips.state.failed', {
     defaultValue: isZh ? '加载失败，稍后再试。' : 'Failed to load. Please try again.',
-  );
+  });
   const resolveLocalTip = useCallback(
     (localSource: LocalTipSource) => {
       const fallbackPool = TIP_LIBRARY_FALLBACK[languageBucket][localSource];
