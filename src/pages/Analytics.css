@@ -638,6 +638,8 @@
 /* Heatmap Styles */
 .heatmap-section {
   min-height: 200px;
+  display: flex;
+  flex-direction: column;
 }
 
 .heatmap-container {
@@ -647,6 +649,8 @@
   width: 100%;
   overflow-x: auto;
   padding-bottom: var(--spacing-sm);
+  margin-top: auto;
+  margin-bottom: auto;
 }
 
 .heatmap-grid {
