@@ -35,6 +35,10 @@ fn default_auto_silent_update_enabled() -> bool {
     false
 }
 
+fn default_rest_start_soon_notification_enabled() -> bool {
+    false
+}
+
 fn default_segment_repeat() -> u32 {
     1
 }
@@ -154,6 +158,8 @@ pub struct Settings {
     pub rest_music_enabled: bool,
     #[serde(default = "default_rest_music_directory")]
     pub rest_music_directory: String,
+    #[serde(default = "default_rest_start_soon_notification_enabled")]
+    pub rest_start_soon_notification_enabled: bool,
 
     // Appearance
     pub theme: Theme,
@@ -194,6 +200,7 @@ impl Default for Settings {
             play_sound: true,
             rest_music_enabled: default_rest_music_enabled(),
             rest_music_directory: rest_music_directory_default(),
+            rest_start_soon_notification_enabled: default_rest_start_soon_notification_enabled(),
             theme: Theme::Auto,
             autostart: false,
             silent_autostart: false,

@@ -13,7 +13,11 @@ import { Analytics } from './pages/Analytics';
 import { DailyReport } from './pages/DailyReport';
 import { Achievements } from './pages/Achievements';
 import { getAchievementDefinitionById } from './features/achievements/definitions';
-import { notifyAchievementUnlocked } from './services/notifications';
+import {
+  clearRestStartsSoonNotification,
+  notifyAchievementUnlocked,
+  notifyRestStartsSoon,
+} from './services/notifications';
 import { useAppStore } from './store';
 import type { Settings as AppSettings } from './types';
 import * as api from './utils/api';
@@ -68,6 +72,7 @@ function App() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentTrackRef = useRef<string | null>(null);
   const notifiedAchievementKeysRef = useRef<Set<string>>(new Set());
+  const preBreakNotifiedTargetRef = useRef<string | null>(null);
 
   const stopRestMusic = useCallback(() => {
     const audio = audioRef.current;
@@ -199,6 +204,54 @@ function App() {
         const previousPhase = store.timerInfo.phase;
         store.setTimerInfo(info);
 
+        if (!isSpecialWindow) {
+          const breakCompleted = previousPhase === 'break' && info.phase === 'work';
+          const switchedToIdle = previousPhase !== 'idle' && info.phase === 'idle';
+          if (breakCompleted || switchedToIdle) {
+            preBreakNotifiedTargetRef.current = null;
+            void clearRestStartsSoonNotification();
+          }
+
+          const preBreakEnabled = store.settings.restStartSoonNotificationEnabled;
+          if (!preBreakEnabled) {
+            if (preBreakNotifiedTargetRef.current) {
+              preBreakNotifiedTargetRef.current = null;
+              void clearRestStartsSoonNotification();
+            }
+          } else if (info.phase === 'work' && info.state === 'running') {
+            const nextBreakTime = info.nextBreakTime ?? null;
+            if (!nextBreakTime) {
+              if (preBreakNotifiedTargetRef.current) {
+                preBreakNotifiedTargetRef.current = null;
+                void clearRestStartsSoonNotification();
+              }
+            } else {
+              if (
+                preBreakNotifiedTargetRef.current &&
+                preBreakNotifiedTargetRef.current !== nextBreakTime
+              ) {
+                preBreakNotifiedTargetRef.current = null;
+                void clearRestStartsSoonNotification();
+              }
+
+              if (preBreakNotifiedTargetRef.current !== nextBreakTime) {
+                const millisUntilBreak = Date.parse(nextBreakTime) - Date.now();
+                if (millisUntilBreak > 0 && millisUntilBreak <= 60_000) {
+                  preBreakNotifiedTargetRef.current = nextBreakTime;
+                  void notifyRestStartsSoon(
+                    i18n.t('notifications.restStartSoon.title', {
+                      defaultValue: 'Break starts soon',
+                    }),
+                    i18n.t('notifications.restStartSoon.body', {
+                      defaultValue: 'Break starts in 1 minute.',
+                    })
+                  );
+                }
+              }
+            }
+          }
+        }
+
         if (previousPhase !== info.phase) {
           handleReminderForPhase(info.phase, store.settings);
         }
@@ -238,9 +291,11 @@ function App() {
       cleanupUnsubscribers(unsubscribers, isMountedRef);
       if (!isSpecialWindow) {
         stopRestMusic();
+        void clearRestStartsSoonNotification();
+        preBreakNotifiedTargetRef.current = null;
       }
     };
-  }, [isSpecialWindow, setTimerInfo, startRestMusic, stopRestMusic]);
+  }, [i18n, isSpecialWindow, setTimerInfo, startRestMusic, stopRestMusic]);
 
   // Update language when settings change
   useEffect(() => {
@@ -251,6 +306,14 @@ function App() {
       });
     }
   }, [settings.language, i18n]);
+
+  useEffect(() => {
+    if (isSpecialWindow) return;
+    if (settings.restStartSoonNotificationEnabled) return;
+
+    preBreakNotifiedTargetRef.current = null;
+    void clearRestStartsSoonNotification();
+  }, [isSpecialWindow, settings.restStartSoonNotificationEnabled]);
 
   useEffect(() => {
     if (isSpecialWindow) return;

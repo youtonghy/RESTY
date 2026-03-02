@@ -37,6 +37,7 @@ export interface Settings {
   playSound: boolean;
   restMusicEnabled: boolean;
   restMusicDirectory: string;
+  restStartSoonNotificationEnabled: boolean;
 
   // Appearance
   theme: Theme;
@@ -165,6 +166,7 @@ export const DEFAULT_SETTINGS: Settings = {
   playSound: true,
   restMusicEnabled: false,
   restMusicDirectory: '',
+  restStartSoonNotificationEnabled: false,
   theme: 'auto',
   autostart: false,
   silentAutostart: false,

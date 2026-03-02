@@ -177,6 +177,10 @@
       },
       "opacity": "窗口透明度",
       "playSound": "播放提示音",
+      "restStartSoonNotification": {
+        "enable": "休息前 1 分钟系统通知",
+        "description": "将在休息开始前 1 分钟发送一次系统通知提醒。"
+      },
       "restMusic": {
         "title": "休息音乐",
         "enable": "休息时自动播放音乐",
@@ -340,6 +344,10 @@
     "workStarted": "工作时段已开始",
     "breakStarted": "休息时间!让眼睛休息一下吧。",
     "breakEnded": "休息完成,准备工作!",
+    "restStartSoon": {
+      "title": "即将开始休息",
+      "body": "还有 1 分钟进入休息时间。"
+    },
     "timerPaused": "计时器已暂停",
     "timerResumed": "计时器已恢复",
     "settingsSaved": "设置保存成功",

@@ -94,6 +94,9 @@ const enforceTrayDefaults = (settings: SettingsType): SettingsType => {
     moreRestEnabled: settings.moreRestEnabled ?? DEFAULT_SETTINGS.moreRestEnabled,
     autoSilentUpdateEnabled:
       settings.autoSilentUpdateEnabled ?? DEFAULT_SETTINGS.autoSilentUpdateEnabled,
+    restStartSoonNotificationEnabled:
+      settings.restStartSoonNotificationEnabled ??
+      DEFAULT_SETTINGS.restStartSoonNotificationEnabled,
     disableAnalytics: settings.disableAnalytics ?? DEFAULT_SETTINGS.disableAnalytics,
     segmentedWorkEnabled:
       (settings.segmentedWorkEnabled ?? false) && normalizedSegments.length > 0,
@@ -895,6 +898,32 @@ export function Settings() {
                   </select>
                 </div>
               )}
+
+              <div className="form-group toggle-group">
+                <label className="toggle-row">
+                  <span className="toggle-text">
+                    {t('settings.reminder.restStartSoonNotification.enable')}
+                  </span>
+                  <span className="switch">
+                    <input
+                      type="checkbox"
+                      checked={localSettings.restStartSoonNotificationEnabled}
+                      onChange={(e) => {
+                        const next = {
+                          ...localSettings,
+                          restStartSoonNotificationEnabled: e.target.checked,
+                        };
+                        setLocalSettings(next);
+                        saveSettingsAuto(next);
+                      }}
+                    />
+                    <span className="slider" />
+                  </span>
+                </label>
+                <p className="helper-text">
+                  {t('settings.reminder.restStartSoonNotification.description')}
+                </p>
+              </div>
 
               <h3 className="card-subtitle">{t('settings.reminder.restMusic.title')}</h3>
 

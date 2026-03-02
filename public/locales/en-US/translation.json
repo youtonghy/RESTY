@@ -178,6 +178,10 @@
       },
       "opacity": "Window Opacity",
       "playSound": "Play notification sound",
+      "restStartSoonNotification": {
+        "enable": "Notify 1 minute before break",
+        "description": "Send a one-time system notification 1 minute before each break starts."
+      },
       "restMusic": {
         "title": "Rest Music",
         "enable": "Play music automatically during breaks",
@@ -341,6 +345,10 @@
     "workStarted": "Work session started",
     "breakStarted": "Break time! Rest your eyes.",
     "breakEnded": "Break completed. Ready to work!",
+    "restStartSoon": {
+      "title": "Break starting soon",
+      "body": "Your break will start in 1 minute."
+    },
     "timerPaused": "Timer paused",
     "timerResumed": "Timer resumed",
     "settingsSaved": "Settings saved successfully",
