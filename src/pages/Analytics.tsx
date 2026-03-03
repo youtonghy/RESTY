@@ -94,14 +94,28 @@ const CompletionIcon = (props: SVGProps<SVGSVGElement>) => (
 );
 
 type TimelineBounds = { start: number; end: number };
+type TimelineRenderMode = 'raw' | 'crisp';
 type TimeScaleMark = {
   key: string;
   left: number;
   label: string;
   position: 'start' | 'middle' | 'end';
 };
+type TimelinePixelSegment = {
+  startPx: number;
+  endPx: number;
+  color: string;
+};
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const TIMELINE_BASE_COLOR = 'var(--color-surface-hover)';
+
+const getTimelineRenderMode = (range: TimeRange): TimelineRenderMode => {
+  if (range === 'month' || range === 'year') {
+    return 'crisp';
+  }
+  return 'raw';
+};
 
 const formatDateInputValue = (date: Date) => {
   const year = date.getFullYear();
@@ -288,6 +302,143 @@ const generateTimeScale = (
   return marks.sort((a, b) => a.left - b.left);
 };
 
+const buildTimelineGradientRaw = (sessions: Session[], bounds: TimelineBounds) => {
+  if (!sessions || sessions.length === 0) {
+    return TIMELINE_BASE_COLOR;
+  }
+
+  const total = bounds.end - bounds.start;
+  if (total <= 0) return TIMELINE_BASE_COLOR;
+
+  const stops: string[] = [];
+  stops.push('transparent 0%');
+
+  for (const session of sessions) {
+    const sessionStart = new Date(session.startTime).getTime();
+    const sessionEnd = new Date(session.endTime).getTime();
+    const clampedStart = Math.max(sessionStart, bounds.start);
+    const clampedEnd = Math.min(sessionEnd, bounds.end);
+    const duration = Math.max(0, clampedEnd - clampedStart);
+    if (duration <= 0) continue;
+
+    const start = ((clampedStart - bounds.start) / total) * 100;
+    const end = Math.min(100, start + (duration / total) * 100);
+    const color = session.type === 'work' ? 'var(--color-primary)' : 'var(--color-success)';
+
+    stops.push(`transparent ${start}%`);
+    stops.push(`${color} ${start}%`);
+    stops.push(`${color} ${end}%`);
+    stops.push(`transparent ${end}%`);
+  }
+
+  if (stops.length <= 1) {
+    return TIMELINE_BASE_COLOR;
+  }
+
+  return `linear-gradient(to right, ${stops.join(', ')}), ${TIMELINE_BASE_COLOR}`;
+};
+
+const buildTimelineGradientCrisp = (
+  sessions: Session[],
+  bounds: TimelineBounds,
+  timelineWidthPx: number
+) => {
+  if (!sessions || sessions.length === 0) {
+    return TIMELINE_BASE_COLOR;
+  }
+
+  const total = bounds.end - bounds.start;
+  if (total <= 0 || timelineWidthPx <= 0) {
+    return TIMELINE_BASE_COLOR;
+  }
+
+  const rawSegments: TimelinePixelSegment[] = [];
+
+  for (const session of sessions) {
+    const sessionStart = new Date(session.startTime).getTime();
+    const sessionEnd = new Date(session.endTime).getTime();
+    const clampedStart = Math.max(sessionStart, bounds.start);
+    const clampedEnd = Math.min(sessionEnd, bounds.end);
+    const duration = Math.max(0, clampedEnd - clampedStart);
+    if (duration <= 0) continue;
+
+    let startPx = Math.floor(((clampedStart - bounds.start) / total) * timelineWidthPx);
+    let endPx = Math.ceil(((clampedEnd - bounds.start) / total) * timelineWidthPx);
+    startPx = Math.max(0, Math.min(timelineWidthPx, startPx));
+    endPx = Math.max(0, Math.min(timelineWidthPx, endPx));
+
+    if (endPx <= startPx) {
+      endPx = Math.min(timelineWidthPx, startPx + 1);
+    }
+    if (endPx <= startPx) continue;
+
+    rawSegments.push({
+      startPx,
+      endPx,
+      color: session.type === 'work' ? 'var(--color-primary)' : 'var(--color-success)',
+    });
+  }
+
+  if (rawSegments.length === 0) {
+    return TIMELINE_BASE_COLOR;
+  }
+
+  const mergedSegments: TimelinePixelSegment[] = [];
+  for (const source of rawSegments) {
+    const segment: TimelinePixelSegment = { ...source };
+    const previous = mergedSegments[mergedSegments.length - 1];
+
+    if (!previous) {
+      mergedSegments.push(segment);
+      continue;
+    }
+
+    if (segment.startPx < previous.endPx) {
+      if (segment.color === previous.color) {
+        previous.endPx = Math.max(previous.endPx, segment.endPx);
+        continue;
+      }
+      segment.startPx = previous.endPx;
+      if (segment.endPx <= segment.startPx) {
+        segment.endPx = Math.min(timelineWidthPx, segment.startPx + 1);
+      }
+      if (segment.endPx <= segment.startPx) {
+        continue;
+      }
+    }
+
+    if (segment.color === previous.color && segment.startPx <= previous.endPx) {
+      previous.endPx = Math.max(previous.endPx, segment.endPx);
+      continue;
+    }
+
+    mergedSegments.push(segment);
+  }
+
+  if (mergedSegments.length === 0) {
+    return TIMELINE_BASE_COLOR;
+  }
+
+  const toPercent = (px: number) => ((px / timelineWidthPx) * 100).toFixed(4);
+  const stops: string[] = ['transparent 0%'];
+  for (const segment of mergedSegments) {
+    const start = toPercent(segment.startPx);
+    const end = toPercent(segment.endPx);
+    if (Number(end) <= Number(start)) continue;
+
+    stops.push(`transparent ${start}%`);
+    stops.push(`${segment.color} ${start}%`);
+    stops.push(`${segment.color} ${end}%`);
+    stops.push(`transparent ${end}%`);
+  }
+
+  if (stops.length <= 1) {
+    return TIMELINE_BASE_COLOR;
+  }
+
+  return `linear-gradient(to right, ${stops.join(', ')}), ${TIMELINE_BASE_COLOR}`;
+};
+
 /**
  * 数据统计页面：按日期区间加载会话数据，展示工作/休息统计与时间轴。
  */
@@ -307,11 +458,37 @@ export function Analytics() {
   const isMountedRef = useRef(true);
   const analyticsRequestSeqRef = useRef(0);
   const heatmapRequestSeqRef = useRef(0);
+  const timelineRef = useRef<HTMLDivElement | null>(null);
+  const [timelineWidthPx, setTimelineWidthPx] = useState(0);
 
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const node = timelineRef.current;
+    if (!node) return;
+
+    const updateWidth = (nextWidth: number) => {
+      setTimelineWidthPx((previous) => (previous === nextWidth ? previous : nextWidth));
+    };
+
+    const initialWidth = Math.max(1, Math.round(node.getBoundingClientRect().width));
+    updateWidth(initialWidth);
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const nextWidth = Math.max(1, Math.round(entry.contentRect.width));
+      updateWidth(nextWidth);
+    });
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
     };
   }, []);
 
@@ -599,52 +776,14 @@ export function Analytics() {
     };
   }, [data, derivedStats.breakCount, derivedStats.completedBreaks, derivedStats.skippedBreaks]);
 
-  /**
-   * 构建单条时间轴的线性渐变：
-   * - 全宽 0-24h；
-   * - 工作片段为蓝色（var(--color-primary)），休息片段为绿色（var(--color-success)）；
-   * - 其他时间透明，底色为浅色轨道；
-   */
-  const buildTimelineGradient = (sessions: Session[], bounds: TimelineBounds) => {
-    const base = 'var(--color-surface-hover)';
-    if (!sessions || sessions.length === 0) {
-      return base;
-    }
-
-    const total = bounds.end - bounds.start;
-    if (total <= 0) return base;
-
-    const stops: string[] = [];
-    // 初始透明到 0%
-    stops.push('transparent 0%');
-
-    // 根据会话生成区段色带
-    for (const s of sessions) {
-      // 计算精准百分比（不强制最小宽度）
-      const sStart = new Date(s.startTime).getTime();
-      const sEnd = new Date(s.endTime).getTime();
-      const clampedStart = Math.max(sStart, bounds.start);
-      const clampedEnd = Math.min(sEnd, bounds.end);
-      const dur = Math.max(0, clampedEnd - clampedStart);
-      if (dur <= 0 || total <= 0) continue;
-      const start = ((clampedStart - bounds.start) / total) * 100;
-      const end = Math.min(100, start + (dur / total) * 100);
-      const color = s.type === 'work' ? 'var(--color-primary)' : 'var(--color-success)';
-      // 透明到 start，然后着色到 end，再恢复透明
-      stops.push(`transparent ${start}%`);
-      stops.push(`${color} ${start}%`);
-      stops.push(`${color} ${end}%`);
-      stops.push(`transparent ${end}%`);
-    }
-
-    const gradient = `linear-gradient(to right, ${stops.join(', ')})`;
-    // 叠加底色，形成单条时间轴
-    return `${gradient}, ${base}`;
-  };
+  const timelineRenderMode = useMemo<TimelineRenderMode>(() => getTimelineRenderMode(range), [range]);
 
   const timelineBackground = useMemo(
-    () => buildTimelineGradient(timelineSessions, displayBounds),
-    [timelineSessions, displayBounds]
+    () =>
+      timelineRenderMode === 'crisp'
+        ? buildTimelineGradientCrisp(timelineSessions, displayBounds, timelineWidthPx)
+        : buildTimelineGradientRaw(timelineSessions, displayBounds),
+    [displayBounds, timelineRenderMode, timelineSessions, timelineWidthPx]
   );
 
   /**
@@ -828,6 +967,7 @@ export function Analytics() {
                   {/* 单条时间轴（用渐变绘制工作/休息片段） */}
                   <div
                     className="horizontal-timeline enhanced"
+                    ref={timelineRef}
                     style={{ background: timelineBackground }}
                     aria-label={t('analytics.timeline')}
                     role="img"
