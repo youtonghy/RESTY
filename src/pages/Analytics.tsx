@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type SVGProps } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SVGProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
 import * as api from '../utils/api';
@@ -458,8 +458,11 @@ export function Analytics() {
   const isMountedRef = useRef(true);
   const analyticsRequestSeqRef = useRef(0);
   const heatmapRequestSeqRef = useRef(0);
-  const timelineRef = useRef<HTMLDivElement | null>(null);
+  const [timelineNode, setTimelineNode] = useState<HTMLDivElement | null>(null);
   const [timelineWidthPx, setTimelineWidthPx] = useState(0);
+  const timelineRef = useCallback((node: HTMLDivElement | null) => {
+    setTimelineNode(node);
+  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -468,15 +471,17 @@ export function Analytics() {
     };
   }, []);
 
-  useEffect(() => {
-    const node = timelineRef.current;
-    if (!node) return;
+  useLayoutEffect(() => {
+    if (!timelineNode) {
+      setTimelineWidthPx(0);
+      return;
+    }
 
     const updateWidth = (nextWidth: number) => {
       setTimelineWidthPx((previous) => (previous === nextWidth ? previous : nextWidth));
     };
 
-    const initialWidth = Math.max(1, Math.round(node.getBoundingClientRect().width));
+    const initialWidth = Math.max(1, Math.round(timelineNode.getBoundingClientRect().width));
     updateWidth(initialWidth);
 
     const observer = new ResizeObserver((entries) => {
@@ -485,12 +490,12 @@ export function Analytics() {
       const nextWidth = Math.max(1, Math.round(entry.contentRect.width));
       updateWidth(nextWidth);
     });
-    observer.observe(node);
+    observer.observe(timelineNode);
 
     return () => {
       observer.disconnect();
     };
-  }, []);
+  }, [timelineNode]);
 
   const presetBounds = useMemo<TimelineBounds>(() => getPresetBounds(range), [range]);
   const customAppliedBounds = useMemo(
@@ -779,10 +784,12 @@ export function Analytics() {
   const timelineRenderMode = useMemo<TimelineRenderMode>(() => getTimelineRenderMode(range), [range]);
 
   const timelineBackground = useMemo(
-    () =>
-      timelineRenderMode === 'crisp'
-        ? buildTimelineGradientCrisp(timelineSessions, displayBounds, timelineWidthPx)
-        : buildTimelineGradientRaw(timelineSessions, displayBounds),
+    () => {
+      if (timelineRenderMode === 'crisp' && timelineWidthPx > 0) {
+        return buildTimelineGradientCrisp(timelineSessions, displayBounds, timelineWidthPx);
+      }
+      return buildTimelineGradientRaw(timelineSessions, displayBounds);
+    },
     [displayBounds, timelineRenderMode, timelineSessions, timelineWidthPx]
   );
 
