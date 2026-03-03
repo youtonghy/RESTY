@@ -352,7 +352,10 @@ const buildTimelineGradientCrisp = (
     return TIMELINE_BASE_COLOR;
   }
 
-  const rawSegments: TimelinePixelSegment[] = [];
+  const workColor = 'var(--color-primary)';
+  const breakColor = 'var(--color-success)';
+  const workCoverage = new Float64Array(timelineWidthPx);
+  const breakCoverage = new Float64Array(timelineWidthPx);
 
   for (const session of sessions) {
     const sessionStart = new Date(session.startTime).getTime();
@@ -362,57 +365,44 @@ const buildTimelineGradientCrisp = (
     const duration = Math.max(0, clampedEnd - clampedStart);
     if (duration <= 0) continue;
 
-    let startPx = Math.floor(((clampedStart - bounds.start) / total) * timelineWidthPx);
-    let endPx = Math.ceil(((clampedEnd - bounds.start) / total) * timelineWidthPx);
-    startPx = Math.max(0, Math.min(timelineWidthPx, startPx));
-    endPx = Math.max(0, Math.min(timelineWidthPx, endPx));
+    const rangeStartPx = ((clampedStart - bounds.start) / total) * timelineWidthPx;
+    const rangeEndPx = ((clampedEnd - bounds.start) / total) * timelineWidthPx;
+    const startPx = Math.max(0, Math.min(timelineWidthPx - 1, Math.floor(rangeStartPx)));
+    const endPxExclusive = Math.max(startPx + 1, Math.min(timelineWidthPx, Math.ceil(rangeEndPx)));
+    const targetCoverage = session.type === 'work' ? workCoverage : breakCoverage;
 
-    if (endPx <= startPx) {
-      endPx = Math.min(timelineWidthPx, startPx + 1);
+    for (let pixel = startPx; pixel < endPxExclusive; pixel += 1) {
+      const pixelStart = pixel;
+      const pixelEnd = pixel + 1;
+      const overlapStart = Math.max(pixelStart, rangeStartPx);
+      const overlapEnd = Math.min(pixelEnd, rangeEndPx);
+      const overlap = Math.max(0, overlapEnd - overlapStart);
+      if (overlap > 0) {
+        targetCoverage[pixel] += overlap;
+      }
     }
-    if (endPx <= startPx) continue;
-
-    rawSegments.push({
-      startPx,
-      endPx,
-      color: session.type === 'work' ? 'var(--color-primary)' : 'var(--color-success)',
-    });
-  }
-
-  if (rawSegments.length === 0) {
-    return TIMELINE_BASE_COLOR;
   }
 
   const mergedSegments: TimelinePixelSegment[] = [];
-  for (const source of rawSegments) {
-    const segment: TimelinePixelSegment = { ...source };
+  for (let pixel = 0; pixel < timelineWidthPx; pixel += 1) {
+    const workWeight = workCoverage[pixel];
+    const breakWeight = breakCoverage[pixel];
+    if (workWeight <= 0 && breakWeight <= 0) {
+      continue;
+    }
+
+    const color = workWeight >= breakWeight ? workColor : breakColor;
     const previous = mergedSegments[mergedSegments.length - 1];
-
-    if (!previous) {
-      mergedSegments.push(segment);
+    if (previous && previous.color === color && previous.endPx === pixel) {
+      previous.endPx = pixel + 1;
       continue;
     }
 
-    if (segment.startPx < previous.endPx) {
-      if (segment.color === previous.color) {
-        previous.endPx = Math.max(previous.endPx, segment.endPx);
-        continue;
-      }
-      segment.startPx = previous.endPx;
-      if (segment.endPx <= segment.startPx) {
-        segment.endPx = Math.min(timelineWidthPx, segment.startPx + 1);
-      }
-      if (segment.endPx <= segment.startPx) {
-        continue;
-      }
-    }
-
-    if (segment.color === previous.color && segment.startPx <= previous.endPx) {
-      previous.endPx = Math.max(previous.endPx, segment.endPx);
-      continue;
-    }
-
-    mergedSegments.push(segment);
+    mergedSegments.push({
+      startPx: pixel,
+      endPx: pixel + 1,
+      color,
+    });
   }
 
   if (mergedSegments.length === 0) {
