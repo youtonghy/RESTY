@@ -7,6 +7,7 @@ import {
   useState,
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { CSSProperties, SVGProps } from "react";
@@ -1143,6 +1144,23 @@ function NextSlotCard({
     [canUseTouchFallback],
   );
 
+  const handleSplitButtonClick = useCallback(
+    (
+      event: ReactMouseEvent<HTMLButtonElement>,
+      action: NonNullable<NextSlotCardProps["splitActions"]>["left"],
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
+      runSplitAction(action);
+      // Pointer clicks keep focus on the button and can pin :focus-within.
+      // Blur in this case so the overlay can close after hover ends.
+      if (event.detail > 0) {
+        event.currentTarget.blur();
+      }
+    },
+    [runSplitAction],
+  );
+
   const handleCardBlur = (event: ReactFocusEvent<HTMLElement>) => {
     if (!canUseTouchFallback || !isTouchActionsOpen) return;
     const nextTarget = event.relatedTarget as Node | null;
@@ -1219,11 +1237,7 @@ function NextSlotCard({
             ref={leftActionRef}
             type="button"
             className="next-split-action next-split-action-left"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              runSplitAction(splitActions.left);
-            }}
+            onClick={(event) => handleSplitButtonClick(event, splitActions.left)}
             disabled={splitActions.left.disabled}
             title={splitActions.left.title}
             aria-label={splitActions.left.ariaLabel ?? splitActions.left.label}
@@ -1233,11 +1247,9 @@ function NextSlotCard({
           <button
             type="button"
             className="next-split-action next-split-action-right"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              runSplitAction(splitActions.right);
-            }}
+            onClick={(event) =>
+              handleSplitButtonClick(event, splitActions.right)
+            }
             disabled={splitActions.right.disabled}
             title={splitActions.right.title}
             aria-label={
