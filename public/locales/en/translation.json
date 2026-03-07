@@ -146,7 +146,7 @@
         "fileType": "RESTY backup"
       },
       "autoSilentUpdate": "Automatic silent updates (Windows only)",
-      "autoSilentUpdateHint": "When a new version is found, RESTY downloads it in the background and installs it automatically when the app is idle and no window is fullscreen."
+      "autoSilentUpdateHint": "When a signed update is found, RESTY downloads it in the background and installs it automatically when the app is idle and no window is fullscreen."
     },
     "language": {
       "title": "Language",
@@ -341,7 +341,7 @@
   "updates": {
     "available": "New version {{version}} available",
     "current": "Current version: {{version}}",
-    "view": "Open website",
+    "view": "View release",
     "install": "Update now",
     "installing": "Updating…",
     "dismiss": "Dismiss",

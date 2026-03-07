@@ -4,7 +4,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { useAppStore } from '../../store';
 import { Navigation } from './Navigation';
 import { useTheme } from './ThemeProvider';
-import { downloadAndInstall } from '../../utils/api';
+import { installUpdate } from '../../utils/api';
 import iconLight from '../../../src-tauri/icons/128x128.png';
 import iconDark from '../../../src-tauri/icons/128x128Night.png';
 import { WindowControls } from './WindowControls';
@@ -32,8 +32,7 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
   const { effectiveTheme } = useTheme();
 
   const handleOpenWebsite = useCallback(async () => {
-    if (!updateManifest) return;
-    const target = updateManifest.downloadUrl || updateManifest.website;
+    const target = updateManifest?.website;
     if (!target) return;
     try {
       await openUrl(target);
@@ -43,7 +42,7 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
         window.open(target, '_blank', 'noopener,noreferrer');
       }
     }
-  }, [updateManifest]);
+  }, [updateManifest?.website]);
 
   const handleDismiss = useCallback(() => {
     setUpdateManifest(null);
@@ -52,15 +51,10 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
   const handleInstall = useCallback(async () => {
     if (!updateManifest) return;
 
-    if (!updateManifest.downloadUrl) {
-      await handleOpenWebsite();
-      return;
-    }
-
     setUpdateError(null);
     setUpdating(true);
     try {
-      await downloadAndInstall(updateManifest.downloadUrl);
+      await installUpdate();
     } catch (error) {
       console.error('Failed to install update:', error);
       const reason =
@@ -77,7 +71,7 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
     } finally {
       setUpdating(false);
     }
-  }, [handleOpenWebsite, setUpdateError, setUpdating, t, updateManifest]);
+  }, [setUpdateError, setUpdating, t, updateManifest]);
 
   return (
     <div className="layout">
@@ -118,9 +112,11 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
             >
               {isUpdating ? t('updates.installing') : t('updates.install')}
             </button>
-            <button type="button" className="update-banner__button" onClick={handleOpenWebsite}>
-              {t('updates.view')}
-            </button>
+            {updateManifest.website && (
+              <button type="button" className="update-banner__button" onClick={handleOpenWebsite}>
+                {t('updates.view')}
+              </button>
+            )}
             <button
               type="button"
               className="update-banner__button update-banner__button--ghost"

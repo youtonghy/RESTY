@@ -13,31 +13,26 @@ use std::sync::Arc;
 use std::time::Instant;
 use tauri::{AppHandle, Emitter, Manager, State};
 
-/// Command 层共享的应用状态，封装计时服务与数据库服务句柄。
+/// Shared application state for Tauri commands.
 pub struct AppState {
     pub timer_service: Arc<TimerService>,
     pub database_service: Arc<tokio::sync::Mutex<DatabaseService>>,
     pub last_auto_close: Arc<std::sync::Mutex<Option<Instant>>>,
 }
 
-/// Fetch latest release metadata from GitHub.
+/// Check for a signed update using the official Tauri updater.
 #[tauri::command]
-pub async fn check_for_updates() -> Result<Option<UpdateManifest>, String> {
-    crate::services::updater::fetch_latest_release()
+pub async fn check_for_updates(app: AppHandle) -> Result<Option<UpdateManifest>, String> {
+    crate::services::updater::check_for_updates(&app)
         .await
         .map_err(|e| e.to_string())
 }
 
-/// Download the installer and trigger a silent install when available.
+/// Download and install the latest signed update when one is available.
 #[tauri::command]
-pub async fn download_and_install_update(
-    app: AppHandle,
-    url: Option<String>,
-) -> Result<(), String> {
-    let download_url = url.ok_or_else(|| "Missing download URL".to_string())?;
-    crate::services::updater::download_and_install(&app, &download_url)
+pub async fn install_update(app: AppHandle) -> Result<(), String> {
+    crate::services::updater::install_update(&app)
         .await
-        .map(|_| ())
         .map_err(|e| e.to_string())
 }
 
@@ -448,7 +443,7 @@ pub async fn tray_menu_action(
     handle_tray_action(action.as_str(), app, cloned_state).await
 }
 
-/// 获取贴士引用文案（中文为一言，非中文为 Viewbits）。
+/// Fetch tip quote text.
 #[tauri::command]
 pub async fn fetch_tip_quote(language: String) -> Result<Option<String>, String> {
     crate::services::remote::fetch_tip_quote(&language)
@@ -456,7 +451,7 @@ pub async fn fetch_tip_quote(language: String) -> Result<Option<String>, String>
         .map_err(|e| e.to_string())
 }
 
-/// 从打包资源或本地文件读取翻译内容。
+/// Load translation content.
 #[tauri::command]
 pub async fn load_translation(app: AppHandle, language: String) -> Result<Value, String> {
     crate::services::remote::load_translation(&app, &language)
@@ -464,7 +459,7 @@ pub async fn load_translation(app: AppHandle, language: String) -> Result<Value,
         .map_err(|e| e.to_string())
 }
 
-/// 校验设置合法性，防止写入异常值。
+/// Validate settings before persistence.
 fn validate_settings(settings: &Settings) -> Result<(), String> {
     if settings.work_duration == 0 || settings.work_duration > 120 {
         return Err(AppError::InvalidDuration.to_string());

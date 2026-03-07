@@ -191,7 +191,7 @@ fn show_tray_menu_window(app: &tauri::AppHandle, x: f64, y: f64) {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-/// 构建并运行 Tauri 应用，初始化数据库、计时服务与事件监听。
+/// Build and run the Tauri application.
 pub fn run() {
     std::panic::set_hook(Box::new(|info| {
         let msg = match info.payload().downcast_ref::<&str>() {
@@ -211,6 +211,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--autostart".into()]),
@@ -297,7 +298,7 @@ pub fn run() {
                 last_auto_close,
             });
 
-            // 后台自动更新任务（仅 Windows 生效，其他平台为 no-op）。
+            // Start background updater task on Windows (no-op on other platforms).
             {
                 let state = app.state::<AppState>();
                 updater::start_windows_auto_updater(
@@ -366,27 +367,21 @@ pub fn run() {
                 use tauri::tray::TrayIconEvent;
 
                 let menu = MenuBuilder::new(app)
+                    .item(&MenuItemBuilder::with_id("skip", "Skip current break").build(app)?)
+                    .item(&MenuItemBuilder::with_id("no_break_1h", "No breaks for 1 hour").build(app)?)
+                    .item(&MenuItemBuilder::with_id("no_break_2h", "No breaks for 2 hours").build(app)?)
+                    .item(&MenuItemBuilder::with_id("no_break_5h", "No breaks for 5 hours").build(app)?)
                     .item(
-                        &MenuItemBuilder::with_id("skip", "跳到下一次休息/工作").build(app)?,
-                    )
-                    .item(
-                        &MenuItemBuilder::with_id("no_break_1h", "1 小时不休息").build(app)?,
-                    )
-                    .item(
-                        &MenuItemBuilder::with_id("no_break_2h", "2 小时不休息").build(app)?,
-                    )
-                    .item(
-                        &MenuItemBuilder::with_id("no_break_5h", "5 小时不休息").build(app)?,
-                    )
-                    .item(
-                        &MenuItemBuilder::with_id("no_break_tomorrow", "直到明天早晨")
-                            .build(app)?,
+                        &MenuItemBuilder::with_id(
+                            "no_break_tomorrow",
+                            "No breaks until tomorrow morning",
+                        )
+                        .build(app)?,
                     )
                     .separator()
-                    .item(&MenuItemBuilder::with_id("settings", "设置").build(app)?)
-                    .item(&MenuItemBuilder::with_id("quit", "关闭").build(app)?)
+                    .item(&MenuItemBuilder::with_id("settings", "Settings").build(app)?)
+                    .item(&MenuItemBuilder::with_id("quit", "Quit").build(app)?)
                     .build()?;
-
                 let mut tray_builder = TrayIconBuilder::with_id(MAIN_TRAY_ID)
                     .menu(&menu)
                     .on_menu_event(|app, event| {
@@ -526,7 +521,7 @@ pub fn run() {
             commands::tray_menu_action,
             commands::get_rest_music_files,
             commands::check_for_updates,
-            commands::download_and_install_update,
+            commands::install_update,
             commands::fetch_tip_quote,
             commands::load_translation,
             update_tray_icon_theme,
@@ -606,13 +601,12 @@ fn resolve_floating_position(
     }
 }
 
-/// 根据配置显示休息提醒窗口（全屏或浮窗）。
+/// Show the break reminder window.
 pub fn show_break_reminder_window(
     app: &tauri::AppHandle,
     is_fullscreen: bool,
     floating_position: FloatingPosition,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("show_break_reminder_window: called, fullscreen={}", is_fullscreen);
     // If any reminder windows already exist, bring them to front
     let existing: Vec<_> = app
         .webview_windows()

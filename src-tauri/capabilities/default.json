@@ -36,6 +36,7 @@
     "opener:default",
     "dialog:default",
     "autostart:default",
-    "notification:default"
+    "notification:default",
+    "updater:default"
   ]
 }

@@ -230,7 +230,7 @@
         "fileType": "RESTY 备份文件"
       },
       "autoSilentUpdate": "自动静默更新（仅 Windows）",
-      "autoSilentUpdateHint": "检测到新版本后会在后台下载，并在应用空闲且无全屏窗口时自动安装并重启。"
+      "autoSilentUpdateHint": "检测到带签名的新版本后，RESTY 会在后台下载，并在应用空闲且无全屏窗口时自动安装并重启。"
     },
     "language": {
       "title": "语言",
@@ -429,7 +429,7 @@
   "updates": {
     "available": "检测到新版本 {{version}}",
     "current": "当前版本: {{version}}",
-    "view": "前往官网",
+    "view": "查看发行页",
     "install": "一键更新",
     "installing": "正在更新…",
     "dismiss": "稍后提醒",

@@ -230,7 +230,7 @@
         "fileType": "RESTY 備份檔"
       },
       "autoSilentUpdate": "自動靜默更新（僅 Windows）",
-      "autoSilentUpdateHint": "偵測到新版本後會在背景下載，並在應用程式閒置且無全螢幕視窗時自動安裝並重啟。"
+      "autoSilentUpdateHint": "偵測到帶簽章的新版本後，RESTY 會在背景下載，並在應用程式閒置且無全螢幕視窗時自動安裝並重新啟動。"
     },
     "language": {
       "title": "語言",
@@ -429,7 +429,7 @@
   "updates": {
     "available": "偵測到新版本 {{version}}",
     "current": "目前版本：{{version}}",
-    "view": "前往官網",
+    "view": "查看發行頁",
     "install": "一鍵更新",
     "installing": "正在更新…",
     "dismiss": "稍後提醒",

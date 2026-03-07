@@ -15,127 +15,125 @@ import type {
 } from '../types';
 
 /**
- * 前端与 Tauri Rust 层通信的统一封装。
- * 所有 invoke 与事件监听在此集中管理，业务组件只需调用这些函数即可。
- */
+ * 鍓嶇涓?Tauri Rust 灞傞€氫俊鐨勭粺涓€灏佽銆? * 鎵€鏈?invoke 涓庝簨浠剁洃鍚湪姝ら泦涓鐞嗭紝涓氬姟缁勪欢鍙渶璋冪敤杩欎簺鍑芥暟鍗冲彲銆? */
 
 // Settings commands
-/** 从本地持久化加载设置。 */
+/** 浠庢湰鍦版寔涔呭寲鍔犺浇璁剧疆銆?*/
 export async function loadSettings(): Promise<Settings> {
   return await invoke('load_settings');
 }
 
-/** 保存设置到后端与磁盘。 */
+/** 淇濆瓨璁剧疆鍒板悗绔笌纾佺洏銆?*/
 export async function saveSettings(settings: Settings): Promise<void> {
   return await invoke('save_settings', { settings });
 }
 
 // Timer commands
-/** 开始一轮工作计时。 */
+/** 寮€濮嬩竴杞伐浣滆鏃躲€?*/
 export async function startWork(): Promise<void> {
   return await invoke('start_work');
 }
 
-/** 手动进入休息阶段。 */
+/** 鎵嬪姩杩涘叆浼戞伅闃舵銆?*/
 export async function startBreak(): Promise<void> {
   return await invoke('start_break');
 }
 
-/** 暂停当前倒计时。 */
+/** 鏆傚仠褰撳墠鍊掕鏃躲€?*/
 export async function pauseTimer(): Promise<void> {
   return await invoke('pause_timer');
 }
 
-/** 恢复被暂停的倒计时。 */
+/** 鎭㈠琚殏鍋滅殑鍊掕鏃躲€?*/
 export async function resumeTimer(): Promise<void> {
   return await invoke('resume_timer');
 }
 
-/** 跳过当前阶段并记录会话。 */
+/** 璺宠繃褰撳墠闃舵骞惰褰曚細璇濄€?*/
 export async function skipPhase(): Promise<void> {
   return await invoke('skip_phase');
 }
 
-/** 延长当前阶段 5 分钟（默认逻辑在后端完成）。 */
+/** 寤堕暱褰撳墠闃舵 5 鍒嗛挓锛堥粯璁ら€昏緫鍦ㄥ悗绔畬鎴愶級銆?*/
 export async function extendPhase(): Promise<void> {
   return await invoke('extend_phase');
 }
 
-/** 获取最新计时器状态，常用于应用初始化。 */
+/** 鑾峰彇鏈€鏂拌鏃跺櫒鐘舵€侊紝甯哥敤浜庡簲鐢ㄥ垵濮嬪寲銆?*/
 export async function getTimerInfo(): Promise<TimerInfo> {
   return await invoke('get_timer_info');
 }
 
 // Analytics commands
-/** 按时间区间获取统计数据。 */
+/** 鎸夋椂闂村尯闂磋幏鍙栫粺璁℃暟鎹€?*/
 export async function getAnalytics(query: AnalyticsQuery): Promise<AnalyticsData> {
   return await invoke('get_analytics', { query });
 }
 
-/** 获取会话数据的时间范围（用于分页等场景）。 */
+/** 鑾峰彇浼氳瘽鏁版嵁鐨勬椂闂磋寖鍥达紙鐢ㄤ簬鍒嗛〉绛夊満鏅級銆?*/
 export async function getSessionsBounds(): Promise<SessionsBounds> {
   return await invoke('get_sessions_bounds');
 }
 
-/** 清除统计数据（会话记录）。 */
+/** 娓呴櫎缁熻鏁版嵁锛堜細璇濊褰曪級銆?*/
 export async function clearAnalyticsData(): Promise<void> {
   return await invoke('clear_analytics_data');
 }
 
 // Achievements commands
-/** 获取已解锁成就列表。 */
+/** 鑾峰彇宸茶В閿佹垚灏卞垪琛ㄣ€?*/
 export async function getAchievements(): Promise<AchievementUnlock[]> {
   return await invoke('get_achievements');
 }
 
 // Config commands
-/** 导入 JSON 配置。 */
+/** 瀵煎叆 JSON 閰嶇疆銆?*/
 export async function importConfig(jsonStr: string): Promise<Settings> {
   return await invoke('import_config', { jsonStr });
 }
 
-/** 导出当前配置为 JSON 字符串。 */
+/** 瀵煎嚭褰撳墠閰嶇疆涓?JSON 瀛楃涓层€?*/
 export async function exportConfig(): Promise<string> {
   return await invoke('export_config');
 }
 
 // Data transfer commands
-/** 导出设置与统计数据到指定路径。 */
+/** 瀵煎嚭璁剧疆涓庣粺璁℃暟鎹埌鎸囧畾璺緞銆?*/
 export async function exportAppDataToFile(path: string): Promise<void> {
   return await invoke('export_app_data_to_file', { path });
 }
 
-/** 从指定路径导入设置与统计数据。 */
+/** 浠庢寚瀹氳矾寰勫鍏ヨ缃笌缁熻鏁版嵁銆?*/
 export async function importAppDataFromFile(path: string): Promise<Settings> {
   return await invoke('import_app_data_from_file', { path });
 }
 
 // Monitor commands
-/** 获取显示器信息（当前为占位实现）。 */
+/** 鑾峰彇鏄剧ず鍣ㄤ俊鎭紙褰撳墠涓哄崰浣嶅疄鐜帮級銆?*/
 export async function getMonitors(): Promise<MonitorInfo[]> {
   return await invoke('get_monitors');
 }
 
 // System commands
-/** 读取系统状态信息（勿扰模式、全屏等）。 */
+/** 璇诲彇绯荤粺鐘舵€佷俊鎭紙鍕挎壈妯″紡銆佸叏灞忕瓑锛夈€?*/
 export async function getSystemStatus(): Promise<SystemStatus> {
   return await invoke('get_system_status');
 }
 
 // Rest music commands
-/** 列出休息音乐目录中的音频文件路径。 */
+/** 鍒楀嚭浼戞伅闊充箰鐩綍涓殑闊抽鏂囦欢璺緞銆?*/
 export async function getRestMusicFiles(): Promise<string[]> {
   return await invoke('get_rest_music_files');
 }
 
 // Autostart plugin commands (via Tauri v2 plugin)
-/** 检查是否已启用开机自启（兼容不同命令命名）。 */
+/** 妫€鏌ユ槸鍚﹀凡鍚敤寮€鏈鸿嚜鍚紙鍏煎涓嶅悓鍛戒护鍛藉悕锛夈€?*/
 export async function isAutostartEnabled(): Promise<boolean> {
   try {
     return await invoke<boolean>('plugin:autostart|isEnabled');
   } catch (_) {
     try {
-      // v1 风格命名回退
+      // v1 椋庢牸鍛藉悕鍥為€€
       return await invoke<boolean>('plugin:autostart|is_enabled');
     } catch (err) {
       console.warn('isAutostartEnabled failed:', err);
@@ -144,17 +142,17 @@ export async function isAutostartEnabled(): Promise<boolean> {
   }
 }
 
-/** 启用开机自启。 */
+/** 鍚敤寮€鏈鸿嚜鍚€?*/
 export async function enableAutostart(): Promise<void> {
   await invoke('plugin:autostart|enable');
 }
 
-/** 禁用开机自启。 */
+/** 绂佺敤寮€鏈鸿嚜鍚€?*/
 export async function disableAutostart(): Promise<void> {
   await invoke('plugin:autostart|disable');
 }
 
-/** 根据布尔值同步开机自启状态。 */
+/** 鏍规嵁甯冨皵鍊煎悓姝ュ紑鏈鸿嚜鍚姸鎬併€?*/
 export async function setAutostart(enabled: boolean): Promise<void> {
   try {
     const current = await isAutostartEnabled();
@@ -169,7 +167,7 @@ export async function setAutostart(enabled: boolean): Promise<void> {
 }
 
 // Window commands
-/** 打开提醒窗口，支持全屏或浮窗模式。 */
+/** 鎵撳紑鎻愰啋绐楀彛锛屾敮鎸佸叏灞忔垨娴獥妯″紡銆?*/
 export async function openReminderWindow(
   fullscreen: boolean,
   floatingPosition?: FloatingPosition
@@ -177,75 +175,75 @@ export async function openReminderWindow(
   return await invoke('open_reminder_window', { fullscreen, floatingPosition });
 }
 
-/** 关闭提醒窗口。 */
+/** 鍏抽棴鎻愰啋绐楀彛銆?*/
 export async function closeReminderWindow(): Promise<void> {
   return await invoke('close_reminder_window');
 }
 
-/** 前端准备好后显示提醒窗口（避免白屏闪烁）。 */
+/** 鍓嶇鍑嗗濂藉悗鏄剧ず鎻愰啋绐楀彛锛堥伩鍏嶇櫧灞忛棯鐑侊級銆?*/
 export async function showReminderWindow(): Promise<void> {
   return await invoke('show_reminder_window');
 }
 
-/** 显示主窗口（用于前端初始化完成后调用）。 */
+/** 鏄剧ず涓荤獥鍙ｏ紙鐢ㄤ簬鍓嶇鍒濆鍖栧畬鎴愬悗璋冪敤锛夈€?*/
 export async function showMainWindow(): Promise<void> {
   return await invoke('show_main_window');
 }
 
 // Event listeners
-/** 订阅计时器状态更新事件。 */
+/** 璁㈤槄璁℃椂鍣ㄧ姸鎬佹洿鏂颁簨浠躲€?*/
 export async function onTimerUpdate(callback: (info: TimerInfo) => void) {
   return await listen<TimerInfo>('timer-update', (event) => callback(event.payload));
 }
 
-/** 订阅阶段切换事件（工作 <-> 休息）。 */
+/** 璁㈤槄闃舵鍒囨崲浜嬩欢锛堝伐浣?<-> 浼戞伅锛夈€?*/
 export async function onPhaseChange(callback: (phase: string) => void) {
   return await listen<string>('phase-change', (event) => callback(event.payload));
 }
 
-/** 订阅计时结束事件，可用于播放提示音等二次动作。 */
+/** 璁㈤槄璁℃椂缁撴潫浜嬩欢锛屽彲鐢ㄤ簬鎾斁鎻愮ず闊崇瓑浜屾鍔ㄤ綔銆?*/
 export async function onTimerFinished(callback: () => void) {
   return await listen('timer-finished', () => callback());
 }
 
-/** 订阅设置变更事件，确保多窗口间配置保持一致。 */
+/** 璁㈤槄璁剧疆鍙樻洿浜嬩欢锛岀‘淇濆绐楀彛闂撮厤缃繚鎸佷竴鑷淬€?*/
 export async function onSettingsChange(callback: (settings: Settings) => void) {
   return await listen<Settings>('settings-change', (event) => callback(event.payload));
 }
 
-/** 订阅从托盘触发的“打开设置”事件，用于路由跳转。 */
+/** 璁㈤槄浠庢墭鐩樿Е鍙戠殑鈥滄墦寮€璁剧疆鈥濅簨浠讹紝鐢ㄤ簬璺敱璺宠浆銆?*/
 export async function onOpenSettings(callback: () => void) {
   return await listen('open-settings', () => callback());
 }
 
-/** 订阅会话写入/更新事件（用于统计页面实时刷新）。 */
+/** 璁㈤槄浼氳瘽鍐欏叆/鏇存柊浜嬩欢锛堢敤浜庣粺璁￠〉闈㈠疄鏃跺埛鏂帮級銆?*/
 export async function onSessionUpserted(callback: (session: Session) => void) {
   return await listen<Session>('session-upserted', (event) => callback(event.payload));
 }
 
-/** 订阅成就解锁事件。 */
+/** 璁㈤槄鎴愬氨瑙ｉ攣浜嬩欢銆?*/
 export async function onAchievementUnlocked(callback: (achievement: AchievementUnlock) => void) {
   return await listen<AchievementUnlock>('achievement-unlocked', (event) => callback(event.payload));
 }
 
 // Update commands
-/** 获取最新发布的元数据。 */
+/** 鑾峰彇鏈€鏂板彂甯冪殑鍏冩暟鎹€?*/
 export async function checkForUpdates(): Promise<UpdateManifest | null> {
   return await invoke<UpdateManifest | null>('check_for_updates');
 }
 
-/** 下载并触发静默安装更新。 */
-export async function downloadAndInstall(url: string): Promise<void> {
-  return await invoke('download_and_install_update', { url });
+/** 涓嬭浇骞惰Е鍙戦潤榛樺畨瑁呮洿鏂般€?*/
+export async function installUpdate(): Promise<void> {
+  return await invoke('install_update');
 }
 
 // Network proxy commands
-/** 获取贴士引用文案（后端代理）。 */
+/** 鑾峰彇璐村＋寮曠敤鏂囨锛堝悗绔唬鐞嗭級銆?*/
 export async function fetchTipQuote(language: string): Promise<string | null> {
   return await invoke('fetch_tip_quote', { language });
 }
 
-/** 加载翻译资源（后端代理）。 */
+/** 鍔犺浇缈昏瘧璧勬簮锛堝悗绔唬鐞嗭級銆?*/
 export async function loadTranslation(language: string): Promise<Record<string, unknown>> {
   return await invoke('load_translation', { language });
 }

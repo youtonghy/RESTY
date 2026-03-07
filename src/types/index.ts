@@ -62,13 +62,10 @@ export interface Settings {
  * Remote manifest metadata used for update checks.
  */
 export interface UpdateManifest {
-  name?: string;
   version: string;
-  author?: string;
   website?: string;
-  downloadUrl?: string;
   notes?: string;
-  assetName?: string;
+  pubDate?: string;
 }
 
 /**
@@ -100,7 +97,7 @@ export interface TimerInfo {
   remainingSeconds: number;
   totalSeconds: number;
   nextTransitionTime: string | null;
-  // 下一次真正"开始休息"的时间（UTC ISO 字符串），若不可预测则为 null
+  // 涓嬩竴娆＄湡姝?寮€濮嬩紤鎭?鐨勬椂闂达紙UTC ISO 瀛楃涓诧級锛岃嫢涓嶅彲棰勬祴鍒欎负 null
   nextBreakTime?: string | null;
 }
 

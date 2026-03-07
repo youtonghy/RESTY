@@ -78,15 +78,18 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Build the app
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          # When running on a tag push, use that tag; when manually dispatched, create a version tag.
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
           releaseName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
           releaseBody: ${{ steps.release-notes.outputs.notes }}
           releaseDraft: true
           prerelease: false
           releaseCommitish: ${{ github.sha }}
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true
           args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin' || '' }}
