@@ -30,3 +30,6 @@ dist-ssr
 # images
 
 AGENTS.md
+
+# Tauri updater signing keys
+.tauri/keys/

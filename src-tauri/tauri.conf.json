@@ -49,7 +49,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZEQkRBOUNCM0Y4NTY3NzgKUldSNFo0VS95Nm05YlRYaHkybnZQUW1wUWEwYnVWTnlSRnFXMW91Z0dQMEhIeXZyQjFHdHRrTWwK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFDQjc2RDdDNUQ1MkVFOEEKUldTSzdsSmRmRzIzckZiMzk5UVRJK0JzVFA1R29mbElsK3lFU1kvV3Jhc1hUNUYwREhhZ3hyTE0K",
       "endpoints": [
         "https://github.com/youtonghy/RESTY/releases/latest/download/latest.json"
       ],
