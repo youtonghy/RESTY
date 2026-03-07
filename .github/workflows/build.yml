@@ -90,6 +90,6 @@ jobs:
           releaseDraft: true
           prerelease: false
           releaseCommitish: ${{ github.sha }}
-          uploadUpdaterJson: true
+          includeUpdaterJson: true
           updaterJsonPreferNsis: true
           args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin' || '' }}
