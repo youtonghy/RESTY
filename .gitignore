@@ -32,4 +32,4 @@ dist-ssr
 AGENTS.md
 
 # Tauri updater signing keys
-.tauri/keys/
+.tauri/
