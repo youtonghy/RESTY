@@ -1,10 +1,12 @@
 name: 'publish'
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Release version tag, supports v1.2.3 or 1.2.3'
+        required: true
+        type: string
 
 jobs:
   publish-tauri:
@@ -50,16 +52,19 @@ jobs:
       - name: install frontend dependencies
         run: pnpm install
 
+      - name: Prepare release version
+        id: prepare-version
+        shell: bash
+        env:
+          VERSION_TAG: ${{ inputs.version_tag }}
+        run: node scripts/ci/prepare-release-version.mjs
+
       - name: Generate release notes
         id: release-notes
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
-            prev_tag="$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)"
-          else
-            prev_tag="$(git describe --tags --abbrev=0 2>/dev/null || true)"
-          fi
+          prev_tag="$(git describe --tags --abbrev=0 2>/dev/null || true)"
 
           if [[ -n "$prev_tag" ]]; then
             notes="$(git log --pretty=format:'- %s' "${prev_tag}..HEAD")"
@@ -84,12 +89,12 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
-          releaseName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
+          tagName: ${{ steps.prepare-version.outputs.release_tag }}
+          releaseName: ${{ steps.prepare-version.outputs.release_tag }}
           releaseBody: ${{ steps.release-notes.outputs.notes }}
           releaseDraft: false
           prerelease: false
           releaseCommitish: ${{ github.sha }}
           includeUpdaterJson: true
           updaterJsonPreferNsis: true
-          args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin' || '' }}
+          args: ${{ matrix.platform == 'macos-latest' && format('--config "{0}" --target universal-apple-darwin', steps.prepare-version.outputs.config_path) || format('--config "{0}"', steps.prepare-version.outputs.config_path) }}

@@ -1,6 +1,6 @@
 [package]
 name = "resty"
-version = "0.1.17"
+version = "0.0.0-dev"
 description = "Forget your work, resty!"
 authors = ["youtonghy"]
 edition = "2021"
