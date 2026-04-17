@@ -524,6 +524,7 @@ pub fn run() {
             commands::install_update,
             commands::fetch_tip_quote,
             commands::load_translation,
+            commands::send_pre_break_toast,
             update_tray_icon_theme,
         ])
         .run(tauri::generate_context!())

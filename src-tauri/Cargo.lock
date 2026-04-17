@@ -3486,6 +3486,7 @@ dependencies = [
  "tauri-plugin-notification",
  "tauri-plugin-opener",
  "tauri-plugin-updater",
+ "tauri-winrt-notification",
  "thiserror 2.0.17",
  "tokio",
  "uuid",

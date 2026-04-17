@@ -295,8 +295,10 @@ function App() {
     }
 
     let preBreakActionListener: { unregister: () => void } | null = null;
+    let preBreakNativeListenerDispose: (() => void) | null = null;
     if (!isSpecialWindow) {
-      void listenPreBreakNotificationAction((actionId) => {
+      const handlePreBreakAction = (actionId: string) => {
+        if (actionId !== 'dismiss' && actionId !== 'break-now') return;
         preBreakNotifiedTargetRef.current = null;
         void clearRestStartsSoonNotification();
         if (actionId === 'break-now') {
@@ -307,7 +309,9 @@ function App() {
             console.error('Failed to start break immediately:', error);
           });
         }
-      }).then((listener) => {
+      };
+
+      void listenPreBreakNotificationAction(handlePreBreakAction).then((listener) => {
         if (!listener) return;
         if (!isMountedRef.current) {
           listener.unregister();
@@ -315,6 +319,19 @@ function App() {
         }
         preBreakActionListener = listener;
       });
+
+      api
+        .onPreBreakAction(handlePreBreakAction)
+        .then((unsub) => {
+          if (!isMountedRef.current) {
+            unsub();
+            return;
+          }
+          preBreakNativeListenerDispose = unsub;
+        })
+        .catch((error) => {
+          console.warn('Failed to register native pre-break action listener:', error);
+        });
     }
 
     // 清理事件监听，避免内存泄漏
@@ -324,6 +341,10 @@ function App() {
       if (preBreakActionListener) {
         preBreakActionListener.unregister();
         preBreakActionListener = null;
+      }
+      if (preBreakNativeListenerDispose) {
+        preBreakNativeListenerDispose();
+        preBreakNativeListenerDispose = null;
       }
       if (!isSpecialWindow) {
         stopRestMusic();

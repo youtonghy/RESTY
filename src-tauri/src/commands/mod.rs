@@ -459,6 +459,76 @@ pub async fn load_translation(app: AppHandle, language: String) -> Result<Value,
         .map_err(|e| e.to_string())
 }
 
+/// Send a Windows native toast with action buttons for the pre-break reminder.
+///
+/// The buttons' activation is emitted back to the frontend as `pre-break-action`
+/// with payload `"dismiss"` or `"break-now"`. On non-Windows platforms this
+/// command is unavailable; the frontend should fall back to the default
+/// notification plugin there.
+#[cfg(windows)]
+#[tauri::command]
+pub async fn send_pre_break_toast(
+    app: AppHandle,
+    title: String,
+    body: String,
+    dismiss_label: String,
+    break_now_label: String,
+) -> Result<(), String> {
+    use tauri_winrt_notification::{Duration, Toast};
+
+    let app_id = app.config().identifier.clone();
+    let emit_app = app.clone();
+
+    let result = Toast::new(&app_id)
+        .title(&title)
+        .text1(&body)
+        .duration(Duration::Short)
+        .add_button(&dismiss_label, "dismiss")
+        .add_button(&break_now_label, "break-now")
+        .on_activated(move |action| {
+            if let Some(action_id) = action {
+                let _ = emit_app.emit("pre-break-action", action_id);
+            }
+            Ok(())
+        })
+        .show();
+
+    match result {
+        Ok(_) => Ok(()),
+        Err(err) => {
+            // Fallback to the powershell workaround app id (useful in dev where
+            // the AppUserModelID may not be registered yet).
+            Toast::new(Toast::POWERSHELL_APP_ID)
+                .title(&title)
+                .text1(&body)
+                .duration(Duration::Short)
+                .add_button(&dismiss_label, "dismiss")
+                .add_button(&break_now_label, "break-now")
+                .on_activated(move |action| {
+                    if let Some(action_id) = action {
+                        let _ = app.emit("pre-break-action", action_id);
+                    }
+                    Ok(())
+                })
+                .show()
+                .map_err(|e| format!("{err}; fallback: {e}"))
+        }
+    }
+}
+
+/// Non-Windows stub so the JS side can uniformly invoke the command.
+#[cfg(not(windows))]
+#[tauri::command]
+pub async fn send_pre_break_toast(
+    _app: AppHandle,
+    _title: String,
+    _body: String,
+    _dismiss_label: String,
+    _break_now_label: String,
+) -> Result<(), String> {
+    Err("send_pre_break_toast is only supported on Windows".to_string())
+}
+
 /// Validate settings before persistence.
 fn validate_settings(settings: &Settings) -> Result<(), String> {
     if settings.work_duration == 0 || settings.work_duration > 120 {

@@ -247,3 +247,21 @@ export async function fetchTipQuote(language: string): Promise<string | null> {
 export async function loadTranslation(language: string): Promise<Record<string, unknown>> {
   return await invoke('load_translation', { language });
 }
+
+export async function sendPreBreakToast(
+  title: string,
+  body: string,
+  dismissLabel: string,
+  breakNowLabel: string
+): Promise<void> {
+  return await invoke('send_pre_break_toast', {
+    title,
+    body,
+    dismissLabel,
+    breakNowLabel,
+  });
+}
+
+export async function onPreBreakAction(callback: (actionId: string) => void) {
+  return await listen<string>('pre-break-action', (event) => callback(event.payload));
+}

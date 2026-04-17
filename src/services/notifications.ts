@@ -7,6 +7,7 @@ import {
   sendNotification,
 } from '@tauri-apps/plugin-notification';
 import type { PluginListener } from '@tauri-apps/api/core';
+import * as api from '../utils/api';
 
 const isTauri = typeof window !== 'undefined' && Boolean((window as { __TAURI__?: unknown }).__TAURI__);
 const PRE_BREAK_NOTIFICATION_ID = 10001;
@@ -15,8 +16,15 @@ const PRE_BREAK_DISMISS_ACTION_ID = 'dismiss';
 const PRE_BREAK_BREAK_NOW_ACTION_ID = 'break-now';
 const PRE_BREAK_AUTO_DISMISS_MS = 10_000;
 
+const isWindowsPlatform = (() => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = `${navigator.userAgent} ${navigator.platform ?? ''}`.toLowerCase();
+  return ua.includes('win');
+})();
+
 let preBreakDismissTimer: ReturnType<typeof setTimeout> | null = null;
 let preBreakActionTypeRegistered = false;
+let nativeToastAvailable = isWindowsPlatform && isTauri;
 
 export type PreBreakActionId = 'dismiss' | 'break-now';
 
@@ -64,6 +72,21 @@ export async function notifyRestStartsSoon(
 ): Promise<void> {
   if (!(await ensureNotificationPermission())) {
     return;
+  }
+
+  // Prefer Windows native Toast (with real action buttons) when available.
+  if (nativeToastAvailable && actionLabels) {
+    try {
+      await api.sendPreBreakToast(title, body, actionLabels.dismiss, actionLabels.breakNow);
+      clearPreBreakAutoDismissTimer();
+      preBreakDismissTimer = setTimeout(() => {
+        preBreakDismissTimer = null;
+      }, PRE_BREAK_AUTO_DISMISS_MS);
+      return;
+    } catch (error) {
+      console.warn('Windows native toast failed, falling back to plugin notification:', error);
+      nativeToastAvailable = false;
+    }
   }
 
   try {
