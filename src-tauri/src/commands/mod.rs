@@ -123,9 +123,18 @@ pub fn start_work(state: State<'_, AppState>) -> Result<(), String> {
 }
 
 /// Start break session
+///
+/// 除了切换到休息阶段，还会主动触发 `show-break-reminder` 事件，确保
+/// 用户通过“立刻休息”等操作手动进入休息时，全屏/浮窗提醒与自动循环
+/// 行为保持一致。
 #[tauri::command]
-pub fn start_break(state: State<'_, AppState>) -> Result<(), String> {
-    state.timer_service.start_break().map_err(|e| e.to_string())
+pub fn start_break(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    state
+        .timer_service
+        .start_break()
+        .map_err(|e| e.to_string())?;
+    let _ = app.emit("show-break-reminder", ());
+    Ok(())
 }
 
 /// Pause timer
