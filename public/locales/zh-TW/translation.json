@@ -346,7 +346,9 @@
     "breakEnded": "休息結束，準備開工！",
     "restStartSoon": {
       "title": "即將開始休息",
-      "body": "還有 1 分鐘進入休息時間。"
+      "body": "還有 1 分鐘進入休息時間。",
+      "dismissAction": "知道了",
+      "breakNowAction": "立刻休息"
     },
     "timerPaused": "計時器已暫停",
     "timerResumed": "計時器已恢復",

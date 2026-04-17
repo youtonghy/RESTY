@@ -15,6 +15,7 @@ import { Achievements } from './pages/Achievements';
 import { getAchievementDefinitionById } from './features/achievements/definitions';
 import {
   clearRestStartsSoonNotification,
+  listenPreBreakNotificationAction,
   notifyAchievementUnlocked,
   notifyRestStartsSoon,
 } from './services/notifications';
@@ -244,7 +245,15 @@ function App() {
                     }),
                     i18n.t('notifications.restStartSoon.body', {
                       defaultValue: 'Break starts in 1 minute.',
-                    })
+                    }),
+                    {
+                      dismiss: i18n.t('notifications.restStartSoon.dismissAction', {
+                        defaultValue: 'Got it',
+                      }),
+                      breakNow: i18n.t('notifications.restStartSoon.breakNowAction', {
+                        defaultValue: 'Break now',
+                      }),
+                    }
                   );
                 }
               }
@@ -285,10 +294,34 @@ function App() {
       });
     }
 
+    let preBreakActionListener: { unregister: () => void } | null = null;
+    if (!isSpecialWindow) {
+      void listenPreBreakNotificationAction((actionId) => {
+        preBreakNotifiedTargetRef.current = null;
+        void clearRestStartsSoonNotification();
+        if (actionId === 'break-now') {
+          api.skipPhase().catch((error) => {
+            console.error('Failed to start break immediately:', error);
+          });
+        }
+      }).then((listener) => {
+        if (!listener) return;
+        if (!isMountedRef.current) {
+          listener.unregister();
+          return;
+        }
+        preBreakActionListener = listener;
+      });
+    }
+
     // 清理事件监听，避免内存泄漏
     return () => {
       isMountedRef.current = false;
       cleanupUnsubscribers(unsubscribers, isMountedRef);
+      if (preBreakActionListener) {
+        preBreakActionListener.unregister();
+        preBreakActionListener = null;
+      }
       if (!isSpecialWindow) {
         stopRestMusic();
         void clearRestStartsSoonNotification();

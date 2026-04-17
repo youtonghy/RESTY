@@ -260,6 +260,12 @@
     "workStarted": "Work session started",
     "breakStarted": "Break time! Rest your eyes.",
     "breakEnded": "Break completed. Ready to work!",
+    "restStartSoon": {
+      "title": "Break starting soon",
+      "body": "Your break will start in 1 minute.",
+      "dismissAction": "Got it",
+      "breakNowAction": "Break now"
+    },
     "timerPaused": "Timer paused",
     "timerResumed": "Timer resumed",
     "settingsSaved": "Settings saved successfully",

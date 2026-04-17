@@ -346,7 +346,9 @@
     "breakEnded": "Break completed. Ready to work!",
     "restStartSoon": {
       "title": "Break starting soon",
-      "body": "Your break will start in 1 minute."
+      "body": "Your break will start in 1 minute.",
+      "dismissAction": "Got it",
+      "breakNowAction": "Break now"
     },
     "timerPaused": "Timer paused",
     "timerResumed": "Timer resumed",
