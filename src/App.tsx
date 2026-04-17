@@ -300,7 +300,10 @@ function App() {
         preBreakNotifiedTargetRef.current = null;
         void clearRestStartsSoonNotification();
         if (actionId === 'break-now') {
-          api.skipPhase().catch((error) => {
+          const currentPhase = useAppStore.getState().timerInfo.phase;
+          const enterBreak =
+            currentPhase === 'break' ? Promise.resolve() : api.startBreak();
+          enterBreak.catch((error) => {
             console.error('Failed to start break immediately:', error);
           });
         }
