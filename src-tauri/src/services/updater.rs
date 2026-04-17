@@ -25,6 +25,13 @@ pub struct UpdateManifest {
     pub notes: Option<String>,
 }
 
+/// Returns true if the running build is a development build (e.g. version "0.0.0-dev").
+/// Development builds only check for updates but never auto-download or install them.
+pub fn is_dev_build(app: &AppHandle) -> bool {
+    let version = app.package_info().version.to_string();
+    version.starts_with("0.0.0") || version.contains("-dev")
+}
+
 pub async fn check_for_updates(app: &AppHandle) -> Result<Option<UpdateManifest>> {
     let Some(update) = app.updater().context("Failed to create updater")?.check().await? else {
         return Ok(None);
@@ -38,6 +45,12 @@ pub async fn check_for_updates(app: &AppHandle) -> Result<Option<UpdateManifest>
 }
 
 pub async fn install_update(app: &AppHandle) -> Result<()> {
+    if is_dev_build(app) {
+        return Err(anyhow!(
+            "Development builds do not install updates; please use an official release."
+        ));
+    }
+
     let Some(update) = app.updater().context("Failed to create updater")?.check().await? else {
         return Err(anyhow!("No update available"));
     };
@@ -108,6 +121,18 @@ async fn try_auto_update_once(
     };
 
     if !is_auto_update_enabled(database_service).await? {
+        return Ok(());
+    }
+
+    if is_dev_build(app) {
+        // Dev builds only check availability; they never download or install.
+        if let Some(update) = app.updater().context("Failed to create updater")?.check().await? {
+            eprintln!(
+                "[AutoUpdate] Dev build {} detected update {}, skipping download.",
+                app.package_info().version,
+                update.version
+            );
+        }
         return Ok(());
     }
 
