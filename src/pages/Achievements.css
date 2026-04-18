@@ -188,23 +188,15 @@
   color: var(--color-text-secondary);
 }
 
-.achievement-card--first_break .achievement-icon,
-.achievement-card--break_10_hours .achievement-icon,
-.achievement-card--break_100_hours .achievement-icon,
-.achievement-card--break_200_hours .achievement-icon,
-.achievement-card--break_300_hours .achievement-icon,
-.achievement-card--break_400_hours .achievement-icon,
-.achievement-card--break_500_hours .achievement-icon,
-.achievement-card--break_750_hours .achievement-icon,
-.achievement-card--break_1000_hours .achievement-icon {
+.achievement-card--group-rest .achievement-icon {
   color: var(--color-success);
 }
 
-.achievement-card--first_work .achievement-icon {
+.achievement-card--group-work .achievement-icon {
   color: var(--color-primary);
 }
 
-.achievement-card--enable_autostart .achievement-icon {
+.achievement-card--group-system .achievement-icon {
   color: var(--color-warning);
 }
 

@@ -11,35 +11,72 @@ use tokio::sync::Mutex;
 const ACHIEVEMENT_FIRST_BREAK: &str = "first_break";
 const ACHIEVEMENT_FIRST_WORK: &str = "first_work";
 const ACHIEVEMENT_ENABLE_AUTOSTART: &str = "enable_autostart";
-const ACHIEVEMENT_WORK_10_HOURS: &str = "work_10_hours";
-const ACHIEVEMENT_WORK_100_HOURS: &str = "work_100_hours";
-const ACHIEVEMENT_WORK_500_HOURS: &str = "work_500_hours";
-const ACHIEVEMENT_WORK_1000_HOURS: &str = "work_1000_hours";
-const ACHIEVEMENT_BREAK_10_HOURS: &str = "break_10_hours";
-const ACHIEVEMENT_BREAK_100_HOURS: &str = "break_100_hours";
-const ACHIEVEMENT_BREAK_200_HOURS: &str = "break_200_hours";
-const ACHIEVEMENT_BREAK_300_HOURS: &str = "break_300_hours";
-const ACHIEVEMENT_BREAK_400_HOURS: &str = "break_400_hours";
-const ACHIEVEMENT_BREAK_500_HOURS: &str = "break_500_hours";
-const ACHIEVEMENT_BREAK_750_HOURS: &str = "break_750_hours";
-const ACHIEVEMENT_BREAK_1000_HOURS: &str = "break_1000_hours";
 
 const POWER_INTERRUPT_BREAK_NOTE: &str = "power-interrupt-break";
 const POWER_INTERRUPT_WORK_NOTE: &str = "power-interrupt-work";
 
 const SECONDS_PER_HOUR: i64 = 3600;
-const WORK_10_HOURS_SECONDS: i64 = 10 * SECONDS_PER_HOUR;
-const WORK_100_HOURS_SECONDS: i64 = 100 * SECONDS_PER_HOUR;
-const WORK_500_HOURS_SECONDS: i64 = 500 * SECONDS_PER_HOUR;
-const WORK_1000_HOURS_SECONDS: i64 = 1000 * SECONDS_PER_HOUR;
-const BREAK_10_HOURS_SECONDS: i64 = 10 * SECONDS_PER_HOUR;
-const BREAK_100_HOURS_SECONDS: i64 = 100 * SECONDS_PER_HOUR;
-const BREAK_200_HOURS_SECONDS: i64 = 200 * SECONDS_PER_HOUR;
-const BREAK_300_HOURS_SECONDS: i64 = 300 * SECONDS_PER_HOUR;
-const BREAK_400_HOURS_SECONDS: i64 = 400 * SECONDS_PER_HOUR;
-const BREAK_500_HOURS_SECONDS: i64 = 500 * SECONDS_PER_HOUR;
-const BREAK_750_HOURS_SECONDS: i64 = 750 * SECONDS_PER_HOUR;
-const BREAK_1000_HOURS_SECONDS: i64 = 1000 * SECONDS_PER_HOUR;
+
+/// Work milestones: 10, 100, 500, 1000, then +500 infinitely.
+fn work_hour_thresholds(total_seconds: i64) -> Vec<i64> {
+    let total_hours = total_seconds / SECONDS_PER_HOUR;
+    let fixed: Vec<i64> = vec![10, 100, 500, 1000];
+    let mut thresholds: Vec<i64> = Vec::new();
+
+    for &h in &fixed {
+        thresholds.push(h);
+        if h > total_hours {
+            return thresholds;
+        }
+    }
+
+    // After 1000, step by 500
+    let mut h: i64 = 1500;
+    loop {
+        thresholds.push(h);
+        if h > total_hours {
+            break;
+        }
+        h += 500;
+    }
+    thresholds
+}
+
+/// Break milestones: 10, 100, then +100 up to 1000, then +500 infinitely.
+fn break_hour_thresholds(total_seconds: i64) -> Vec<i64> {
+    let total_hours = total_seconds / SECONDS_PER_HOUR;
+    let mut thresholds: Vec<i64> = vec![10];
+
+    if 10 > total_hours {
+        return thresholds;
+    }
+
+    thresholds.push(100);
+    if 100 > total_hours {
+        return thresholds;
+    }
+
+    // 200, 300, ..., 1000
+    let mut h: i64 = 200;
+    while h <= 1000 {
+        thresholds.push(h);
+        if h > total_hours {
+            return thresholds;
+        }
+        h += 100;
+    }
+
+    // After 1000, step by 500
+    let mut h: i64 = 1500;
+    loop {
+        thresholds.push(h);
+        if h > total_hours {
+            break;
+        }
+        h += 500;
+    }
+    thresholds
+}
 
 /// Database service for managing persistent data.
 /// 使用本地 JSON 文件持久化设置与会话历史。
@@ -287,29 +324,19 @@ impl DatabaseService {
         let total_work_seconds = Self::total_work_seconds(sessions);
         let total_break_seconds = Self::total_break_seconds(sessions, more_rest_enabled);
 
-        for (threshold, achievement_id) in [
-            (WORK_10_HOURS_SECONDS, ACHIEVEMENT_WORK_10_HOURS),
-            (WORK_100_HOURS_SECONDS, ACHIEVEMENT_WORK_100_HOURS),
-            (WORK_500_HOURS_SECONDS, ACHIEVEMENT_WORK_500_HOURS),
-            (WORK_1000_HOURS_SECONDS, ACHIEVEMENT_WORK_1000_HOURS),
-        ] {
-            if total_work_seconds >= threshold {
-                let _ = self.unlock_achievement(achievement_id).await?;
+        for hours in work_hour_thresholds(total_work_seconds) {
+            let threshold_seconds = hours * SECONDS_PER_HOUR;
+            if total_work_seconds >= threshold_seconds {
+                let id = format!("work_{}_hours", hours);
+                let _ = self.unlock_achievement(&id).await?;
             }
         }
 
-        for (threshold, achievement_id) in [
-            (BREAK_10_HOURS_SECONDS, ACHIEVEMENT_BREAK_10_HOURS),
-            (BREAK_100_HOURS_SECONDS, ACHIEVEMENT_BREAK_100_HOURS),
-            (BREAK_200_HOURS_SECONDS, ACHIEVEMENT_BREAK_200_HOURS),
-            (BREAK_300_HOURS_SECONDS, ACHIEVEMENT_BREAK_300_HOURS),
-            (BREAK_400_HOURS_SECONDS, ACHIEVEMENT_BREAK_400_HOURS),
-            (BREAK_500_HOURS_SECONDS, ACHIEVEMENT_BREAK_500_HOURS),
-            (BREAK_750_HOURS_SECONDS, ACHIEVEMENT_BREAK_750_HOURS),
-            (BREAK_1000_HOURS_SECONDS, ACHIEVEMENT_BREAK_1000_HOURS),
-        ] {
-            if total_break_seconds >= threshold {
-                let _ = self.unlock_achievement(achievement_id).await?;
+        for hours in break_hour_thresholds(total_break_seconds) {
+            let threshold_seconds = hours * SECONDS_PER_HOUR;
+            if total_break_seconds >= threshold_seconds {
+                let id = format!("break_{}_hours", hours);
+                let _ = self.unlock_achievement(&id).await?;
             }
         }
 

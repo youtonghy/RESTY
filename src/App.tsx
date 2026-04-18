@@ -454,7 +454,9 @@ function App() {
         notifiedAchievementKeysRef.current.add(dedupeKey);
 
         const definition = getAchievementDefinitionById(achievement.id);
-        const achievementName = definition ? i18n.t(definition.titleKey) : achievement.id;
+        const achievementName = definition
+          ? i18n.t(definition.titleKey, definition.titleParams ?? {})
+          : achievement.id;
 
         void notifyAchievementUnlocked(
           i18n.t('achievements.unlockModal.title', { defaultValue: 'Achievement Unlocked' }),

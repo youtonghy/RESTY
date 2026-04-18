@@ -1,19 +1,14 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode, type SVGProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  ACHIEVEMENT_DEFINITIONS,
+  generateVisibleAchievements,
   getAchievementDefinitionById,
   type AchievementDefinition,
   type AchievementGroup,
-  type AchievementId,
 } from '../features/achievements/definitions';
 import type { AchievementUnlock } from '../types';
 import * as api from '../utils/api';
 import './Achievements.css';
-
-interface AchievementCardDefinition extends AchievementDefinition {
-  icon: ReactNode;
-}
 
 interface AchievementGroupDefinition {
   id: AchievementGroup;
@@ -94,53 +89,48 @@ const AutostartAchievementIcon = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-const ACHIEVEMENT_ICONS: Record<AchievementId, ReactNode> = {
-  first_break: <BreakAchievementIcon />,
-  first_work: <WorkAchievementIcon />,
-  enable_autostart: <AutostartAchievementIcon />,
-  work_10_hours: <WorkAchievementIcon />,
-  work_100_hours: <WorkAchievementIcon />,
-  work_500_hours: <WorkAchievementIcon />,
-  work_1000_hours: <WorkAchievementIcon />,
-  break_10_hours: <BreakAchievementIcon />,
-  break_100_hours: <BreakAchievementIcon />,
-  break_200_hours: <BreakAchievementIcon />,
-  break_300_hours: <BreakAchievementIcon />,
-  break_400_hours: <BreakAchievementIcon />,
-  break_500_hours: <BreakAchievementIcon />,
-  break_750_hours: <BreakAchievementIcon />,
-  break_1000_hours: <BreakAchievementIcon />,
-};
+function getAchievementIcon(def: AchievementDefinition): ReactNode {
+  if (def.id === 'enable_autostart') return <AutostartAchievementIcon />;
+  if (def.group === 'rest') return <BreakAchievementIcon />;
+  return <WorkAchievementIcon />;
+}
 
-const ACHIEVEMENTS: AchievementCardDefinition[] = ACHIEVEMENT_DEFINITIONS.map((item) => ({
-  ...item,
-  icon: ACHIEVEMENT_ICONS[item.id],
-}));
+function getAchievementGroupClass(def: AchievementDefinition): string {
+  if (def.id === 'enable_autostart') return 'achievement-card--group-system';
+  if (def.group === 'rest') return 'achievement-card--group-rest';
+  return 'achievement-card--group-work';
+}
 
 const POPUP_AUTO_CLOSE_MS = 4000;
 
 export function Achievements() {
   const { t } = useTranslation();
   const [unlocks, setUnlocks] = useState<AchievementUnlock[]>([]);
-  const [flipped, setFlipped] = useState<Partial<Record<AchievementId, boolean>>>({});
+  const [flipped, setFlipped] = useState<Record<string, boolean>>({});
   const [unlockPopupQueue, setUnlockPopupQueue] = useState<AchievementUnlock[]>([]);
   const [activePopup, setActivePopup] = useState<AchievementUnlock | null>(null);
   const [expandedGroups, setExpandedGroups] =
     useState<Record<AchievementGroup, boolean>>(DEFAULT_EXPANDED_GROUPS);
 
   const unlockedIds = useMemo(() => new Set(unlocks.map((item) => item.id)), [unlocks]);
+
+  const visibleAchievements = useMemo(
+    () => generateVisibleAchievements(unlockedIds),
+    [unlockedIds]
+  );
+
   const activePopupDefinition = useMemo(
     () => (activePopup ? getAchievementDefinitionById(activePopup.id) : undefined),
     [activePopup]
   );
   const activePopupAchievementName = activePopupDefinition
-    ? t(activePopupDefinition.titleKey)
+    ? t(activePopupDefinition.titleKey, activePopupDefinition.titleParams ?? {})
     : activePopup?.id;
 
   const orderedAchievementsByGroup = useMemo(() => {
-    return ACHIEVEMENT_GROUPS.reduce<Record<AchievementGroup, AchievementCardDefinition[]>>(
+    return ACHIEVEMENT_GROUPS.reduce<Record<AchievementGroup, AchievementDefinition[]>>(
       (result, group) => {
-        const inGroup = ACHIEVEMENTS.filter((item) => item.group === group.id);
+        const inGroup = visibleAchievements.filter((item) => item.group === group.id);
         const unlocked = inGroup.filter((item) => unlockedIds.has(item.id));
         const locked = inGroup.filter((item) => !unlockedIds.has(item.id));
         result[group.id] = [...unlocked, ...locked];
@@ -152,9 +142,9 @@ export function Achievements() {
         rest: [],
       }
     );
-  }, [unlockedIds]);
+  }, [visibleAchievements, unlockedIds]);
 
-  const toggleFlip = useCallback((id: AchievementId) => {
+  const toggleFlip = useCallback((id: string) => {
     setFlipped((prev) => ({
       ...prev,
       [id]: !prev[id],
@@ -296,8 +286,11 @@ export function Achievements() {
                 >
                   <div className="achievements-grid" role="list">
                     {groupedAchievements.map((achievement) => {
-                      const title = t(achievement.titleKey);
-                      const condition = t(achievement.conditionKey);
+                      const title = t(achievement.titleKey, achievement.titleParams ?? {});
+                      const condition = t(
+                        achievement.conditionKey,
+                        achievement.conditionParams ?? {}
+                      );
                       const isUnlocked = unlockedIds.has(achievement.id);
                       const isFlipped = Boolean(flipped[achievement.id]);
                       return (
@@ -306,7 +299,7 @@ export function Achievements() {
                             type="button"
                             className={[
                               'achievement-card',
-                              `achievement-card--${achievement.id}`,
+                              getAchievementGroupClass(achievement),
                               isUnlocked ? 'is-unlocked' : 'is-locked',
                               isFlipped ? 'is-flipped' : '',
                             ]
@@ -319,7 +312,7 @@ export function Achievements() {
                             <div className="achievement-card__inner">
                               <div className="achievement-card__face achievement-card__front">
                                 <span className="achievement-icon" aria-hidden="true">
-                                  {achievement.icon}
+                                  {getAchievementIcon(achievement)}
                                 </span>
                                 <span className="achievement-title">{title}</span>
                               </div>

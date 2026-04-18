@@ -1,30 +1,16 @@
-export type AchievementId =
-  | 'first_break'
-  | 'first_work'
-  | 'enable_autostart'
-  | 'work_10_hours'
-  | 'work_100_hours'
-  | 'work_500_hours'
-  | 'work_1000_hours'
-  | 'break_10_hours'
-  | 'break_100_hours'
-  | 'break_200_hours'
-  | 'break_300_hours'
-  | 'break_400_hours'
-  | 'break_500_hours'
-  | 'break_750_hours'
-  | 'break_1000_hours';
-
 export type AchievementGroup = 'system' | 'work' | 'rest';
 
 export interface AchievementDefinition {
-  id: AchievementId;
+  id: string;
   group: AchievementGroup;
+  hours?: number;
   titleKey: string;
   conditionKey: string;
+  titleParams?: Record<string, unknown>;
+  conditionParams?: Record<string, unknown>;
 }
 
-export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
+const STATIC_ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'first_work',
     group: 'work',
@@ -32,82 +18,10 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     conditionKey: 'achievements.items.first_work.condition',
   },
   {
-    id: 'work_10_hours',
-    group: 'work',
-    titleKey: 'achievements.items.work_10_hours.title',
-    conditionKey: 'achievements.items.work_10_hours.condition',
-  },
-  {
-    id: 'work_100_hours',
-    group: 'work',
-    titleKey: 'achievements.items.work_100_hours.title',
-    conditionKey: 'achievements.items.work_100_hours.condition',
-  },
-  {
-    id: 'work_500_hours',
-    group: 'work',
-    titleKey: 'achievements.items.work_500_hours.title',
-    conditionKey: 'achievements.items.work_500_hours.condition',
-  },
-  {
-    id: 'work_1000_hours',
-    group: 'work',
-    titleKey: 'achievements.items.work_1000_hours.title',
-    conditionKey: 'achievements.items.work_1000_hours.condition',
-  },
-  {
     id: 'first_break',
     group: 'rest',
     titleKey: 'achievements.items.first_break.title',
     conditionKey: 'achievements.items.first_break.condition',
-  },
-  {
-    id: 'break_10_hours',
-    group: 'rest',
-    titleKey: 'achievements.items.break_10_hours.title',
-    conditionKey: 'achievements.items.break_10_hours.condition',
-  },
-  {
-    id: 'break_100_hours',
-    group: 'rest',
-    titleKey: 'achievements.items.break_100_hours.title',
-    conditionKey: 'achievements.items.break_100_hours.condition',
-  },
-  {
-    id: 'break_200_hours',
-    group: 'rest',
-    titleKey: 'achievements.items.break_200_hours.title',
-    conditionKey: 'achievements.items.break_200_hours.condition',
-  },
-  {
-    id: 'break_300_hours',
-    group: 'rest',
-    titleKey: 'achievements.items.break_300_hours.title',
-    conditionKey: 'achievements.items.break_300_hours.condition',
-  },
-  {
-    id: 'break_400_hours',
-    group: 'rest',
-    titleKey: 'achievements.items.break_400_hours.title',
-    conditionKey: 'achievements.items.break_400_hours.condition',
-  },
-  {
-    id: 'break_500_hours',
-    group: 'rest',
-    titleKey: 'achievements.items.break_500_hours.title',
-    conditionKey: 'achievements.items.break_500_hours.condition',
-  },
-  {
-    id: 'break_750_hours',
-    group: 'rest',
-    titleKey: 'achievements.items.break_750_hours.title',
-    conditionKey: 'achievements.items.break_750_hours.condition',
-  },
-  {
-    id: 'break_1000_hours',
-    group: 'rest',
-    titleKey: 'achievements.items.break_1000_hours.title',
-    conditionKey: 'achievements.items.break_1000_hours.condition',
   },
   {
     id: 'enable_autostart',
@@ -117,22 +31,107 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   },
 ];
 
-const ACHIEVEMENT_DEFINITION_BY_ID: Record<AchievementId, AchievementDefinition> =
-  ACHIEVEMENT_DEFINITIONS.reduce(
-    (result, item) => {
-      result[item.id] = item;
-      return result;
-    },
-    {} as Record<AchievementId, AchievementDefinition>
-  );
-
-export function isAchievementId(id: string): id is AchievementId {
-  return id in ACHIEVEMENT_DEFINITION_BY_ID;
+function makeDynamicDef(type: 'work' | 'break', hours: number): AchievementDefinition {
+  const group: AchievementGroup = type === 'work' ? 'work' : 'rest';
+  const prefix = type === 'work' ? 'work' : 'break';
+  const templateType = type === 'work' ? 'work_hours' : 'break_hours';
+  return {
+    id: `${prefix}_${hours}_hours`,
+    group,
+    hours,
+    titleKey: `achievements.dynamic.${templateType}.title`,
+    conditionKey: `achievements.dynamic.${templateType}.condition`,
+    titleParams: { hours },
+    conditionParams: { hours },
+  };
 }
 
-export function getAchievementDefinitionById(id: string): AchievementDefinition | undefined {
-  if (!isAchievementId(id)) {
-    return undefined;
+/**
+ * Work milestones: 10, 100, 500, 1000, then +500 infinitely.
+ */
+function nextWorkMilestoneHour(prev: number): number {
+  const fixed = [10, 100, 500, 1000];
+  for (const m of fixed) {
+    if (prev < m) return m;
   }
-  return ACHIEVEMENT_DEFINITION_BY_ID[id];
+  return prev + 500;
+}
+
+/**
+ * Break milestones: 10, 100, then +100 up to 1000, then +500 infinitely.
+ */
+function nextBreakMilestoneHour(prev: number): number {
+  if (prev < 10) return 10;
+  if (prev < 100) return 100;
+  if (prev < 1000) return prev + 100;
+  return prev + 500;
+}
+
+function generateDynamicMilestones(
+  type: 'work' | 'break',
+  unlockedIds: Set<string>
+): AchievementDefinition[] {
+  const prefix = type === 'work' ? 'work' : 'break';
+  const nextFn = type === 'work' ? nextWorkMilestoneHour : nextBreakMilestoneHour;
+  const milestones: AchievementDefinition[] = [];
+  const knownHours = new Set<number>();
+
+  let prev = 0;
+  while (true) {
+    const hours = nextFn(prev);
+    milestones.push(makeDynamicDef(type, hours));
+    knownHours.add(hours);
+
+    if (!unlockedIds.has(`${prefix}_${hours}_hours`)) break;
+    prev = hours;
+  }
+
+  // Include legacy unlocked milestones not in the new sequence (e.g. break_750_hours)
+  for (const uid of unlockedIds) {
+    const match = uid.match(new RegExp(`^${prefix}_(\\d+)_hours$`));
+    if (match) {
+      const h = parseInt(match[1], 10);
+      if (!knownHours.has(h)) {
+        milestones.push(makeDynamicDef(type, h));
+      }
+    }
+  }
+
+  milestones.sort((a, b) => (a.hours ?? 0) - (b.hours ?? 0));
+  return milestones;
+}
+
+/**
+ * Generate the visible achievement list based on which ones are unlocked.
+ * Shows all completed milestones plus the next uncompleted one per category.
+ */
+export function generateVisibleAchievements(
+  unlockedIds: Set<string>
+): AchievementDefinition[] {
+  return [
+    ...STATIC_ACHIEVEMENTS,
+    ...generateDynamicMilestones('work', unlockedIds),
+    ...generateDynamicMilestones('break', unlockedIds),
+  ];
+}
+
+/**
+ * Resolve any achievement ID (static or dynamic) to its definition.
+ * Used by App.tsx for unlock notifications.
+ */
+export function getAchievementDefinitionById(id: string): AchievementDefinition | undefined {
+  const found = STATIC_ACHIEVEMENTS.find((a) => a.id === id);
+  if (found) return found;
+
+  const workMatch = id.match(/^work_(\d+)_hours$/);
+  if (workMatch) {
+    return makeDynamicDef('work', parseInt(workMatch[1], 10));
+  }
+
+  const breakMatch = id.match(/^break_(\d+)_hours$/);
+  if (breakMatch) {
+    return makeDynamicDef('break', parseInt(breakMatch[1], 10));
+  }
+
+  return undefined;
 }
