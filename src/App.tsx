@@ -237,7 +237,11 @@ function App() {
 
               if (preBreakNotifiedTargetRef.current !== nextBreakTime) {
                 const millisUntilBreak = Date.parse(nextBreakTime) - Date.now();
-                if (millisUntilBreak > 0 && millisUntilBreak <= 60_000) {
+                // 忽略阶段切换瞬间：work 阶段 remaining 归零时后端会先广播一次
+                // nextBreakTime≈now+1s 的中间态，若不过滤会在进入休息的瞬间再弹一次
+                // "休息即将开始" 提醒。同时 remainingSeconds 很小时已来不及作为提前通知。
+                const isPhaseTransition = info.remainingSeconds <= 1;
+                if (!isPhaseTransition && millisUntilBreak > 5_000 && millisUntilBreak <= 60_000) {
                   preBreakNotifiedTargetRef.current = nextBreakTime;
                   void notifyRestStartsSoon(
                     i18n.t('notifications.restStartSoon.title', {
