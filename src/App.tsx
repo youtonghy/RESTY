@@ -299,7 +299,12 @@ function App() {
     if (!isSpecialWindow) {
       const handlePreBreakAction = (actionId: string) => {
         if (actionId !== 'dismiss' && actionId !== 'break-now') return;
-        preBreakNotifiedTargetRef.current = null;
+        // 对于 "break-now" 立刻进入休息，阶段切换会由其它逻辑清理 ref；
+        // 对于 "dismiss" 保留 ref，避免同一个 nextBreakTime 再次触发通知，
+        // 否则点击“知道了”关闭通知后会立刻被下一次 timer 更新再弹出一次。
+        if (actionId === 'break-now') {
+          preBreakNotifiedTargetRef.current = null;
+        }
         void clearRestStartsSoonNotification();
         if (actionId === 'break-now') {
           const currentPhase = useAppStore.getState().timerInfo.phase;
