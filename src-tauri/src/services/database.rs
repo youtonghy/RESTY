@@ -17,10 +17,10 @@ const POWER_INTERRUPT_WORK_NOTE: &str = "power-interrupt-work";
 
 const SECONDS_PER_HOUR: i64 = 3600;
 
-/// Work milestones: 10, 100, 500, 1000, then +500 infinitely.
+/// Work milestones: 10, 50, 100, 500, 1000, then +500 infinitely.
 fn work_hour_thresholds(total_seconds: i64) -> Vec<i64> {
     let total_hours = total_seconds / SECONDS_PER_HOUR;
-    let fixed: Vec<i64> = vec![10, 100, 500, 1000];
+    let fixed: Vec<i64> = vec![10, 50, 100, 500, 1000];
     let mut thresholds: Vec<i64> = Vec::new();
 
     for &h in &fixed {
@@ -42,7 +42,7 @@ fn work_hour_thresholds(total_seconds: i64) -> Vec<i64> {
     thresholds
 }
 
-/// Break milestones: 10, 100, then +100 up to 1000, then +500 infinitely.
+/// Break milestones: 10, 100, then +100 infinitely.
 fn break_hour_thresholds(total_seconds: i64) -> Vec<i64> {
     let total_hours = total_seconds / SECONDS_PER_HOUR;
     let mut thresholds: Vec<i64> = vec![10];
@@ -51,29 +51,14 @@ fn break_hour_thresholds(total_seconds: i64) -> Vec<i64> {
         return thresholds;
     }
 
-    thresholds.push(100);
-    if 100 > total_hours {
-        return thresholds;
-    }
-
-    // 200, 300, ..., 1000
-    let mut h: i64 = 200;
-    while h <= 1000 {
-        thresholds.push(h);
-        if h > total_hours {
-            return thresholds;
-        }
-        h += 100;
-    }
-
-    // After 1000, step by 500
-    let mut h: i64 = 1500;
+    // 100, 200, 300, ... +100 infinitely
+    let mut h: i64 = 100;
     loop {
         thresholds.push(h);
         if h > total_hours {
             break;
         }
-        h += 500;
+        h += 100;
     }
     thresholds
 }

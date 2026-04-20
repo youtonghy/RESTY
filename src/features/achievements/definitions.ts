@@ -47,10 +47,10 @@ function makeDynamicDef(type: 'work' | 'break', hours: number): AchievementDefin
 }
 
 /**
- * Work milestones: 10, 100, 500, 1000, then +500 infinitely.
+ * Work milestones: 10, 50, 100, 500, 1000, then +500 infinitely.
  */
 function nextWorkMilestoneHour(prev: number): number {
-  const fixed = [10, 100, 500, 1000];
+  const fixed = [10, 50, 100, 500, 1000];
   for (const m of fixed) {
     if (prev < m) return m;
   }
@@ -58,13 +58,12 @@ function nextWorkMilestoneHour(prev: number): number {
 }
 
 /**
- * Break milestones: 10, 100, then +100 up to 1000, then +500 infinitely.
+ * Break milestones: 10, 100, then +100 infinitely.
  */
 function nextBreakMilestoneHour(prev: number): number {
   if (prev < 10) return 10;
   if (prev < 100) return 100;
-  if (prev < 1000) return prev + 100;
-  return prev + 500;
+  return prev + 100;
 }
 
 function generateDynamicMilestones(
