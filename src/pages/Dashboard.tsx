@@ -2621,6 +2621,7 @@ function DraggableCard({
       if (event.button !== 0) return;
       event.preventDefault();
 
+      dragIntentRef.current = false;
       closeStyleMenu();
 
       const node = event.currentTarget;

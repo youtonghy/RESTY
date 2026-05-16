@@ -1,5 +1,7 @@
-import { ReactNode, useCallback } from 'react';
+import { ReactNode, useCallback, type PointerEvent as ReactPointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { LogicalPosition } from '@tauri-apps/api/dpi';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useAppStore } from '../../store';
 import { Navigation } from './Navigation';
@@ -30,6 +32,64 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
     setUpdateError,
   } = useAppStore();
   const { effectiveTheme } = useTheme();
+
+  const handleTitlebarPointerDown = useCallback(async (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    if (!event.isPrimary) return;
+
+    const target = event.target as HTMLElement | null;
+    if (
+      target?.closest(
+        'button, a, input, textarea, select, [role="button"], .window-controls'
+      )
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+
+    try {
+      const appWindow = getCurrentWindow();
+      const [scaleFactor, startPosition] = await Promise.all([
+        appWindow.scaleFactor(),
+        appWindow.outerPosition(),
+      ]);
+      const startScreenX = event.screenX;
+      const startScreenY = event.screenY;
+      const startLogicalX = startPosition.x / scaleFactor;
+      const startLogicalY = startPosition.y / scaleFactor;
+      let latestScreenX = startScreenX;
+      let latestScreenY = startScreenY;
+      let frameRequested = false;
+
+      const updateWindowPosition = () => {
+        frameRequested = false;
+        const nextX = startLogicalX + latestScreenX - startScreenX;
+        const nextY = startLogicalY + latestScreenY - startScreenY;
+        void appWindow.setPosition(new LogicalPosition(nextX, nextY));
+      };
+
+      const handlePointerMove = (moveEvent: globalThis.PointerEvent) => {
+        latestScreenX = moveEvent.screenX;
+        latestScreenY = moveEvent.screenY;
+        if (frameRequested) return;
+        frameRequested = true;
+        window.requestAnimationFrame(updateWindowPosition);
+      };
+
+      const stopDragging = () => {
+        window.removeEventListener('pointermove', handlePointerMove);
+        window.removeEventListener('pointerup', stopDragging);
+        window.removeEventListener('pointercancel', stopDragging);
+      };
+
+      window.addEventListener('pointermove', handlePointerMove);
+      window.addEventListener('pointerup', stopDragging, { once: true });
+      window.addEventListener('pointercancel', stopDragging, { once: true });
+    } catch (error) {
+      console.error('Failed to start window dragging:', error);
+    }
+  }, []);
 
   const handleOpenWebsite = useCallback(async () => {
     const target = updateManifest?.website;
@@ -76,7 +136,7 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
   return (
     <div className="layout">
       {/* Draggable area for borderless window with overlay buttons */}
-      <div className="app-titlebar" data-tauri-drag-region>
+      <div className="app-titlebar" onPointerDown={handleTitlebarPointerDown}>
         <div className="titlebar-left">
           <img
             className="app-logo"

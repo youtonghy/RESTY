@@ -23,7 +23,6 @@
         "fullscreen": false,
         "decorations": false,
         "shadow": true,
-        "titleBarStyle": "Overlay",
         "transparent": false,
         "alwaysOnTop": false,
         "center": true,

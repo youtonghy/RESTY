@@ -87,7 +87,6 @@
 
 /* Title bar drag region for borderless window with overlay buttons */
 .app-titlebar {
-  -webkit-app-region: drag;
   position: sticky;
   top: 0;
   z-index: 1000;
@@ -125,7 +124,6 @@
   background: transparent;
   border: none;
   box-shadow: none;
-  -webkit-app-region: no-drag;
 }
 
 .window-button {
@@ -140,7 +138,6 @@
   outline: none;
   cursor: pointer;
   transition: transform 0.08s ease, box-shadow 0.15s ease, filter 0.12s ease;
-  -webkit-app-region: no-drag;
 }
 
 .window-button:hover {
