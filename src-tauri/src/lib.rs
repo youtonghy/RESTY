@@ -252,41 +252,31 @@ pub fn run() {
                 app_handle.clone(),
             )));
 
-            // Initialize database schema before starting timer service
+            // Initialize database schema and load settings before starting the timer.
             let db_clone = Arc::clone(&db_service);
-            if let Err(e) = tauri::async_runtime::block_on(async {
+            let initial_settings = tauri::async_runtime::block_on(async move {
                 let db = db_clone.lock().await;
-                db.initialize().await
-            }) {
-                eprintln!("Failed to initialize database: {}", e);
-            }
 
-            // Load settings and create timer service
-            let db_clone = Arc::clone(&db_service);
-            let (initial_settings, timer_service) = tauri::async_runtime::block_on(async move {
-                let db = db_clone.lock().await;
-                let settings = db.load_settings().await.unwrap_or_default();
-                let timer = TimerService::new(
-                    app_handle,
-                    Arc::clone(&db_clone),
-                    settings.work_duration,
-                    settings.break_duration,
-                    settings.flow_mode_enabled,
-                    settings.segmented_work_enabled,
-                    settings.work_segments.clone(),
-                );
+                if let Err(e) = db.initialize().await {
+                    eprintln!("Failed to initialize database: {}", e);
+                }
 
-                // Start the ticker
-                timer.clone().start_ticker();
-
-                // Auto-start work session when app launches
-                let _ = timer.start_work();
-
-                // Begin monitoring display power state (Windows) to auto pause when screen turns off.
-                crate::services::power::start_display_power_monitor(timer.clone());
-
-                (settings, timer)
+                db.load_settings().await.unwrap_or_else(|e| {
+                    eprintln!("Failed to load settings: {}", e);
+                    Default::default()
+                })
             });
+
+            // Create timer service after the database lock has been dropped.
+            let timer_service = TimerService::new(
+                app_handle.clone(),
+                Arc::clone(&db_service),
+                initial_settings.work_duration,
+                initial_settings.break_duration,
+                initial_settings.flow_mode_enabled,
+                initial_settings.segmented_work_enabled,
+                initial_settings.work_segments.clone(),
+            );
 
             // Set up application state
             let db_clone_for_state = Arc::clone(&db_service);
@@ -298,15 +288,29 @@ pub fn run() {
                 last_auto_close,
             });
 
-            // Start background updater task on Windows (no-op on other platforms).
-            {
+            let (managed_timer_service, managed_database_service) = {
                 let state = app.state::<AppState>();
-                updater::start_windows_auto_updater(
-                    app.handle().clone(),
+                (
                     state.timer_service.clone(),
                     state.database_service.clone(),
-                );
+                )
+            };
+
+            managed_timer_service.clone().start_ticker();
+
+            if let Err(e) = managed_timer_service.start_work() {
+                eprintln!("Failed to start initial work session: {}", e);
             }
+
+            // Start background updater task on Windows (no-op on other platforms).
+            updater::start_windows_auto_updater(
+                app.handle().clone(),
+                managed_timer_service.clone(),
+                managed_database_service,
+            );
+
+            // Begin monitoring display power state to auto pause when the screen turns off.
+            crate::services::power::start_display_power_monitor(managed_timer_service.clone());
 
             // Determine if this is a silent autostart launch
             let launched_from_autostart = std::env::args().any(|arg| arg == "--autostart");
