@@ -786,7 +786,7 @@ impl TimerService {
     /// 在 Tokio 任务中启动秒级循环，持续驱动计时逻辑。
     pub fn start_ticker(self: Arc<Self>) {
         let service = Arc::clone(&self);
-        tokio::spawn(async move {
+        tauri::async_runtime::spawn(async move {
             // Tick every second to ensure phase transitions happen on-time (00 seconds)
             let mut interval = time::interval(TokioDuration::from_secs(1));
             // Skip the backlog after system resume to avoid flooding the main thread.
