@@ -1,9 +1,9 @@
+use crate::handle_tray_action;
 use crate::models::{
     AchievementUnlock, AnalyticsData, AnalyticsQuery, FloatingPosition, MonitorInfo, Session,
     SessionsBounds, Settings, SystemStatus, TimerInfo,
 };
 use crate::services::{updater::UpdateManifest, DatabaseService, TimerService};
-use crate::handle_tray_action;
 use crate::utils::AppError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -16,7 +16,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 /// Shared application state for Tauri commands.
 pub struct AppState {
     pub timer_service: Arc<TimerService>,
-    pub database_service: Arc<tokio::sync::Mutex<DatabaseService>>,
+    pub database_service: Arc<DatabaseService>,
     pub last_auto_close: Arc<std::sync::Mutex<Option<Instant>>>,
 }
 
@@ -39,8 +39,11 @@ pub async fn install_update(app: AppHandle) -> Result<(), String> {
 /// Load application settings
 #[tauri::command]
 pub async fn load_settings(state: State<'_, AppState>) -> Result<Settings, String> {
-    let db = state.database_service.lock().await;
-    db.load_settings().await.map_err(|e| e.to_string())
+    state
+        .database_service
+        .load_settings()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Save application settings
@@ -67,16 +70,22 @@ pub async fn save_settings(
         .update_flow_mode(settings.flow_mode_enabled)
         .map_err(|e| e.to_string())?;
     // Save to database
-    let db = state.database_service.lock().await;
-    db.save_settings(&settings).await.map_err(|e| e.to_string())
+    state
+        .database_service
+        .save_settings(&settings)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// List audio files in the configured rest music directory.
 #[tauri::command]
 pub async fn get_rest_music_files(state: State<'_, AppState>) -> Result<Vec<String>, String> {
     let directory = {
-        let db = state.database_service.lock().await;
-        let settings = db.load_settings().await.map_err(|e| e.to_string())?;
+        let settings = state
+            .database_service
+            .load_settings()
+            .await
+            .map_err(|e| e.to_string())?;
         settings.rest_music_directory.clone()
     };
 
@@ -152,14 +161,16 @@ pub fn resume_timer(state: State<'_, AppState>) -> Result<(), String> {
 /// Skip current phase
 #[tauri::command]
 pub async fn skip_phase(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
-    let (session, should_show_reminder) = match state.timer_service.skip().map_err(|e| e.to_string())? {
-        Some(v) => v,
-        None => return Ok(()),
-    };
+    let (session, should_show_reminder) =
+        match state.timer_service.skip().map_err(|e| e.to_string())? {
+            Some(v) => v,
+            None => return Ok(()),
+        };
 
     // Save session to database
-    let db = state.database_service.lock().await;
-    db.save_or_update_session(&session)
+    state
+        .database_service
+        .save_or_update_session(&session)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -189,29 +200,43 @@ pub async fn get_analytics(
     query: AnalyticsQuery,
     state: State<'_, AppState>,
 ) -> Result<AnalyticsData, String> {
-    let db = state.database_service.lock().await;
-    db.get_analytics(&query).await.map_err(|e| e.to_string())
+    state
+        .database_service
+        .get_analytics(&query)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Get sessions time bounds
 #[tauri::command]
 pub async fn get_sessions_bounds(state: State<'_, AppState>) -> Result<SessionsBounds, String> {
-    let db = state.database_service.lock().await;
-    db.get_sessions_bounds().await.map_err(|e| e.to_string())
+    state
+        .database_service
+        .get_sessions_bounds()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Clear analytics session data
 #[tauri::command]
 pub async fn clear_analytics_data(state: State<'_, AppState>) -> Result<(), String> {
-    let db = state.database_service.lock().await;
-    db.clear_sessions().await.map_err(|e| e.to_string())
+    state
+        .database_service
+        .clear_sessions()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Get achievements unlock list
 #[tauri::command]
-pub async fn get_achievements(state: State<'_, AppState>) -> Result<Vec<AchievementUnlock>, String> {
-    let db = state.database_service.lock().await;
-    db.get_achievements().await.map_err(|e| e.to_string())
+pub async fn get_achievements(
+    state: State<'_, AppState>,
+) -> Result<Vec<AchievementUnlock>, String> {
+    state
+        .database_service
+        .get_achievements()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Import configuration from JSON
@@ -240,8 +265,9 @@ pub async fn import_config(
         .update_flow_mode(settings.flow_mode_enabled)
         .map_err(|e| e.to_string())?;
 
-    let db = state.database_service.lock().await;
-    db.save_settings(&settings)
+    state
+        .database_service
+        .save_settings(&settings)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -251,8 +277,11 @@ pub async fn import_config(
 /// Export configuration to JSON
 #[tauri::command]
 pub async fn export_config(state: State<'_, AppState>) -> Result<String, String> {
-    let db = state.database_service.lock().await;
-    let settings = db.load_settings().await.map_err(|e| e.to_string())?;
+    let settings = state
+        .database_service
+        .load_settings()
+        .await
+        .map_err(|e| e.to_string())?;
 
     serde_json::to_string_pretty(&settings)
         .map_err(|e| AppError::ExportFailed(e.to_string()).to_string())
@@ -292,10 +321,21 @@ pub async fn export_app_data_to_file(
         }
     }
 
-    let db = state.database_service.lock().await;
-    let settings = db.load_settings().await.map_err(|e| e.to_string())?;
-    let sessions = db.get_sessions().await.map_err(|e| e.to_string())?;
-    let achievements = db.get_achievements().await.map_err(|e| e.to_string())?;
+    let settings = state
+        .database_service
+        .load_settings()
+        .await
+        .map_err(|e| e.to_string())?;
+    let sessions = state
+        .database_service
+        .get_sessions()
+        .await
+        .map_err(|e| e.to_string())?;
+    let achievements = state
+        .database_service
+        .get_achievements()
+        .await
+        .map_err(|e| e.to_string())?;
 
     let payload = AppDataPackage {
         schema_version: default_schema_version(),
@@ -308,8 +348,7 @@ pub async fn export_app_data_to_file(
     let json = serde_json::to_string_pretty(&payload)
         .map_err(|e| AppError::ExportFailed(e.to_string()).to_string())?;
 
-    std::fs::write(&target, json)
-        .map_err(|e| AppError::ExportFailed(e.to_string()).to_string())?;
+    std::fs::write(&target, json).map_err(|e| AppError::ExportFailed(e.to_string()).to_string())?;
 
     Ok(())
 }
@@ -327,8 +366,8 @@ pub async fn import_app_data_from_file(
 
     let content = std::fs::read_to_string(&target)
         .map_err(|e| AppError::ImportFailed(e.to_string()).to_string())?;
-    let payload: AppDataPackage =
-        serde_json::from_str(&content).map_err(|e| AppError::ImportFailed(e.to_string()).to_string())?;
+    let payload: AppDataPackage = serde_json::from_str(&content)
+        .map_err(|e| AppError::ImportFailed(e.to_string()).to_string())?;
 
     let mut settings = payload.settings;
     if !settings.autostart && settings.silent_autostart {
@@ -348,14 +387,19 @@ pub async fn import_app_data_from_file(
         .update_flow_mode(settings.flow_mode_enabled)
         .map_err(|e| e.to_string())?;
 
-    let db = state.database_service.lock().await;
-    db.replace_sessions(payload.sessions)
+    state
+        .database_service
+        .replace_sessions(payload.sessions)
         .await
         .map_err(|e| e.to_string())?;
-    db.replace_achievements(payload.achievements)
+    state
+        .database_service
+        .replace_achievements(payload.achievements)
         .await
         .map_err(|e| e.to_string())?;
-    db.save_settings_without_achievements(&settings)
+    state
+        .database_service
+        .save_settings_without_achievements(&settings)
         .await
         .map_err(|e| e.to_string())?;
 

@@ -69,9 +69,10 @@ pub(crate) async fn handle_tray_action(
             if let Some((session, should_show_reminder)) =
                 state.timer_service.skip().map_err(|e| e.to_string())?
             {
-                let db_guard = state.database_service.lock().await;
-                let _ = db_guard.save_or_update_session(&session).await;
-                drop(db_guard);
+                let _ = state
+                    .database_service
+                    .save_or_update_session(&session)
+                    .await;
 
                 if should_show_reminder {
                     let _ = app.emit("show-break-reminder", ());
@@ -113,11 +114,7 @@ fn show_tray_menu_window(app: &tauri::AppHandle, x: f64, y: f64) {
         .map(|m| {
             let size = m.size();
             let scale = m.scale_factor();
-            (
-                size.width as f64 / scale,
-                size.height as f64 / scale,
-                scale,
-            )
+            (size.width as f64 / scale, size.height as f64 / scale, scale)
         })
         .unwrap_or((1920.0, 1080.0, 1.0));
 
@@ -172,7 +169,7 @@ fn show_tray_menu_window(app: &tauri::AppHandle, x: f64, y: f64) {
         .always_on_top(true)
         .skip_taskbar(true)
         .focused(true)
-            .visible(true);
+        .visible(true);
 
         #[cfg(target_os = "windows")]
         {
@@ -201,7 +198,10 @@ pub fn run() {
                 None => "Box<Any>",
             },
         };
-        let location = info.location().map(|l| l.to_string()).unwrap_or_else(|| "unknown".to_string());
+        let location = info
+            .location()
+            .map(|l| l.to_string())
+            .unwrap_or_else(|| "unknown".to_string());
         let log = format!("Panic occurred at {}: {}", location, msg);
         eprintln!("{}", log);
         let _ = std::fs::write("panic.log", log);
@@ -248,20 +248,16 @@ pub fn run() {
             let app_handle = app.handle().clone();
 
             // Initialize database service
-            let db_service = Arc::new(tokio::sync::Mutex::new(DatabaseService::new(
-                app_handle.clone(),
-            )));
+            let db_service = Arc::new(DatabaseService::new(app_handle.clone()));
 
             // Initialize database schema and load settings before starting the timer.
             let db_clone = Arc::clone(&db_service);
             let initial_settings = tauri::async_runtime::block_on(async move {
-                let db = db_clone.lock().await;
-
-                if let Err(e) = db.initialize().await {
+                if let Err(e) = db_clone.initialize().await {
                     eprintln!("Failed to initialize database: {}", e);
                 }
 
-                db.load_settings().await.unwrap_or_else(|e| {
+                db_clone.load_settings().await.unwrap_or_else(|e| {
                     eprintln!("Failed to load settings: {}", e);
                     Default::default()
                 })
@@ -290,10 +286,7 @@ pub fn run() {
 
             let (managed_timer_service, managed_database_service) = {
                 let state = app.state::<AppState>();
-                (
-                    state.timer_service.clone(),
-                    state.database_service.clone(),
-                )
+                (state.timer_service.clone(), state.database_service.clone())
             };
 
             managed_timer_service.clone().start_ticker();
@@ -342,7 +335,7 @@ pub fn run() {
                     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
                     // Load settings to check reminder mode
-                    let settings = match db.lock().await.load_settings().await {
+                    let settings = match db.load_settings().await {
                         Ok(s) => s,
                         Err(e) => {
                             eprintln!("Failed to load settings: {}", e);
@@ -372,9 +365,18 @@ pub fn run() {
 
                 let menu = MenuBuilder::new(app)
                     .item(&MenuItemBuilder::with_id("skip", "Skip current break").build(app)?)
-                    .item(&MenuItemBuilder::with_id("no_break_1h", "No breaks for 1 hour").build(app)?)
-                    .item(&MenuItemBuilder::with_id("no_break_2h", "No breaks for 2 hours").build(app)?)
-                    .item(&MenuItemBuilder::with_id("no_break_5h", "No breaks for 5 hours").build(app)?)
+                    .item(
+                        &MenuItemBuilder::with_id("no_break_1h", "No breaks for 1 hour")
+                            .build(app)?,
+                    )
+                    .item(
+                        &MenuItemBuilder::with_id("no_break_2h", "No breaks for 2 hours")
+                            .build(app)?,
+                    )
+                    .item(
+                        &MenuItemBuilder::with_id("no_break_5h", "No breaks for 5 hours")
+                            .build(app)?,
+                    )
                     .item(
                         &MenuItemBuilder::with_id(
                             "no_break_tomorrow",
@@ -464,7 +466,8 @@ pub fn run() {
                                 tauri::tray::MouseButton::Right => {
                                     // Check if we just closed the menu (debounce)
                                     let state = app.state::<AppState>();
-                                    let should_open = if let Ok(last) = state.last_auto_close.lock() {
+                                    let should_open = if let Ok(last) = state.last_auto_close.lock()
+                                    {
                                         if let Some(time) = *last {
                                             time.elapsed().as_millis() > 200
                                         } else {

@@ -1,15 +1,15 @@
+#[cfg(target_os = "windows")]
+use crate::models::TimerPhase;
 use crate::services::{DatabaseService, TimerService};
 use anyhow::{anyhow, Context, Result};
 use serde::Serialize;
 use std::sync::Arc;
-use tauri::AppHandle;
-use tauri_plugin_updater::UpdaterExt;
-#[cfg(target_os = "windows")]
-use crate::models::TimerPhase;
 #[cfg(target_os = "windows")]
 use std::sync::OnceLock;
+use tauri::AppHandle;
 #[cfg(target_os = "windows")]
 use tauri::Manager;
+use tauri_plugin_updater::UpdaterExt;
 
 const RELEASES_PAGE_URL: &str = "https://github.com/youtonghy/RESTY/releases";
 #[cfg(target_os = "windows")]
@@ -33,7 +33,12 @@ pub fn is_dev_build(app: &AppHandle) -> bool {
 }
 
 pub async fn check_for_updates(app: &AppHandle) -> Result<Option<UpdateManifest>> {
-    let Some(update) = app.updater().context("Failed to create updater")?.check().await? else {
+    let Some(update) = app
+        .updater()
+        .context("Failed to create updater")?
+        .check()
+        .await?
+    else {
         return Ok(None);
     };
 
@@ -51,7 +56,12 @@ pub async fn install_update(app: &AppHandle) -> Result<()> {
         ));
     }
 
-    let Some(update) = app.updater().context("Failed to create updater")?.check().await? else {
+    let Some(update) = app
+        .updater()
+        .context("Failed to create updater")?
+        .check()
+        .await?
+    else {
         return Err(anyhow!("No update available"));
     };
 
@@ -78,7 +88,7 @@ pub async fn install_update(app: &AppHandle) -> Result<()> {
 pub fn start_windows_auto_updater(
     app: AppHandle,
     timer_service: Arc<TimerService>,
-    database_service: Arc<tokio::sync::Mutex<DatabaseService>>,
+    database_service: Arc<DatabaseService>,
 ) {
     tauri::async_runtime::spawn(async move {
         let mut ticker = tokio::time::interval(std::time::Duration::from_secs(
@@ -99,7 +109,7 @@ pub fn start_windows_auto_updater(
 pub fn start_windows_auto_updater(
     _app: AppHandle,
     _timer_service: Arc<TimerService>,
-    _database_service: Arc<tokio::sync::Mutex<DatabaseService>>,
+    _database_service: Arc<DatabaseService>,
 ) {
 }
 
@@ -113,7 +123,7 @@ fn auto_update_lock() -> &'static tokio::sync::Mutex<()> {
 async fn try_auto_update_once(
     app: &AppHandle,
     timer_service: &Arc<TimerService>,
-    database_service: &Arc<tokio::sync::Mutex<DatabaseService>>,
+    database_service: &Arc<DatabaseService>,
 ) -> Result<()> {
     let _guard = match auto_update_lock().try_lock() {
         Ok(guard) => guard,
@@ -126,7 +136,12 @@ async fn try_auto_update_once(
 
     if is_dev_build(app) {
         // Dev builds only check availability; they never download or install.
-        if let Some(update) = app.updater().context("Failed to create updater")?.check().await? {
+        if let Some(update) = app
+            .updater()
+            .context("Failed to create updater")?
+            .check()
+            .await?
+        {
             eprintln!(
                 "[AutoUpdate] Dev build {} detected update {}, skipping download.",
                 app.package_info().version,
@@ -136,7 +151,12 @@ async fn try_auto_update_once(
         return Ok(());
     }
 
-    let Some(update) = app.updater().context("Failed to create updater")?.check().await? else {
+    let Some(update) = app
+        .updater()
+        .context("Failed to create updater")?
+        .check()
+        .await?
+    else {
         return Ok(());
     };
 
@@ -170,15 +190,11 @@ async fn try_auto_update_once(
 }
 
 #[cfg(target_os = "windows")]
-async fn is_auto_update_enabled(
-    database_service: &Arc<tokio::sync::Mutex<DatabaseService>>,
-) -> Result<bool> {
-    let settings = {
-        let db = database_service.lock().await;
-        db.load_settings()
-            .await
-            .map_err(|e| anyhow!("Failed to load settings: {}", e))?
-    };
+async fn is_auto_update_enabled(database_service: &Arc<DatabaseService>) -> Result<bool> {
+    let settings = database_service
+        .load_settings()
+        .await
+        .map_err(|e| anyhow!("Failed to load settings: {}", e))?;
     Ok(settings.auto_silent_update_enabled)
 }
 
@@ -186,7 +202,7 @@ async fn is_auto_update_enabled(
 async fn wait_for_install_slot(
     app: &AppHandle,
     timer_service: &Arc<TimerService>,
-    database_service: &Arc<tokio::sync::Mutex<DatabaseService>>,
+    database_service: &Arc<DatabaseService>,
 ) -> Result<bool> {
     loop {
         if !is_auto_update_enabled(database_service).await? {

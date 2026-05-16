@@ -15,7 +15,7 @@ const POWER_INTERRUPT_WORK_NOTE: &str = "power-interrupt-work";
 pub struct TimerService {
     state: Arc<Mutex<TimerServiceState>>,
     app: AppHandle,
-    db: Arc<tokio::sync::Mutex<DatabaseService>>, // database handle for persisting sessions
+    db: Arc<DatabaseService>, // database handle for persisting sessions
 }
 
 struct TimerServiceState {
@@ -184,7 +184,7 @@ impl TimerService {
     /// 初始化服务，记录工作/休息时长并保留 AppHandle。
     pub fn new(
         app: AppHandle,
-        db: Arc<tokio::sync::Mutex<DatabaseService>>,
+        db: Arc<DatabaseService>,
         work_duration: u32,
         break_duration: u32,
         flow_mode: bool,
@@ -434,7 +434,10 @@ impl TimerService {
         self.emit_timer_update()?;
 
         if timer_finished {
-            println!("TimerService: timer finished, auto_cycle={}", should_auto_cycle);
+            println!(
+                "TimerService: timer finished, auto_cycle={}",
+                should_auto_cycle
+            );
             self.emit_timer_finished()?;
             if let Some(s) = session.clone() {
                 self.persist_session_finish(s);
@@ -723,12 +726,7 @@ impl TimerService {
 
         let db = self.db.clone();
         tauri::async_runtime::spawn(async move {
-            if let Ok(guard) = db.try_lock() {
-                let _ = guard.save_or_update_session(&session).await;
-            } else {
-                let db2 = db.lock().await;
-                let _ = db2.save_or_update_session(&session).await;
-            }
+            let _ = db.save_or_update_session(&session).await;
         });
     }
 
@@ -736,12 +734,7 @@ impl TimerService {
     fn persist_session_finish(&self, session: Session) {
         let db = self.db.clone();
         tauri::async_runtime::spawn(async move {
-            if let Ok(guard) = db.try_lock() {
-                let _ = guard.save_or_update_session(&session).await;
-            } else {
-                let db2 = db.lock().await;
-                let _ = db2.save_or_update_session(&session).await;
-            }
+            let _ = db.save_or_update_session(&session).await;
         });
     }
 
