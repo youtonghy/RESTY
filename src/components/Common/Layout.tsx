@@ -1,6 +1,5 @@
-import { ReactNode, useCallback, type PointerEvent as ReactPointerEvent } from 'react';
+import { ReactNode, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useAppStore } from '../../store';
 import { Navigation } from './Navigation';
@@ -8,7 +7,6 @@ import { useTheme } from './ThemeProvider';
 import { installUpdate } from '../../utils/api';
 import iconLight from '../../../src-tauri/icons/128x128.png';
 import iconDark from '../../../src-tauri/icons/128x128Night.png';
-import { WindowControls } from './WindowControls';
 import './Layout.css';
 
 interface LayoutProps {
@@ -29,25 +27,6 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
   const setUpdating = useAppStore((state) => state.setUpdating);
   const setUpdateError = useAppStore((state) => state.setUpdateError);
   const { effectiveTheme } = useTheme();
-
-  const handleTitlebarPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
-    if (!event.isPrimary) return;
-
-    const target = event.target as HTMLElement | null;
-    if (
-      target?.closest(
-        'button, a, input, textarea, select, [role="button"], .window-controls'
-      )
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-    void getCurrentWindow().startDragging().catch((error) => {
-      console.error('Failed to start window dragging:', error);
-    });
-  }, []);
 
   const handleOpenWebsite = useCallback(async () => {
     const target = updateManifest?.website;
@@ -93,8 +72,7 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
 
   return (
     <div className="layout">
-      {/* Draggable area for borderless window with overlay buttons */}
-      <div className="app-titlebar" onPointerDown={handleTitlebarPointerDown}>
+      <div className="app-titlebar">
         <div className="titlebar-left">
           <img
             className="app-logo"
@@ -107,7 +85,6 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
             <span className="app-subtitle">Eye Care Reminder</span>
           </div>
         </div>
-        <WindowControls />
       </div>
       {updateManifest && (
         <div className="update-banner" role="status" aria-live="polite">

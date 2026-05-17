@@ -17,7 +17,9 @@ export default defineConfig(async () => ({
     // Use different ports to avoid Windows permission issues
     // Tauri mode: 1420, Dev mode: 3000 (higher port, less likely to have permission issues)
     port: host ? 11420 : 21421,
-    strictPort: false, // Always find available port if specified port is taken
+    // Tauri devUrl is fixed to the same port; fail fast instead of serving a
+    // second Vite instance that the WebView will never load.
+    strictPort: true,
     // Force IPv4 to avoid Windows IPv6 permission issues
     host: "127.0.0.1",
     hmr: host

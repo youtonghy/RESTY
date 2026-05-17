@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../../store';
 import './Navigation.css';
@@ -169,9 +169,14 @@ const AchievementsIcon = ({ className }: IconProps) => (
 export function Navigation() {
   const { t } = useTranslation();
   const location = useLocation();
+  const navigate = useNavigate();
   const analyticsDisabled = useAppStore((state) => state.settings.disableAnalytics);
 
   const isActive = (path: string) => location.pathname === path;
+  const goTo = (path: string) => {
+    if (location.pathname === path) return;
+    navigate(path);
+  };
 
   const dashboardLabel = t('navigation.dashboard', { defaultValue: 'Dashboard' });
   const dailyReportLabel = t('navigation.dailyReport', { defaultValue: 'Daily Report' });
@@ -181,56 +186,61 @@ export function Navigation() {
 
   return (
     <nav className="navigation" aria-label={t('navigation.primary', { defaultValue: 'Primary navigation' })}>
-      <Link
-        to="/"
+      <button
+        type="button"
         className={`nav-item nav-item--dashboard ${isActive('/') ? 'active' : ''}`}
         aria-label={dashboardLabel}
         title={dashboardLabel}
+        onClick={() => goTo('/')}
       >
         <DashboardIcon className="nav-icon" />
-      </Link>
+      </button>
 
       {!analyticsDisabled && (
-        <Link
-          to="/daily-report"
+        <button
+          type="button"
           className={`nav-item nav-item--daily-report ${isActive('/daily-report') ? 'active' : ''}`}
           aria-label={dailyReportLabel}
           title={dailyReportLabel}
+          onClick={() => goTo('/daily-report')}
         >
           <DailyReportIcon className="nav-icon" />
-        </Link>
+        </button>
       )}
 
       {!analyticsDisabled && (
-        <Link
-          to="/analytics"
+        <button
+          type="button"
           className={`nav-item nav-item--analytics ${isActive('/analytics') ? 'active' : ''}`}
           aria-label={analyticsLabel}
           title={analyticsLabel}
+          onClick={() => goTo('/analytics')}
         >
           <AnalyticsIcon className="nav-icon" />
-        </Link>
+        </button>
       )}
 
       {!analyticsDisabled && (
-        <Link
-          to="/achievements"
+        <button
+          type="button"
           className={`nav-item nav-item--achievements ${isActive('/achievements') ? 'active' : ''}`}
           aria-label={achievementsLabel}
           title={achievementsLabel}
+          onClick={() => goTo('/achievements')}
         >
           <AchievementsIcon className="nav-icon" />
-        </Link>
+        </button>
       )}
 
-      <Link
-        to="/settings"
+      <button
+        type="button"
         className={`nav-item nav-item--settings ${isActive('/settings') ? 'active' : ''}`}
         aria-label={settingsLabel}
         title={settingsLabel}
+        onClick={() => goTo('/settings')}
       >
         <SettingsIcon className="nav-icon" />
-      </Link>
+      </button>
     </nav>
   );
 }

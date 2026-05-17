@@ -9,6 +9,10 @@ declare global {
 }
 
 const isDev = import.meta.env.DEV;
+const MAX_BACKEND_LOGS_IN_FLIGHT = 3;
+const HEARTBEAT_WARN_INTERVAL_MS = 10_000;
+
+let backendLogsInFlight = 0;
 
 const normalizeDetails = (value: unknown): unknown => {
   if (value instanceof Error) {
@@ -33,7 +37,9 @@ const sendToBackend = (
   details?: unknown
 ) => {
   if (!isDev) return;
+  if (backendLogsInFlight >= MAX_BACKEND_LOGS_IN_FLIGHT) return;
 
+  backendLogsInFlight += 1;
   void invoke('debug_log', {
     level,
     scope,
@@ -41,6 +47,8 @@ const sendToBackend = (
     details: details === undefined ? null : normalizeDetails(details),
   }).catch(() => {
     // The backend command is only for local debugging; never let logging break the app.
+  }).finally(() => {
+    backendLogsInFlight = Math.max(0, backendLogsInFlight - 1);
   });
 };
 
@@ -88,11 +96,13 @@ export const installFrontendDebugHooks = () => {
   });
 
   let lastBeat = performance.now();
+  let lastHeartbeatWarnAt = 0;
   window.setInterval(() => {
     const now = performance.now();
     const driftMs = Math.round(now - lastBeat - 1_000);
     lastBeat = now;
-    if (driftMs > 250) {
+    if (driftMs > 250 && now - lastHeartbeatWarnAt >= HEARTBEAT_WARN_INTERVAL_MS) {
+      lastHeartbeatWarnAt = now;
       debugWarn('webview', 'main thread heartbeat delayed', { driftMs });
     }
   }, 1_000);
