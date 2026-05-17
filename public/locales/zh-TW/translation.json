@@ -372,7 +372,9 @@
       "clear": "清除倒數計時",
       "fields": {
         "title": "標題",
-        "targetAt": "到期日期和時間"
+        "targetAt": "到期日期和時間",
+        "date": "日期",
+        "time": "時間"
       }
     },
     "tips": {

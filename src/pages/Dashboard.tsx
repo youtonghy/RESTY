@@ -111,19 +111,49 @@ const formatCountdown = (ms: number) => {
   return `${pad2(minutes)}:${pad2(seconds)}`;
 };
 
-const formatCountdownDateTimeInput = (date: Date) => {
-  const year = date.getFullYear();
-  const month = pad2(date.getMonth() + 1);
-  const day = pad2(date.getDate());
-  const hours = pad2(date.getHours());
-  const minutes = pad2(date.getMinutes());
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+interface CountdownDateTimeParts {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+}
+
+const getDaysInMonth = (year: number, month: number) =>
+  new Date(year, month, 0).getDate();
+
+const getDefaultCountdownDate = () => {
+  const date = new Date();
+  date.setHours(date.getHours() + 1);
+  date.setSeconds(0, 0);
+  return date;
 };
 
-const parseDateTimeInput = (value: string): string | null => {
-  if (!value) return null;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+const getCountdownPartsFromTarget = (
+  targetAt: string | null,
+): CountdownDateTimeParts => {
+  const parsed = targetAt ? new Date(targetAt) : getDefaultCountdownDate();
+  const date = Number.isNaN(parsed.getTime()) ? getDefaultCountdownDate() : parsed;
+  return {
+    year: date.getFullYear(),
+    month: date.getMonth() + 1,
+    day: date.getDate(),
+    hour: date.getHours(),
+    minute: Math.min(55, Math.round(date.getMinutes() / 5) * 5),
+  };
+};
+
+const buildCountdownTargetAt = (parts: CountdownDateTimeParts) => {
+  const safeDay = Math.min(parts.day, getDaysInMonth(parts.year, parts.month));
+  return new Date(
+    parts.year,
+    parts.month - 1,
+    safeDay,
+    parts.hour,
+    parts.minute,
+    0,
+    0,
+  ).toISOString();
 };
 
 const formatCountdownTargetLabel = (
@@ -2351,11 +2381,33 @@ export function Dashboard({
 
     if (card.type === "countdown") {
       const countdownSettings = card.settings?.countdown;
+      const dateTimeParts = getCountdownPartsFromTarget(
+        countdownSettings?.targetAt ?? null,
+      );
+      const currentYear = new Date().getFullYear();
+      const yearOptions = Array.from(
+        new Set([
+          dateTimeParts.year,
+          ...Array.from({ length: 8 }, (_item, index) => currentYear + index),
+        ]),
+      ).sort((a, b) => a - b);
+      const dayOptions = Array.from(
+        { length: getDaysInMonth(dateTimeParts.year, dateTimeParts.month) },
+        (_item, index) => index + 1,
+      );
+      const hourOptions = Array.from({ length: 24 }, (_item, index) => index);
+      const minuteOptions = Array.from({ length: 12 }, (_item, index) => index * 5);
       const titleLabel = t("dashboard.countdown.fields.title", {
         defaultValue: isZh ? "标题" : "Title",
       });
       const targetLabel = t("dashboard.countdown.fields.targetAt", {
         defaultValue: isZh ? "到期日期和时间" : "Target date and time",
+      });
+      const dateLabel = t("dashboard.countdown.fields.date", {
+        defaultValue: isZh ? "日期" : "Date",
+      });
+      const timeLabel = t("dashboard.countdown.fields.time", {
+        defaultValue: isZh ? "时间" : "Time",
       });
       const placeholderTitle = t("dashboard.countdown.defaultTitle", {
         defaultValue: isZh ? "倒计时" : "Countdown",
@@ -2366,6 +2418,22 @@ export function Dashboard({
       const countdownDefaults: CountdownCardSettings = {
         title: "",
         targetAt: null,
+      };
+      const updateCountdownTarget = (
+        patch: Partial<CountdownDateTimeParts>,
+      ) => {
+        const nextParts = { ...dateTimeParts, ...patch };
+        const normalizedParts = {
+          ...nextParts,
+          day: Math.min(
+            nextParts.day,
+            getDaysInMonth(nextParts.year, nextParts.month),
+          ),
+        };
+        updateCountdownSettings((prevCountdown) => ({
+          ...prevCountdown,
+          targetAt: buildCountdownTargetAt(normalizedParts),
+        }));
       };
 
       const updateCountdownSettings = (
@@ -2410,23 +2478,101 @@ export function Dashboard({
           </label>
           <label className="card-style-field">
             <span className="card-style-field-label">{targetLabel}</span>
-            <input
-              className="card-style-input"
-              type="datetime-local"
-              value={
-                countdownSettings?.targetAt
-                  ? formatCountdownDateTimeInput(
-                      new Date(countdownSettings.targetAt),
-                    )
-                  : ""
-              }
-              onChange={(event) => {
-                updateCountdownSettings((prevCountdown) => ({
-                  ...prevCountdown,
-                  targetAt: parseDateTimeInput(event.target.value),
-                }));
-              }}
-            />
+            <div className="countdown-date-time-picker">
+              <div className="countdown-picker-group">
+                <span className="countdown-picker-label">{dateLabel}</span>
+                <div className="countdown-picker-row countdown-picker-row-date">
+                  <select
+                    className="card-style-select countdown-picker-select"
+                    value={dateTimeParts.year}
+                    onChange={(event) =>
+                      updateCountdownTarget({
+                        year: Number(event.target.value),
+                      })
+                    }
+                    aria-label={isZh ? "年份" : "Year"}
+                  >
+                    {yearOptions.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="card-style-select countdown-picker-select"
+                    value={dateTimeParts.month}
+                    onChange={(event) =>
+                      updateCountdownTarget({
+                        month: Number(event.target.value),
+                      })
+                    }
+                    aria-label={isZh ? "月份" : "Month"}
+                  >
+                    {Array.from({ length: 12 }, (_item, index) => index + 1).map(
+                      (month) => (
+                        <option key={month} value={month}>
+                          {isZh ? `${month}月` : month}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                  <select
+                    className="card-style-select countdown-picker-select"
+                    value={Math.min(dateTimeParts.day, dayOptions.length)}
+                    onChange={(event) =>
+                      updateCountdownTarget({
+                        day: Number(event.target.value),
+                      })
+                    }
+                    aria-label={isZh ? "日期" : "Day"}
+                  >
+                    {dayOptions.map((day) => (
+                      <option key={day} value={day}>
+                        {isZh ? `${day}日` : day}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="countdown-picker-group">
+                <span className="countdown-picker-label">{timeLabel}</span>
+                <div className="countdown-picker-row countdown-picker-row-time">
+                  <select
+                    className="card-style-select countdown-picker-select"
+                    value={dateTimeParts.hour}
+                    onChange={(event) =>
+                      updateCountdownTarget({
+                        hour: Number(event.target.value),
+                      })
+                    }
+                    aria-label={isZh ? "小时" : "Hour"}
+                  >
+                    {hourOptions.map((hour) => (
+                      <option key={hour} value={hour}>
+                        {pad2(hour)}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="countdown-picker-separator">:</span>
+                  <select
+                    className="card-style-select countdown-picker-select"
+                    value={Math.min(55, Math.round(dateTimeParts.minute / 5) * 5)}
+                    onChange={(event) =>
+                      updateCountdownTarget({
+                        minute: Number(event.target.value),
+                      })
+                    }
+                    aria-label={isZh ? "分钟" : "Minute"}
+                  >
+                    {minuteOptions.map((minute) => (
+                      <option key={minute} value={minute}>
+                        {pad2(minute)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
           </label>
           <button
             type="button"

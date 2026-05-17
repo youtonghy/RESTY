@@ -326,7 +326,9 @@
       "clear": "Clear countdown",
       "fields": {
         "title": "Title",
-        "targetAt": "Target date and time"
+        "targetAt": "Target date and time",
+        "date": "Date",
+        "time": "Time"
       }
     },
     "tips": {
