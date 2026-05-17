@@ -156,6 +156,25 @@ const buildCountdownTargetAt = (parts: CountdownDateTimeParts) => {
   ).toISOString();
 };
 
+const getCountdownProgress = (
+  startedAt: string | null | undefined,
+  targetAt: string | null | undefined,
+  now: Date,
+) => {
+  if (!startedAt || !targetAt) return undefined;
+  const startTime = new Date(startedAt).getTime();
+  const targetTime = new Date(targetAt).getTime();
+  if (
+    !Number.isFinite(startTime) ||
+    !Number.isFinite(targetTime) ||
+    targetTime <= startTime
+  ) {
+    return 0;
+  }
+  const remaining = targetTime - now.getTime();
+  return clamp01(remaining / (targetTime - startTime));
+};
+
 const formatCountdownTargetLabel = (
   targetAt: string | null,
   language: string,
@@ -352,6 +371,7 @@ interface ProgressCardSettings {
 interface CountdownCardSettings {
   title: string;
   targetAt: string | null;
+  startedAt?: string | null;
 }
 
 interface CardSettings {
@@ -493,10 +513,19 @@ const sanitizeCountdownSettings = (
     !Number.isNaN(new Date(raw.targetAt).getTime())
       ? raw.targetAt
       : null;
+  const startedAt =
+    typeof raw.startedAt === "string" &&
+    !Number.isNaN(new Date(raw.startedAt).getTime())
+      ? raw.startedAt
+      : null;
   if (!title && !targetAt) {
     return undefined;
   }
-  return { title, targetAt };
+  return {
+    title,
+    targetAt,
+    startedAt: startedAt ?? (targetAt ? new Date().toISOString() : null),
+  };
 };
 
 const sanitizeCardSettings = (settings: unknown): CardSettings | undefined => {
@@ -776,6 +805,8 @@ const settingsEqual = (a?: CardSettings, b?: CardSettings) => {
   const bCountdownTitle = bd?.title ?? "";
   const aCountdownTarget = ad?.targetAt ?? null;
   const bCountdownTarget = bd?.targetAt ?? null;
+  const aCountdownStart = ad?.startedAt ?? null;
+  const bCountdownStart = bd?.startedAt ?? null;
   return (
     aZone === bZone &&
     aMode === bMode &&
@@ -783,7 +814,8 @@ const settingsEqual = (a?: CardSettings, b?: CardSettings) => {
     aScope === bScope &&
     aPalette === bPalette &&
     aCountdownTitle === bCountdownTitle &&
-    aCountdownTarget === bCountdownTarget
+    aCountdownTarget === bCountdownTarget &&
+    aCountdownStart === bCountdownStart
   );
 };
 
@@ -1693,6 +1725,11 @@ function CountdownCardRenderer({
   const settings = instance.settings?.countdown;
   const title = settings?.title?.trim();
   const parts = getCountdownParts(settings?.targetAt ?? null, now);
+  const progress = getCountdownProgress(
+    settings?.startedAt,
+    settings?.targetAt,
+    now,
+  );
   const titleFallback = t("dashboard.countdown.defaultTitle", {
     defaultValue: isZh ? "倒计时" : "Countdown",
   });
@@ -1737,6 +1774,16 @@ function CountdownCardRenderer({
       iconTone="countdown"
       delay={delay}
       className="countdown-card tile-card-actionable"
+      progress={progress}
+      style={
+        progress !== undefined
+          ? ({
+              ["--progress-gradient" as any]:
+                "linear-gradient(90deg, #f97316 0%, #facc15 48%, #22c55e 100%)",
+              ["--progress-glow" as any]: "rgba(249, 115, 22, 0.34)",
+            } as CSSProperties)
+          : undefined
+      }
       tabIndex={tabIndex}
       role="button"
       ariaLabel={t("dashboard.countdown.openSettings", {
@@ -2418,6 +2465,7 @@ export function Dashboard({
       const countdownDefaults: CountdownCardSettings = {
         title: "",
         targetAt: null,
+        startedAt: null,
       };
       const updateCountdownTarget = (
         patch: Partial<CountdownDateTimeParts>,
@@ -2430,9 +2478,14 @@ export function Dashboard({
             getDaysInMonth(nextParts.year, nextParts.month),
           ),
         };
+        const targetAt = buildCountdownTargetAt(normalizedParts);
         updateCountdownSettings((prevCountdown) => ({
           ...prevCountdown,
-          targetAt: buildCountdownTargetAt(normalizedParts),
+          targetAt,
+          startedAt:
+            targetAt === prevCountdown.targetAt
+              ? (prevCountdown.startedAt ?? new Date().toISOString())
+              : new Date().toISOString(),
         }));
       };
 
@@ -2448,6 +2501,13 @@ export function Dashboard({
               next.targetAt && !Number.isNaN(new Date(next.targetAt).getTime())
                 ? next.targetAt
                 : null,
+            startedAt:
+              next.startedAt &&
+              !Number.isNaN(new Date(next.startedAt).getTime())
+                ? next.startedAt
+                : next.targetAt
+                  ? new Date().toISOString()
+                  : null,
           };
           if (!normalized.title && !normalized.targetAt) {
             if (!prev) return undefined;
