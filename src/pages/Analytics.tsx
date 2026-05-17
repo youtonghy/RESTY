@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
 import * as api from '../utils/api';
+import { debugError, debugLog, debugWarn } from '../utils/debug';
 import type { AnalyticsData, AnalyticsQuery, Session } from '../types';
 import { augmentSessionsWithMoreRest } from '../utils/analytics';
 import './Analytics.css';
@@ -109,6 +110,24 @@ type TimelinePixelSegment = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TIMELINE_BASE_COLOR = 'var(--color-surface-hover)';
+const ANALYTICS_TIMEOUT_MS = 8_000;
+
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, label: string) => {
+  let timeoutId: number | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId !== undefined) {
+      window.clearTimeout(timeoutId);
+    }
+  }
+};
 
 const getTimelineRenderMode = (range: TimeRange): TimelineRenderMode => {
   if (range === 'month' || range === 'year') {
@@ -442,11 +461,15 @@ export function Analytics() {
   const [customAppliedEnd, setCustomAppliedEnd] = useState(() => formatDateInputValue(new Date()));
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [heatmapLoading, setHeatmapLoading] = useState(false);
   const [heatmapData, setHeatmapData] = useState<HeatmapDay[]>([]);
   const isZh = useMemo(() => i18n.language.startsWith('zh'), [i18n.language]);
   const isMountedRef = useRef(true);
   const analyticsRequestSeqRef = useRef(0);
   const heatmapRequestSeqRef = useRef(0);
+  const analyticsRequestKeyRef = useRef<string | null>(null);
+  const heatmapRequestKeyRef = useRef<string | null>(null);
   const [timelineNode, setTimelineNode] = useState<HTMLDivElement | null>(null);
   const [timelineWidthPx, setTimelineWidthPx] = useState(0);
   const timelineRef = useCallback((node: HTMLDivElement | null) => {
@@ -516,23 +539,47 @@ export function Analytics() {
     return { isValid: true, isReady: true, isOrderInvalid: false };
   }, [customDraftStart, customDraftEnd]);
 
-  const loadAnalytics = useCallback(async () => {
+  const loadAnalytics = useCallback(async (force = false) => {
     if (!isMountedRef.current) return;
+    const requestKey = `${analyticsQuery.startDate}|${analyticsQuery.endDate}`;
+    if (!force && analyticsRequestKeyRef.current === requestKey) {
+      debugLog('analytics', 'skip duplicate analytics request', { requestKey });
+      return;
+    }
+    analyticsRequestKeyRef.current = requestKey;
     const requestSeq = ++analyticsRequestSeqRef.current;
     setLoading(true);
+    setLoadError(null);
+    debugLog('analytics', 'load analytics start', {
+      seq: requestSeq,
+      query: analyticsQuery,
+    });
     try {
-      const result = await api.getAnalytics(analyticsQuery);
+      const startedAt = performance.now();
+      const result = await withTimeout(
+        api.getAnalytics(analyticsQuery),
+        ANALYTICS_TIMEOUT_MS,
+        'get_analytics',
+      );
       if (!isMountedRef.current || requestSeq !== analyticsRequestSeqRef.current) return;
+      debugLog('analytics', 'load analytics done', {
+        seq: requestSeq,
+        sessions: result.sessions.length,
+        durationMs: Math.round(performance.now() - startedAt),
+      });
       setData(result);
     } catch (error) {
       if (requestSeq !== analyticsRequestSeqRef.current) return;
+      analyticsRequestKeyRef.current = null;
+      debugError('analytics', 'load analytics failed', error);
       console.error('Failed to load analytics:', error);
+      setLoadError(isZh ? '统计加载失败，请稍后重试。' : 'Failed to load analytics. Please try again.');
     } finally {
       if (isMountedRef.current && requestSeq === analyticsRequestSeqRef.current) {
         setLoading(false);
       }
     }
-  }, [analyticsQuery]);
+  }, [analyticsQuery, isZh]);
 
   const handleApplyCustomRange = useCallback(() => {
     if (!customDraftStatus.isValid) return;
@@ -570,17 +617,38 @@ export function Analytics() {
   };
 
   // 加载热力图数据：按天统计休息完成度
-  const loadHeatmapData = useCallback(async () => {
+  const loadHeatmapData = useCallback(async (force = false) => {
     const requestSeq = ++heatmapRequestSeqRef.current;
     const { start, end, dates } = generateHeatmapDates();
     const query: AnalyticsQuery = {
       startDate: start.toISOString(),
       endDate: end.toISOString(),
     };
+    const requestKey = `${query.startDate}|${query.endDate}|${moreRestEnabled ? 'more-rest' : 'raw'}`;
+    if (!force && heatmapRequestKeyRef.current === requestKey) {
+      debugLog('analytics', 'skip duplicate heatmap request', { requestKey });
+      return;
+    }
+    heatmapRequestKeyRef.current = requestKey;
 
+    setHeatmapLoading(true);
+    debugLog('analytics', 'load heatmap start', {
+      seq: requestSeq,
+      query,
+    });
     try {
-      const result = await api.getAnalytics(query);
+      const startedAt = performance.now();
+      const result = await withTimeout(
+        api.getAnalytics(query),
+        ANALYTICS_TIMEOUT_MS,
+        'get_analytics_heatmap',
+      );
       if (!isMountedRef.current || requestSeq !== heatmapRequestSeqRef.current) return;
+      debugLog('analytics', 'load heatmap done', {
+        seq: requestSeq,
+        sessions: result.sessions.length,
+        durationMs: Math.round(performance.now() - startedAt),
+      });
 
       const sessions = augmentSessionsWithMoreRest(result.sessions, moreRestEnabled);
       // Process sessions into daily stats
@@ -624,7 +692,13 @@ export function Analytics() {
       setHeatmapData(heatmap);
     } catch (error) {
       if (requestSeq !== heatmapRequestSeqRef.current) return;
+      heatmapRequestKeyRef.current = null;
+      debugWarn('analytics', 'load heatmap failed', error);
       console.error('Failed to load heatmap data:', error);
+    } finally {
+      if (isMountedRef.current && requestSeq === heatmapRequestSeqRef.current) {
+        setHeatmapLoading(false);
+      }
     }
   }, [moreRestEnabled]);
 
@@ -633,7 +707,10 @@ export function Analytics() {
   }, [loadAnalytics]);
 
   useEffect(() => {
-    void loadHeatmapData();
+    const id = window.setTimeout(() => {
+      void loadHeatmapData();
+    }, 250);
+    return () => window.clearTimeout(id);
   }, [loadHeatmapData]);
 
   // 实时更新：会话新增/完成/跳过时刷新数据
@@ -645,8 +722,8 @@ export function Analytics() {
       try {
         unlisten = await api.onSessionUpserted(() => {
           if (!active) return;
-          void loadAnalytics();
-          void loadHeatmapData();
+          void loadAnalytics(true);
+          void loadHeatmapData(true);
         });
       } catch (error) {
         console.error('Failed to subscribe to session updates:', error);
@@ -811,6 +888,21 @@ export function Analytics() {
       <div className="page">
         <div className="container">
           <div className="loading">{t('common.loading')}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError && !data) {
+    return (
+      <div className="page">
+        <div className="container">
+          <div className="analytics-error" role="alert">
+            <p>{loadError}</p>
+            <button type="button" className="range-apply-btn" onClick={() => void loadAnalytics(true)}>
+              {isZh ? '重试' : 'Retry'}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -1033,26 +1125,30 @@ export function Analytics() {
               {/* Heatmap */}
               <section className="analytics-card stats-details heatmap-section">
                 <h2 className="card-header">{isZh ? '休息完成度' : 'Rest Completion'}</h2>
-                <div className="heatmap-container">
-                  <div className="heatmap-grid">
-                    {heatmapData.map((day) => (
-                      <div
-                        key={day.date}
-                        className={`heatmap-cell level-${day.level}`}
-                        title={`${day.date}: ${Math.round((day.completed / Math.max(1, day.count)) * 100)}% (${day.completed}/${day.count})`}
-                      />
-                    ))}
+                {heatmapLoading && heatmapData.length === 0 ? (
+                  <div className="analytics-inline-loading">{t('common.loading')}</div>
+                ) : (
+                  <div className="heatmap-container">
+                    <div className="heatmap-grid">
+                      {heatmapData.map((day) => (
+                        <div
+                          key={day.date}
+                          className={`heatmap-cell level-${day.level}`}
+                          title={`${day.date}: ${Math.round((day.completed / Math.max(1, day.count)) * 100)}% (${day.completed}/${day.count})`}
+                        />
+                      ))}
+                    </div>
+                    <div className="heatmap-legend">
+                      <span>{isZh ? '低' : 'Less'}</span>
+                      <div className="heatmap-cell level-0" />
+                      <div className="heatmap-cell level-1" />
+                      <div className="heatmap-cell level-2" />
+                      <div className="heatmap-cell level-3" />
+                      <div className="heatmap-cell level-4" />
+                      <span>{isZh ? '高' : 'More'}</span>
+                    </div>
                   </div>
-                  <div className="heatmap-legend">
-                    <span>{isZh ? '低' : 'Less'}</span>
-                    <div className="heatmap-cell level-0" />
-                    <div className="heatmap-cell level-1" />
-                    <div className="heatmap-cell level-2" />
-                    <div className="heatmap-cell level-3" />
-                    <div className="heatmap-cell level-4" />
-                    <span>{isZh ? '高' : 'More'}</span>
-                  </div>
-                </div>
+                )}
               </section>
             </div>
           </>

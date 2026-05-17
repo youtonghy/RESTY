@@ -27,6 +27,7 @@
         "alwaysOnTop": false,
         "center": true,
         "skipTaskbar": false,
+        "acceptFirstMouse": true,
         "visible": false
       }
     ],
