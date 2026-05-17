@@ -1430,6 +1430,7 @@ function ClockCard({
   date,
   timezone,
   hour = 3,
+  minute = 0,
   delay = 0,
   tabIndex,
 }: ClockCardProps) {
@@ -1437,10 +1438,74 @@ function ClockCard({
     <FeatureCard
       primary={time}
       label={joinParts([date, timezone])}
-      icon={<ClockIcon hour={hour} />}
+      icon={<ClockIcon hour={hour} minute={minute} />}
       iconTone="clock"
       delay={delay}
       className="clock-card"
+      tabIndex={tabIndex}
+    />
+  );
+}
+
+interface ClockCardRendererProps {
+  instance: CardInstance;
+  now: Date;
+  systemTimeZone: string;
+  language: string;
+  delay?: number;
+  tabIndex?: number;
+}
+
+function ClockCardRenderer({
+  instance,
+  now,
+  systemTimeZone,
+  language,
+  delay = 0,
+  tabIndex,
+}: ClockCardRendererProps) {
+  const settings = instance.settings?.clock;
+  const timeZone = settings?.timeZone ?? systemTimeZone;
+  const use12Hour = settings?.use12Hour ?? false;
+  const formatters = useMemo(
+    () => ({
+      time: new Intl.DateTimeFormat(language, {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: use12Hour,
+        timeZone,
+      }),
+      date: new Intl.DateTimeFormat(language, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        timeZone,
+      }),
+      parts: new Intl.DateTimeFormat("en-US", {
+        hour: "numeric",
+        minute: "numeric",
+        hour12: false,
+        timeZone,
+      }),
+    }),
+    [language, timeZone, use12Hour],
+  );
+  const clockParts = formatters.parts.formatToParts(now);
+  const hour = Number(
+    clockParts.find((part) => part.type === "hour")?.value ?? 0,
+  );
+  const minute = Number(
+    clockParts.find((part) => part.type === "minute")?.value ?? 0,
+  );
+
+  return (
+    <ClockCard
+      time={formatters.time.format(now)}
+      date={formatters.date.format(now)}
+      timezone={timeZone}
+      hour={Number.isFinite(hour) ? hour : 0}
+      minute={Number.isFinite(minute) ? minute : 0}
+      delay={delay}
       tabIndex={tabIndex}
     />
   );
@@ -1472,6 +1537,7 @@ export function Dashboard({
   const setTimerInfo = useAppStore((state) => state.setTimerInfo);
   const flowModeEnabled = useAppStore((state) => state.settings.flowModeEnabled);
   const [now, setNow] = useState(() => new Date());
+  const hasLiveSecondTick = timerState === "running" || Boolean(nextBreakTime);
   const cardTabIndex = isReadOnly ? -1 : 0;
 
   const [cardInstances, setCardInstances] = useState<CardInstance[]>(
@@ -1505,12 +1571,33 @@ export function Dashboard({
   }, [setTimerInfo]);
 
   useEffect(() => {
-    // 每秒刷新一次，确保倒计时显示顺畅
-    const id = window.setInterval(() => {
-      setNow(new Date());
-    }, 1_000);
-    return () => window.clearInterval(id);
-  }, []);
+    if (hasLiveSecondTick) {
+      const id = window.setInterval(() => {
+        setNow(new Date());
+      }, 1_000);
+      return () => window.clearInterval(id);
+    }
+
+    let timeoutId: number | undefined;
+    const scheduleNextMinute = () => {
+      const current = new Date();
+      const delayMs = Math.max(
+        1_000,
+        60_000 - current.getSeconds() * 1_000 - current.getMilliseconds(),
+      );
+      timeoutId = window.setTimeout(() => {
+        setNow(new Date());
+        scheduleNextMinute();
+      }, delayMs);
+    };
+
+    scheduleNextMinute();
+    return () => {
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [hasLiveSecondTick]);
 
   const dateKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
 
@@ -1857,8 +1944,7 @@ export function Dashboard({
             ? baseWidth
             : previous.trackWidth || FALLBACK_TRACK_SIZE;
         const trackSize = Math.max(1, Math.floor(candidate));
-
-        return {
+        const next = {
           trackWidth: trackSize,
           trackHeight: trackSize,
           columnGap,
@@ -1866,6 +1952,15 @@ export function Dashboard({
           columnSpan: trackSize + columnGap,
           rowSpan: trackSize + rowGap,
         };
+
+        return previous.trackWidth === next.trackWidth &&
+          previous.trackHeight === next.trackHeight &&
+          previous.columnGap === next.columnGap &&
+          previous.rowGap === next.rowGap &&
+          previous.columnSpan === next.columnSpan &&
+          previous.rowSpan === next.rowSpan
+          ? previous
+          : next;
       });
     });
 
@@ -1950,51 +2045,16 @@ export function Dashboard({
       clock: {
         minW: CARD_LIMITS.clock.minW,
         minH: CARD_LIMITS.clock.minH,
-        render: (instance, delay: number) => {
-          const settings = instance.settings?.clock;
-          const selectedTimeZone = settings?.timeZone;
-          const use12Hour = settings?.use12Hour ?? false;
-          const timeZone = selectedTimeZone ?? systemTimeZone;
-          const timeFormatterWithZone = new Intl.DateTimeFormat(i18n.language, {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: use12Hour,
-            timeZone,
-          });
-          const dateFormatterWithZone = new Intl.DateTimeFormat(i18n.language, {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-            timeZone,
-          });
-          const timeString = timeFormatterWithZone.format(now);
-          const dateString = dateFormatterWithZone.format(now);
-
-          const hourFormatter = new Intl.DateTimeFormat("en-US", {
-            hour: "numeric",
-            hour12: false,
-            timeZone,
-          });
-          const hour = parseInt(hourFormatter.format(now), 10);
-
-          const minuteFormatter = new Intl.DateTimeFormat("en-US", {
-            minute: "numeric",
-            timeZone,
-          });
-          const minute = parseInt(minuteFormatter.format(now), 10);
-
-          return (
-            <ClockCard
-              time={timeString}
-              date={dateString}
-              timezone={timeZone}
-              hour={hour}
-              minute={minute}
-              delay={delay}
-              tabIndex={cardTabIndex}
-            />
-          );
-        },
+        render: (instance, delay: number) => (
+          <ClockCardRenderer
+            instance={instance}
+            now={now}
+            systemTimeZone={systemTimeZone}
+            language={i18n.language}
+            delay={delay}
+            tabIndex={cardTabIndex}
+          />
+        ),
       },
     }),
     [

@@ -11,6 +11,14 @@ import {
 const cloneSegments = (segments: Settings['workSegments']) =>
   segments.map((segment) => ({ ...segment }));
 
+const timerInfoEqual = (a: TimerInfo, b: TimerInfo) =>
+  a.phase === b.phase &&
+  a.state === b.state &&
+  a.remainingSeconds === b.remainingSeconds &&
+  a.totalSeconds === b.totalSeconds &&
+  a.nextTransitionTime === b.nextTransitionTime &&
+  (a.nextBreakTime ?? null) === (b.nextBreakTime ?? null);
+
 /**
  * 全局应用状态定义：封装设置与计时器信息，供各 React 组件共享。
  */
@@ -77,7 +85,10 @@ export const useAppStore = create<AppStore>((set) => ({
     nextTransitionTime: null,
   },
   setTimerInfo: (info) =>
-    set((state) => ({
-      timerInfo: { ...state.timerInfo, ...info },
-    })),
+    set((state) => {
+      const next = { ...state.timerInfo, ...info };
+      return timerInfoEqual(state.timerInfo, next)
+        ? state
+        : { timerInfo: next };
+    }),
 }));

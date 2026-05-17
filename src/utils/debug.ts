@@ -86,4 +86,35 @@ export const installFrontendDebugHooks = () => {
       reason: event.reason,
     });
   });
+
+  let lastBeat = performance.now();
+  window.setInterval(() => {
+    const now = performance.now();
+    const driftMs = Math.round(now - lastBeat - 1_000);
+    lastBeat = now;
+    if (driftMs > 250) {
+      debugWarn('webview', 'main thread heartbeat delayed', { driftMs });
+    }
+  }, 1_000);
+
+  try {
+    if (
+      typeof PerformanceObserver !== 'undefined' &&
+      PerformanceObserver.supportedEntryTypes?.includes('longtask')
+    ) {
+      const observer = new PerformanceObserver((list) => {
+        list.getEntries().forEach((entry) => {
+          if (entry.duration > 250) {
+            debugWarn('webview', 'long task detected', {
+              durationMs: Math.round(entry.duration),
+              startTimeMs: Math.round(entry.startTime),
+            });
+          }
+        });
+      });
+      observer.observe({ type: 'longtask', buffered: true });
+    }
+  } catch {
+    // Long task observation is optional and not supported by every WebView.
+  }
 };
