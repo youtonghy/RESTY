@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Instant, SystemTime};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 /// Shared application state for Tauri commands.
@@ -231,21 +231,61 @@ pub async fn get_analytics(
     query: AnalyticsQuery,
     state: State<'_, AppState>,
 ) -> Result<AnalyticsData, String> {
-    state
+    #[cfg(debug_assertions)]
+    let started_at = {
+        eprintln!(
+            "[RESTY backend][{}][get_analytics] start {} -> {}",
+            Utc::now().to_rfc3339(),
+            query.start_date,
+            query.end_date
+        );
+        SystemTime::now()
+    };
+
+    let result = state
         .database_service
         .get_analytics(&query)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string());
+
+    #[cfg(debug_assertions)]
+    eprintln!(
+        "[RESTY backend][{}][get_analytics] done elapsed_ms={} result={}",
+        Utc::now().to_rfc3339(),
+        started_at.elapsed().map(|duration| duration.as_millis()).unwrap_or(0),
+        if result.is_ok() { "ok" } else { "err" }
+    );
+
+    result
 }
 
 /// Get sessions time bounds
 #[tauri::command]
 pub async fn get_sessions_bounds(state: State<'_, AppState>) -> Result<SessionsBounds, String> {
-    state
+    #[cfg(debug_assertions)]
+    let started_at = {
+        eprintln!(
+            "[RESTY backend][{}][get_sessions_bounds] start",
+            Utc::now().to_rfc3339()
+        );
+        SystemTime::now()
+    };
+
+    let result = state
         .database_service
         .get_sessions_bounds()
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string());
+
+    #[cfg(debug_assertions)]
+    eprintln!(
+        "[RESTY backend][{}][get_sessions_bounds] done elapsed_ms={} result={}",
+        Utc::now().to_rfc3339(),
+        started_at.elapsed().map(|duration| duration.as_millis()).unwrap_or(0),
+        if result.is_ok() { "ok" } else { "err" }
+    );
+
+    result
 }
 
 /// Clear analytics session data

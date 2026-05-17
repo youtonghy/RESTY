@@ -16,12 +16,20 @@ import type {
 } from '../types';
 
 const SLOW_COMMAND_MS = 500;
+const PENDING_COMMAND_MS = 1_000;
 
 const invokeWithDebug = async <T>(
   command: string,
   args?: Record<string, unknown>
 ): Promise<T> => {
   const startedAt = performance.now();
+  const pendingTimer = window.setTimeout(() => {
+    debugLog('api', `${command} still pending`, {
+      durationMs: Math.round(performance.now() - startedAt),
+      args,
+    });
+  }, PENDING_COMMAND_MS);
+
   try {
     const result = await invoke<T>(command, args);
     const durationMs = Math.round(performance.now() - startedAt);
@@ -36,6 +44,8 @@ const invokeWithDebug = async <T>(
       error,
     });
     throw error;
+  } finally {
+    window.clearTimeout(pendingTimer);
   }
 };
 

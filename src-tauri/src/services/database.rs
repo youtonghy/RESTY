@@ -6,7 +6,7 @@ use crate::utils::{AppError, AppResult};
 use chrono::Utc;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 const ACHIEVEMENT_FIRST_BREAK: &str = "first_break";
 const ACHIEVEMENT_FIRST_WORK: &str = "first_work";
@@ -68,7 +68,7 @@ fn break_hour_thresholds(total_seconds: i64) -> Vec<i64> {
 pub struct DatabaseService {
     app: AppHandle,
     settings: Mutex<Settings>,
-    sessions: Mutex<Vec<Session>>,
+    sessions: RwLock<Vec<Session>>,
     achievements: Mutex<Vec<AchievementUnlock>>,
     data_dir: PathBuf,
 }
@@ -86,7 +86,7 @@ impl DatabaseService {
         Self {
             app,
             settings: Mutex::new(Settings::default()),
-            sessions: Mutex::new(Vec::new()),
+            sessions: RwLock::new(Vec::new()),
             achievements: Mutex::new(Vec::new()),
             data_dir,
         }
@@ -163,7 +163,7 @@ impl DatabaseService {
             let loaded_sessions: Vec<Session> = serde_json::from_str(&content)
                 .map_err(|e| AppError::DatabaseError(format!("Failed to parse sessions: {}", e)))?;
 
-            let mut sessions = self.sessions.lock().await;
+            let mut sessions = self.sessions.write().await;
             *sessions = loaded_sessions;
         }
 
@@ -273,6 +273,17 @@ impl DatabaseService {
         Ok(())
     }
 
+    fn persist_sessions(&self, sessions: &[Session]) -> AppResult<()> {
+        let json = serde_json::to_string_pretty(sessions)
+            .map_err(|e| AppError::DatabaseError(format!("Failed to serialize sessions: {}", e)))?;
+
+        std::fs::write(self.sessions_file(), json).map_err(|e| {
+            AppError::DatabaseError(format!("Failed to write sessions file: {}", e))
+        })?;
+
+        Ok(())
+    }
+
     async fn unlock_achievement(&self, id: &str) -> AppResult<Option<AchievementUnlock>> {
         let mut achievements = self.achievements.lock().await;
         if achievements.iter().any(|item| item.id == id) {
@@ -330,7 +341,7 @@ impl DatabaseService {
 
     async fn reconcile_achievements(&self) -> AppResult<()> {
         let sessions_snapshot = {
-            let sessions = self.sessions.lock().await;
+            let sessions = self.sessions.read().await;
             sessions.clone()
         };
         let settings_snapshot = {
@@ -365,23 +376,17 @@ impl DatabaseService {
     }
 
     pub async fn get_sessions(&self) -> AppResult<Vec<Session>> {
-        let sessions = self.sessions.lock().await;
+        let sessions = self.sessions.read().await;
         Ok(sessions.clone())
     }
 
     pub async fn replace_sessions(&self, sessions: Vec<Session>) -> AppResult<()> {
-        let json = serde_json::to_string_pretty(&sessions).map_err(|e| {
-            AppError::DatabaseError(format!("Failed to serialize sessions: {}", e))
-        })?;
-
         {
-            let mut stored = self.sessions.lock().await;
+            let mut stored = self.sessions.write().await;
             *stored = sessions.clone();
         }
 
-        std::fs::write(self.sessions_file(), json).map_err(|e| {
-            AppError::DatabaseError(format!("Failed to write sessions file: {}", e))
-        })?;
+        self.persist_sessions(&sessions)?;
 
         Ok(())
     }
@@ -407,7 +412,7 @@ impl DatabaseService {
         }
 
         let sessions_snapshot = {
-            let sessions = self.sessions.lock().await;
+            let sessions = self.sessions.read().await;
             sessions.clone()
         };
         self.unlock_duration_achievements(&sessions_snapshot, normalized.more_rest_enabled)
@@ -521,18 +526,13 @@ impl DatabaseService {
     /// 追加会话记录并写入 `sessions.json`。
     pub async fn save_session(&self, session: &Session) -> AppResult<()> {
         let sessions_snapshot = {
-            let mut sessions = self.sessions.lock().await;
+            let mut sessions = self.sessions.write().await;
             sessions.push(session.clone());
-
-            let json = serde_json::to_string_pretty(&*sessions)
-                .map_err(|e| AppError::DatabaseError(format!("Failed to serialize sessions: {}", e)))?;
-
-            std::fs::write(self.sessions_file(), json).map_err(|e| {
-                AppError::DatabaseError(format!("Failed to write sessions file: {}", e))
-            })?;
-
             sessions.clone()
         };
+
+        self.persist_sessions(&sessions_snapshot)?;
+
         let settings_snapshot = {
             let settings = self.settings.lock().await;
             settings.clone()
@@ -552,7 +552,7 @@ impl DatabaseService {
     /// 如果已存在相同 `id` 的会话，则更新其字段；否则追加。
     pub async fn save_or_update_session(&self, session: &Session) -> AppResult<()> {
         let sessions_snapshot = {
-            let mut sessions = self.sessions.lock().await;
+            let mut sessions = self.sessions.write().await;
 
             if let Some(existing) = sessions.iter_mut().find(|s| s.id == session.id) {
                 *existing = session.clone();
@@ -560,15 +560,11 @@ impl DatabaseService {
                 sessions.push(session.clone());
             }
 
-            let json = serde_json::to_string_pretty(&*sessions)
-                .map_err(|e| AppError::DatabaseError(format!("Failed to serialize sessions: {}", e)))?;
-
-            std::fs::write(self.sessions_file(), json).map_err(|e| {
-                AppError::DatabaseError(format!("Failed to write sessions file: {}", e))
-            })?;
-
             sessions.clone()
         };
+
+        self.persist_sessions(&sessions_snapshot)?;
+
         let settings_snapshot = {
             let settings = self.settings.lock().await;
             settings.clone()
@@ -588,16 +584,11 @@ impl DatabaseService {
     pub async fn clear_sessions(&self) -> AppResult<()> {
         let empty: Vec<Session> = Vec::new();
         {
-            let mut sessions = self.sessions.lock().await;
+            let mut sessions = self.sessions.write().await;
             *sessions = empty.clone();
         }
 
-        let json = serde_json::to_string_pretty(&empty)
-            .map_err(|e| AppError::DatabaseError(format!("Failed to serialize sessions: {}", e)))?;
-
-        std::fs::write(self.sessions_file(), json).map_err(|e| {
-            AppError::DatabaseError(format!("Failed to write sessions file: {}", e))
-        })?;
+        self.persist_sessions(&empty)?;
 
         Ok(())
     }
@@ -605,14 +596,17 @@ impl DatabaseService {
     /// Get analytics data for a date range
     /// 按时间区间筛选会话，计算统计指标。
     pub async fn get_analytics(&self, query: &AnalyticsQuery) -> AppResult<AnalyticsData> {
-        let sessions = self.sessions.lock().await;
+        let filtered: Vec<Session> = {
+            let sessions = self.sessions.read().await;
 
-        // Filter sessions by overlap with date range [start_date, end_date]
-        // 选择与区间有任意重叠的会话（而非仅按开始时间落在区间内）
-        let filtered: Vec<&Session> = sessions
-            .iter()
-            .filter(|s| s.end_time >= query.start_date && s.start_time <= query.end_date)
-            .collect();
+            // Filter sessions by overlap with date range [start_date, end_date]
+            // 选择与区间有任意重叠的会话（而非仅按开始时间落在区间内）
+            sessions
+                .iter()
+                .filter(|s| s.end_time >= query.start_date && s.start_time <= query.end_date)
+                .cloned()
+                .collect()
+        };
 
         // Calculate statistics
         let total_work_seconds: i64 = filtered
@@ -650,14 +644,14 @@ impl DatabaseService {
             break_count,
             completed_breaks,
             skipped_breaks,
-            sessions: filtered.iter().map(|s| (*s).clone()).collect(),
+            sessions: filtered,
         })
     }
 
     /// Get sessions time bounds
     /// 获取会话数据的时间范围（最早开始/最晚结束）。
     pub async fn get_sessions_bounds(&self) -> AppResult<SessionsBounds> {
-        let sessions = self.sessions.lock().await;
+        let sessions = self.sessions.read().await;
         let earliest_start = sessions.iter().map(|s| s.start_time).min();
         let latest_end = sessions.iter().map(|s| s.end_time).max();
         Ok(SessionsBounds {
