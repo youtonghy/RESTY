@@ -189,10 +189,12 @@ function App() {
       useAppStore.getState().setSettings(normalizedSettings);
       await changeLanguage(normalizedLanguage);
 
-      // Sync autostart with persisted setting
-      api.setAutostart(loaded.autostart).catch((error) => {
-        console.error('Failed to sync autostart on init:', error);
-      });
+      if (!import.meta.env.DEV) {
+        // Sync autostart with persisted setting outside dev to keep startup responsive.
+        api.setAutostart(loaded.autostart).catch((error) => {
+          console.error('Failed to sync autostart on init:', error);
+        });
+      }
 
       // Ensure main window is visible after frontend initialization (skip for reminder window)
       // This is a fallback in case backend setup didn't show the window
@@ -415,6 +417,10 @@ function App() {
 
   useEffect(() => {
     if (isSpecialWindow) return;
+    if (import.meta.env.DEV) {
+      debugLog('updates', 'skip update check in dev');
+      return;
+    }
 
     const checkForUpdates = async () => {
       try {
