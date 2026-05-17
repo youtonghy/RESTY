@@ -111,6 +111,54 @@ const formatCountdown = (ms: number) => {
   return `${pad2(minutes)}:${pad2(seconds)}`;
 };
 
+const formatCountdownDateTimeInput = (date: Date) => {
+  const year = date.getFullYear();
+  const month = pad2(date.getMonth() + 1);
+  const day = pad2(date.getDate());
+  const hours = pad2(date.getHours());
+  const minutes = pad2(date.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+const parseDateTimeInput = (value: string): string | null => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+};
+
+const formatCountdownTargetLabel = (
+  targetAt: string | null,
+  language: string,
+  fallback: string,
+) => {
+  if (!targetAt) return fallback;
+  const target = new Date(targetAt);
+  if (Number.isNaN(target.getTime())) return fallback;
+  return new Intl.DateTimeFormat(language, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(target);
+};
+
+const getCountdownParts = (targetAt: string | null, now: Date) => {
+  if (!targetAt) return null;
+  const target = new Date(targetAt);
+  if (Number.isNaN(target.getTime())) return null;
+  const diffMs = target.getTime() - now.getTime();
+  const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+  const days = Math.floor(totalSeconds / 86_400);
+  const hours = Math.floor((totalSeconds % 86_400) / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+  return {
+    days,
+    hours,
+    minutes,
+    isExpired: diffMs <= 0,
+  };
+};
+
 const getStartOfWeek = (date: Date) => {
   const start = new Date(date);
   start.setHours(0, 0, 0, 0);
@@ -172,7 +220,7 @@ const generateTip = (pool: string[], fallback: string): string => {
   return pool[randomIndex] ?? fallback;
 };
 
-type CardId = "status" | "next" | "progress" | "tips" | "clock";
+type CardId = "status" | "next" | "progress" | "tips" | "clock" | "countdown";
 
 type ProgressScope = "day" | "week" | "month" | "year";
 type ProgressPalette = "warm" | "cool";
@@ -271,10 +319,16 @@ interface ProgressCardSettings {
   palette?: ProgressPalette;
 }
 
+interface CountdownCardSettings {
+  title: string;
+  targetAt: string | null;
+}
+
 interface CardSettings {
   clock?: ClockCardSettings;
   tips?: TipsCardSettings;
   progress?: ProgressCardSettings;
+  countdown?: CountdownCardSettings;
 }
 
 interface CardInstance {
@@ -298,7 +352,14 @@ interface GridMetrics {
 const GRID_COLUMNS = 12;
 const BASE_SPAN = 2;
 const FALLBACK_TRACK_SIZE = 120;
-const CARD_ORDER: CardId[] = ["status", "next", "progress", "tips", "clock"];
+const CARD_ORDER: CardId[] = [
+  "status",
+  "next",
+  "progress",
+  "tips",
+  "clock",
+  "countdown",
+];
 const MAX_GRID_ROWS = 120;
 const CARD_STORAGE_KEY = "resty.dashboard.cards.v2";
 interface CardStylePreset {
@@ -389,6 +450,25 @@ const sanitizeProgressSettings = (
   return { scope, palette };
 };
 
+const sanitizeCountdownSettings = (
+  settings: unknown,
+): CountdownCardSettings | undefined => {
+  if (!settings || typeof settings !== "object") return undefined;
+  const raw = settings as Partial<CountdownCardSettings> &
+    Record<string, unknown>;
+  const title =
+    typeof raw.title === "string" ? raw.title.trim().slice(0, 80) : "";
+  const targetAt =
+    typeof raw.targetAt === "string" &&
+    !Number.isNaN(new Date(raw.targetAt).getTime())
+      ? raw.targetAt
+      : null;
+  if (!title && !targetAt) {
+    return undefined;
+  }
+  return { title, targetAt };
+};
+
 const sanitizeCardSettings = (settings: unknown): CardSettings | undefined => {
   if (!settings || typeof settings !== "object") return undefined;
   const clock = sanitizeClockSettings((settings as CardSettings).clock);
@@ -396,13 +476,17 @@ const sanitizeCardSettings = (settings: unknown): CardSettings | undefined => {
   const progress = sanitizeProgressSettings(
     (settings as CardSettings).progress,
   );
-  if (!clock && !tips && !progress) {
+  const countdown = sanitizeCountdownSettings(
+    (settings as CardSettings).countdown,
+  );
+  if (!clock && !tips && !progress && !countdown) {
     return undefined;
   }
   return {
     ...(clock ? { clock } : undefined),
     ...(tips ? { tips } : undefined),
     ...(progress ? { progress } : undefined),
+    ...(countdown ? { countdown } : undefined),
   };
 };
 const CARD_LIMITS: Record<
@@ -434,6 +518,11 @@ const CARD_LIMITS: Record<
     minH: BASE_SPAN,
     initial: { x: BASE_SPAN * 2, y: BASE_SPAN, w: BASE_SPAN * 2, h: BASE_SPAN },
   },
+  countdown: {
+    minW: BASE_SPAN * 2,
+    minH: BASE_SPAN,
+    initial: { x: BASE_SPAN * 4, y: BASE_SPAN, w: BASE_SPAN * 2, h: BASE_SPAN },
+  },
 };
 const CARD_STYLE_PRESETS: Record<CardId, CardStylePreset[]> = {
   status: [],
@@ -441,6 +530,7 @@ const CARD_STYLE_PRESETS: Record<CardId, CardStylePreset[]> = {
   progress: [],
   tips: [],
   clock: [],
+  countdown: [],
 };
 const PROGRESS_PRESETS: Array<{ scope: ProgressScope; layout: LayoutItem }> = [
   {
@@ -594,6 +684,13 @@ const createInitialInstances = (): CardInstance[] => {
       styleId: null,
       settings: undefined,
     },
+    {
+      instanceId: "countdown-0",
+      type: "countdown",
+      layout: { ...CARD_LIMITS.countdown.initial },
+      styleId: null,
+      settings: undefined,
+    },
   );
 
   return instances;
@@ -643,12 +740,20 @@ const settingsEqual = (a?: CardSettings, b?: CardSettings) => {
   const bScope = bp?.scope ?? null;
   const aPalette = ap?.palette ?? "cool";
   const bPalette = bp?.palette ?? "cool";
+  const ad = a?.countdown;
+  const bd = b?.countdown;
+  const aCountdownTitle = ad?.title ?? "";
+  const bCountdownTitle = bd?.title ?? "";
+  const aCountdownTarget = ad?.targetAt ?? null;
+  const bCountdownTarget = bd?.targetAt ?? null;
   return (
     aZone === bZone &&
     aMode === bMode &&
     aSource === bSource &&
     aScope === bScope &&
-    aPalette === bPalette
+    aPalette === bPalette &&
+    aCountdownTitle === bCountdownTitle &&
+    aCountdownTarget === bCountdownTarget
   );
 };
 
@@ -892,6 +997,30 @@ const ProgressIcon = ({ progress = 0, ...props }: ProgressIconProps) => {
   );
 };
 
+const CountdownIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    width="100%"
+    height="100%"
+    stroke="currentColor"
+    strokeWidth={1.5}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    focusable="false"
+    {...props}
+  >
+    <path d="M8 2H16" />
+    <path d="M12 14L15 11" />
+    <path d="M12 8V14" />
+    <path d="M19.5 9.5L21 8" />
+    <path d="M4.5 9.5L3 8" />
+    <path d="M12 22C16.4183 22 20 18.4183 20 14C20 9.58172 16.4183 6 12 6C7.58172 6 4 9.58172 4 14C4 18.4183 7.58172 22 12 22Z" />
+  </svg>
+);
+
 const NextSessionIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg
     viewBox="0 0 24 24"
@@ -929,6 +1058,7 @@ interface FeatureCardProps {
     | "offline"
     | "clock"
     | "progress"
+    | "countdown"
     | "neutral";
   delay?: number;
   children?: ReactNode;
@@ -1511,6 +1641,83 @@ function ClockCardRenderer({
   );
 }
 
+interface CountdownCardRendererProps {
+  instance: CardInstance;
+  now: Date;
+  language: string;
+  delay?: number;
+  tabIndex?: number;
+  onActivate?: () => void;
+}
+
+function CountdownCardRenderer({
+  instance,
+  now,
+  language,
+  delay = 0,
+  tabIndex,
+  onActivate,
+}: CountdownCardRendererProps) {
+  const { t, i18n } = useTranslation();
+  const isZh = i18n.language.startsWith("zh");
+  const settings = instance.settings?.countdown;
+  const title = settings?.title?.trim();
+  const parts = getCountdownParts(settings?.targetAt ?? null, now);
+  const titleFallback = t("dashboard.countdown.defaultTitle", {
+    defaultValue: isZh ? "倒计时" : "Countdown",
+  });
+  const unsetLabel = t("dashboard.countdown.unset", {
+    defaultValue: isZh ? "点击设置日期时间" : "Click to set date and time",
+  });
+  const expiredLabel = t("dashboard.countdown.expired", {
+    defaultValue: isZh ? "已到期" : "Expired",
+  });
+  const targetLabel = formatCountdownTargetLabel(
+    settings?.targetAt ?? null,
+    language,
+    unsetLabel,
+  );
+
+  const primary = parts
+    ? parts.isExpired
+      ? expiredLabel
+      : t("dashboard.countdown.remaining", {
+          defaultValue: isZh
+            ? "{{days}}天 {{hours}}小时 {{minutes}}分"
+            : "{{days}}d {{hours}}h {{minutes}}m",
+          days: parts.days,
+          hours: parts.hours,
+          minutes: parts.minutes,
+        })
+    : unsetLabel;
+
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (!onActivate) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onActivate();
+    }
+  };
+
+  return (
+    <FeatureCard
+      primary={primary}
+      label={joinParts([title || titleFallback, targetLabel])}
+      icon={<CountdownIcon />}
+      iconTone="countdown"
+      delay={delay}
+      className="countdown-card tile-card-actionable"
+      tabIndex={tabIndex}
+      role="button"
+      ariaLabel={t("dashboard.countdown.openSettings", {
+        defaultValue: isZh ? "设置倒计时" : "Configure countdown",
+      })}
+      onClick={onActivate}
+      onKeyDown={handleKeyDown}
+    />
+  );
+}
+
 interface DashboardProps {
   isReadOnly?: boolean;
   nextCardAction?: {
@@ -1556,6 +1763,9 @@ export function Dashboard({
   const [isAddMenuOpen, setAddMenuOpen] = useState(false);
   const addMenuRef = useRef<HTMLDivElement | null>(null);
   const addButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [activeSettingsCardId, setActiveSettingsCardId] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     persistCards(cardInstances);
@@ -2056,6 +2266,20 @@ export function Dashboard({
           />
         ),
       },
+      countdown: {
+        minW: CARD_LIMITS.countdown.minW,
+        minH: CARD_LIMITS.countdown.minH,
+        render: (instance, delay: number) => (
+          <CountdownCardRenderer
+            instance={instance}
+            now={now}
+            language={i18n.language}
+            delay={delay}
+            tabIndex={cardTabIndex}
+            onActivate={() => setActiveSettingsCardId(instance.instanceId)}
+          />
+        ),
+      },
     }),
     [
       cardTabIndex,
@@ -2071,7 +2295,7 @@ export function Dashboard({
       progressScopeData,
       statusContent,
       systemTimeZone,
-      isZh,
+      setActiveSettingsCardId,
     ],
   );
 
@@ -2092,6 +2316,9 @@ export function Dashboard({
       clock: t("dashboard.cardNames.clock", {
         defaultValue: isZh ? "当前时间" : "Clock",
       }),
+      countdown: t("dashboard.cardNames.countdown", {
+        defaultValue: isZh ? "倒计时" : "Countdown",
+      }),
     }),
     [t, isZh],
   );
@@ -2105,14 +2332,119 @@ export function Dashboard({
       : `Remove ${cardLabels[card.type]}`;
     const noStyleLabel = isZh ? "暂无更多样式" : "No additional styles";
     const resetStyleLabel = isZh ? "恢复默认样式" : "Use default style";
-    const styleModalTitle = isZh ? "自定义卡片样式" : "Customize card style";
+    const styleModalTitle =
+      card.type === "countdown"
+        ? t("dashboard.countdown.settingsTitle", {
+            defaultValue: isZh ? "设置倒计时" : "Configure countdown",
+          })
+        : isZh
+          ? "自定义卡片样式"
+          : "Customize card style";
     const styleModalCloseLabel = isZh ? "关闭" : "Close";
     const isActionable =
       isReadOnly &&
-      card.type === "next" &&
-      (typeof nextCardAction?.onActivate === "function" ||
-        nextCardAction?.splitActions?.enabled === true);
+      ((card.type === "next" &&
+        (typeof nextCardAction?.onActivate === "function" ||
+          nextCardAction?.splitActions?.enabled === true)) ||
+        card.type === "countdown");
     let renderCustomContent: ((close: () => void) => ReactNode) | undefined;
+
+    if (card.type === "countdown") {
+      const countdownSettings = card.settings?.countdown;
+      const titleLabel = t("dashboard.countdown.fields.title", {
+        defaultValue: isZh ? "标题" : "Title",
+      });
+      const targetLabel = t("dashboard.countdown.fields.targetAt", {
+        defaultValue: isZh ? "到期日期和时间" : "Target date and time",
+      });
+      const placeholderTitle = t("dashboard.countdown.defaultTitle", {
+        defaultValue: isZh ? "倒计时" : "Countdown",
+      });
+      const clearLabel = t("dashboard.countdown.clear", {
+        defaultValue: isZh ? "清除倒计时" : "Clear countdown",
+      });
+      const countdownDefaults: CountdownCardSettings = {
+        title: "",
+        targetAt: null,
+      };
+
+      const updateCountdownSettings = (
+        updater: (prev: CountdownCardSettings) => CountdownCardSettings,
+      ) => {
+        handleUpdateSettings(card.instanceId, (prev) => {
+          const base = prev?.countdown ?? countdownDefaults;
+          const next = updater({ ...base });
+          const normalized: CountdownCardSettings = {
+            title: next.title.trim().slice(0, 80),
+            targetAt:
+              next.targetAt && !Number.isNaN(new Date(next.targetAt).getTime())
+                ? next.targetAt
+                : null,
+          };
+          if (!normalized.title && !normalized.targetAt) {
+            if (!prev) return undefined;
+            const { countdown: _omit, ...rest } = prev;
+            return Object.keys(rest).length ? rest : undefined;
+          }
+          return { ...(prev ?? {}), countdown: normalized };
+        });
+      };
+
+      renderCustomContent = (close) => (
+        <div className="card-style-custom">
+          <label className="card-style-field">
+            <span className="card-style-field-label">{titleLabel}</span>
+            <input
+              className="card-style-input"
+              type="text"
+              value={countdownSettings?.title ?? ""}
+              maxLength={80}
+              placeholder={placeholderTitle}
+              onChange={(event) => {
+                updateCountdownSettings((prevCountdown) => ({
+                  ...prevCountdown,
+                  title: event.target.value,
+                }));
+              }}
+            />
+          </label>
+          <label className="card-style-field">
+            <span className="card-style-field-label">{targetLabel}</span>
+            <input
+              className="card-style-input"
+              type="datetime-local"
+              value={
+                countdownSettings?.targetAt
+                  ? formatCountdownDateTimeInput(
+                      new Date(countdownSettings.targetAt),
+                    )
+                  : ""
+              }
+              onChange={(event) => {
+                updateCountdownSettings((prevCountdown) => ({
+                  ...prevCountdown,
+                  targetAt: parseDateTimeInput(event.target.value),
+                }));
+              }}
+            />
+          </label>
+          <button
+            type="button"
+            className="card-style-menu-item"
+            onClick={() => {
+              handleUpdateSettings(card.instanceId, (prev) => {
+                if (!prev) return undefined;
+                const { countdown: _omit, ...rest } = prev;
+                return Object.keys(rest).length ? rest : undefined;
+              });
+              close();
+            }}
+          >
+            {clearLabel}
+          </button>
+        </div>
+      );
+    }
 
     if (card.type === "clock") {
       const clockSettings = card.settings?.clock;
@@ -2487,6 +2819,16 @@ export function Dashboard({
         renderCustomContent={renderCustomContent}
         isInteractive={!isReadOnly}
         isActionable={isActionable}
+        isStyleMenuOpen={
+          card.type === "countdown"
+            ? activeSettingsCardId === card.instanceId
+            : undefined
+        }
+        onStyleMenuClose={
+          card.type === "countdown"
+            ? () => setActiveSettingsCardId(null)
+            : undefined
+        }
       >
         {config.render(card, delay)}
       </DraggableCard>
@@ -2562,6 +2904,8 @@ interface DraggableCardProps {
   renderCustomContent?: (close: () => void) => ReactNode;
   isInteractive?: boolean;
   isActionable?: boolean;
+  isStyleMenuOpen?: boolean;
+  onStyleMenuClose?: () => void;
 }
 
 // 拖拽卡片容器：负责拖动、缩放与样式弹窗
@@ -2585,6 +2929,8 @@ function DraggableCard({
   minH,
   isInteractive = true,
   isActionable = false,
+  isStyleMenuOpen,
+  onStyleMenuClose,
 }: DraggableCardProps) {
   const [mode, setMode] = useState<"idle" | "dragging" | "resizing">("idle");
   const [styleMenuOpen, setStyleMenuOpen] = useState(false);
@@ -2599,8 +2945,15 @@ function DraggableCard({
 
   const closeStyleMenu = useCallback(() => {
     setStyleMenuOpen(false);
+    onStyleMenuClose?.();
     dragIntentRef.current = false;
-  }, []);
+  }, [onStyleMenuClose]);
+
+  useEffect(() => {
+    if (isStyleMenuOpen !== undefined) {
+      setStyleMenuOpen(isStyleMenuOpen);
+    }
+  }, [isStyleMenuOpen]);
 
   useEffect(() => {
     if (!styleMenuOpen) return;
@@ -2714,6 +3067,7 @@ function DraggableCard({
         }
         setMode("idle");
         if (!dragIntentRef.current) {
+          onStyleMenuClose?.();
           setStyleMenuOpen(true);
         }
       };
@@ -2722,7 +3076,7 @@ function DraggableCard({
       node.addEventListener("pointerup", handleEnd, { once: true });
       node.addEventListener("pointercancel", handleEnd, { once: true });
     },
-    [applyWithBounds, closeStyleMenu, item, metrics, mode],
+    [applyWithBounds, closeStyleMenu, item, metrics, mode, onStyleMenuClose],
   );
 
   const handleResizeStart = useCallback(

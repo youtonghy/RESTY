@@ -408,6 +408,22 @@
   font-size: 0.95rem;
 }
 
+.card-style-input {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-muted, var(--color-surface));
+  padding: 9px 10px;
+  color: var(--color-text-primary);
+  font-size: 0.95rem;
+}
+
+.card-style-input:focus-visible {
+  outline: 2px solid rgba(94, 160, 255, 0.6);
+  outline-offset: 2px;
+}
+
 .card-style-radio-group {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -805,6 +821,10 @@
   color: var(--progress-icon-color, #8b5cf6);
 }
 
+.tile-icon--countdown {
+  color: #f97316;
+}
+
 .tile-icon--paused {
   color: var(--color-warning);
 }
@@ -864,6 +884,11 @@
   font-size: clamp(1rem, 1.6vw, 1.1rem);
   line-height: 1.6;
   color: var(--color-text-primary);
+}
+
+.countdown-card .tile-primary {
+  font-size: clamp(1.45rem, 2.4vw, 2.2rem);
+  line-height: 1.15;
 }
 
 

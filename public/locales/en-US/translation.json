@@ -355,6 +355,27 @@
     "nextBreakAt": "Next break at {{time}}",
     "nextWorkAt": "Next work at {{time}}",
     "nextEventUnavailable": "Schedule pending",
+    "cardNames": {
+      "status": "Focus status",
+      "next": "Next session",
+      "progress": "Progress card",
+      "tips": "Tips card",
+      "clock": "Clock",
+      "countdown": "Countdown"
+    },
+    "countdown": {
+      "defaultTitle": "Countdown",
+      "unset": "Click to set date and time",
+      "expired": "Expired",
+      "remaining": "{{days}}d {{hours}}h {{minutes}}m",
+      "openSettings": "Configure countdown",
+      "settingsTitle": "Configure countdown",
+      "clear": "Clear countdown",
+      "fields": {
+        "title": "Title",
+        "targetAt": "Target date and time"
+      }
+    },
     "tips": {
       "sourceLabel": "Content source",
       "source": {

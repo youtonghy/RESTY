@@ -354,6 +354,27 @@
     "nextBreakAt": "下次休息時間 {{time}}",
     "nextWorkAt": "下次開始工作 {{time}}",
     "nextEventUnavailable": "暫無排程資訊",
+    "cardNames": {
+      "status": "專注狀態",
+      "next": "下次節奏",
+      "progress": "進度卡片",
+      "tips": "貼士卡片",
+      "clock": "目前時間",
+      "countdown": "倒數計時"
+    },
+    "countdown": {
+      "defaultTitle": "倒數計時",
+      "unset": "點擊設定日期時間",
+      "expired": "已到期",
+      "remaining": "{{days}}天 {{hours}}小時 {{minutes}}分",
+      "openSettings": "設定倒數計時",
+      "settingsTitle": "設定倒數計時",
+      "clear": "清除倒數計時",
+      "fields": {
+        "title": "標題",
+        "targetAt": "到期日期和時間"
+      }
+    },
     "tips": {
       "sourceLabel": "內容來源",
       "source": {
