@@ -2937,11 +2937,6 @@ function DraggableCard({
   const styleMenuRef = useRef<HTMLDivElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const dragIntentRef = useRef(false);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
-  const previousBodyStylesRef = useRef<{
-    overflow: string;
-    paddingRight: string;
-  } | null>(null);
 
   const closeStyleMenu = useCallback(() => {
     setStyleMenuOpen(false);
@@ -2958,18 +2953,6 @@ function DraggableCard({
   useEffect(() => {
     if (!styleMenuOpen) return;
     if (typeof window === "undefined") return;
-    previousFocusRef.current = document.activeElement as HTMLElement | null;
-    const bodyStyle = document.body.style;
-    previousBodyStylesRef.current = {
-      overflow: bodyStyle.overflow,
-      paddingRight: bodyStyle.paddingRight,
-    };
-    const scrollbarWidth =
-      window.innerWidth - document.documentElement.clientWidth;
-    if (scrollbarWidth > 0) {
-      bodyStyle.paddingRight = `${scrollbarWidth}px`;
-    }
-    bodyStyle.overflow = "hidden";
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -2977,20 +2960,8 @@ function DraggableCard({
       }
     };
     window.addEventListener("keydown", handleKeyDown);
-    const focusable = styleMenuRef.current?.querySelector<HTMLElement>(
-      "button:not([disabled]), select, input:not([disabled])",
-    );
-    focusable?.focus();
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      const body = document.body.style;
-      const previous = previousBodyStylesRef.current;
-      if (previous) {
-        body.overflow = previous.overflow;
-        body.paddingRight = previous.paddingRight;
-      }
-      previousBodyStylesRef.current = null;
-      previousFocusRef.current?.focus?.();
     };
   }, [closeStyleMenu, styleMenuOpen]);
 

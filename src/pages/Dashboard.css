@@ -272,10 +272,15 @@
   justify-content: center;
   padding: clamp(16px, 6vw, 28px);
   z-index: 24;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .card-style-modal {
-  width: min(360px, calc(100% - 32px));
+  width: min(420px, 100%);
+  min-height: 0;
+  max-height: min(620px, calc(100vh - 32px));
+  box-sizing: border-box;
   border-radius: 24px;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -284,6 +289,7 @@
   display: flex;
   flex-direction: column;
   gap: clamp(16px, 3vw, 22px);
+  overflow: hidden;
 }
 
 .card-style-modal-header {
@@ -328,6 +334,9 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .card-style-menu-item {
