@@ -169,8 +169,7 @@ const AchievementsIcon = ({ className }: IconProps) => (
 export function Navigation() {
   const { t } = useTranslation();
   const location = useLocation();
-  const { settings } = useAppStore();
-  const analyticsDisabled = settings.disableAnalytics;
+  const analyticsDisabled = useAppStore((state) => state.settings.disableAnalytics);
 
   const isActive = (path: string) => location.pathname === path;
 

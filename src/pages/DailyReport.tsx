@@ -236,8 +236,7 @@ const buildDailyReport = (day: Date, daySessions: Session[]): ReportCardData | n
 
 export function DailyReport() {
   const { t, i18n } = useTranslation();
-  const { settings } = useAppStore();
-  const moreRestEnabled = settings.moreRestEnabled;
+  const moreRestEnabled = useAppStore((state) => state.settings.moreRestEnabled);
   const [reports, setReports] = useState<ReportCardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);

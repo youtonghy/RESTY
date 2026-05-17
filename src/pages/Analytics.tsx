@@ -434,7 +434,7 @@ const buildTimelineGradientCrisp = (
  */
 export function Analytics() {
   const { t, i18n } = useTranslation();
-  const { settings } = useAppStore();
+  const moreRestEnabled = useAppStore((state) => state.settings.moreRestEnabled);
   const [range, setRange] = useState<TimeRange>('today');
   const [customDraftStart, setCustomDraftStart] = useState(() => formatDateInputValue(new Date()));
   const [customDraftEnd, setCustomDraftEnd] = useState(() => formatDateInputValue(new Date()));
@@ -444,7 +444,6 @@ export function Analytics() {
   const [loading, setLoading] = useState(false);
   const [heatmapData, setHeatmapData] = useState<HeatmapDay[]>([]);
   const isZh = useMemo(() => i18n.language.startsWith('zh'), [i18n.language]);
-  const moreRestEnabled = settings.moreRestEnabled;
   const isMountedRef = useRef(true);
   const analyticsRequestSeqRef = useRef(0);
   const heatmapRequestSeqRef = useRef(0);

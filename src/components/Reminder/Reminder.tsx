@@ -14,24 +14,31 @@ const TIMER_SYNC_KEY = 'resty-timer-sync';
 
 export function Reminder({ isFullscreen = true }: ReminderProps) {
   const { t, i18n } = useTranslation();
-  const { timerInfo, settings, setTimerInfo } = useAppStore();
+  const timerPhase = useAppStore((state) => state.timerInfo.phase);
+  const timerRemainingSeconds = useAppStore((state) => state.timerInfo.remainingSeconds);
+  const timerTotalSeconds = useAppStore((state) => state.timerInfo.totalSeconds);
+  const timerNextTransitionTime = useAppStore((state) => state.timerInfo.nextTransitionTime);
+  const enableForceBreak = useAppStore((state) => state.settings.enableForceBreak);
+  const reminderFullscreenDisplay = useAppStore(
+    (state) => state.settings.reminderFullscreenDisplay
+  );
+  const setTimerInfo = useAppStore((state) => state.setTimerInfo);
   const { effectiveTheme } = useTheme();
   const [optimisticSeconds, setOptimisticSeconds] = useState<number | null>(null);
   const [optimisticTargetTotal, setOptimisticTargetTotal] = useState<number | null>(null);
   const [isReady, setIsReady] = useState(false);
   const syncChannelRef = useRef<BroadcastChannel | null>(null);
-  const safeRemainingSeconds = Math.max(0, timerInfo.remainingSeconds);
-  const isBreak = timerInfo.phase === 'break';
-  const canSkip = !settings.enableForceBreak || !isBreak;
-  const isPanelDisplay =
-    isFullscreen && settings.reminderFullscreenDisplay === 'panel';
+  const safeRemainingSeconds = Math.max(0, timerRemainingSeconds);
+  const isBreak = timerPhase === 'break';
+  const canSkip = !enableForceBreak || !isBreak;
+  const isPanelDisplay = isFullscreen && reminderFullscreenDisplay === 'panel';
   const isZh = i18n.language.startsWith('zh');
   // Compute base remaining seconds using nextTransitionTime for higher precision
   const computeBaseSeconds = useMemo(() => {
     return () => {
       let baseSeconds = safeRemainingSeconds;
-      if (timerInfo.nextTransitionTime) {
-        const endTs = Date.parse(timerInfo.nextTransitionTime);
+      if (timerNextTransitionTime) {
+        const endTs = Date.parse(timerNextTransitionTime);
         if (!Number.isNaN(endTs)) {
           const nowTs = Date.now();
           baseSeconds = Math.max(0, Math.floor((endTs - nowTs) / 1000));
@@ -44,7 +51,7 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
       }
       return baseSeconds;
     };
-  }, [timerInfo.nextTransitionTime, safeRemainingSeconds, optimisticSeconds]);
+  }, [timerNextTransitionTime, safeRemainingSeconds, optimisticSeconds]);
 
   const [displaySeconds, setDisplaySeconds] = useState<number>(() => computeBaseSeconds());
 
@@ -89,7 +96,7 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
       return base + 300;
     });
     setOptimisticTargetTotal((prev) => {
-      const base = prev ?? timerInfo.totalSeconds;
+      const base = prev ?? timerTotalSeconds;
       return base + 300;
     });
     try {
@@ -112,18 +119,18 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
   // Reconcile optimistic state when real timer info catches up
   useEffect(() => {
     const shouldClearByTotal =
-      optimisticTargetTotal != null && timerInfo.totalSeconds >= optimisticTargetTotal;
+      optimisticTargetTotal != null && timerTotalSeconds >= optimisticTargetTotal;
     const shouldClearByRemaining =
       optimisticSeconds != null && safeRemainingSeconds >= optimisticSeconds - 2;
 
-    if (timerInfo.phase !== 'break' || shouldClearByTotal || shouldClearByRemaining) {
+    if (timerPhase !== 'break' || shouldClearByTotal || shouldClearByRemaining) {
       if (optimisticSeconds != null) setOptimisticSeconds(null);
       if (optimisticTargetTotal != null) setOptimisticTargetTotal(null);
     }
   }, [
     safeRemainingSeconds,
-    timerInfo.phase,
-    timerInfo.totalSeconds,
+    timerPhase,
+    timerTotalSeconds,
     optimisticSeconds,
     optimisticTargetTotal,
   ]);
@@ -182,7 +189,7 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
     defaultValue: isZh ? '增加5分钟' : 'Add 5 minutes',
   });
 
-  const phaseClass = `phase-${timerInfo.phase ?? 'break'}`;
+  const phaseClass = `phase-${timerPhase ?? 'break'}`;
 
   // Reveal the window, then mark ready to trigger panel fade-in
   useEffect(() => {

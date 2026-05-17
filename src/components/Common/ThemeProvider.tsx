@@ -15,17 +15,18 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
  * 基于设置与系统偏好控制主题，并在 DOM 上设置 `data-theme`。
  */
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const { settings, setSettings } = useAppStore();
+  const themePreference = useAppStore((state) => state.settings.theme);
+  const setSettings = useAppStore((state) => state.setSettings);
   const [effectiveTheme, setEffectiveTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
     const updateTheme = () => {
       let theme: 'light' | 'dark' = 'light';
 
-      if (settings.theme === 'auto') {
+      if (themePreference === 'auto') {
         theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       } else {
-        theme = settings.theme;
+        theme = themePreference;
       }
 
       setEffectiveTheme(theme);
@@ -37,14 +38,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // Listen for system theme changes
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = () => {
-      if (settings.theme === 'auto') {
+      if (themePreference === 'auto') {
         updateTheme();
       }
     };
 
     mediaQuery.addEventListener('change', handler);
     return () => mediaQuery.removeEventListener('change', handler);
-  }, [settings.theme]);
+  }, [themePreference]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as { __TAURI__?: unknown }).__TAURI__) {
@@ -57,7 +58,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <ThemeContext.Provider value={{ theme: settings.theme, effectiveTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme: themePreference, effectiveTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

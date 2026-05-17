@@ -138,7 +138,9 @@ const FLOATING_POSITION_OPTIONS: Array<{
  */
 export function Settings() {
   const { t } = useTranslation();
-  const { settings, setSettings, appVersion } = useAppStore();
+  const settings = useAppStore((state) => state.settings);
+  const setSettings = useAppStore((state) => state.setSettings);
+  const appVersion = useAppStore((state) => state.appVersion);
   const isWindows = useMemo(() => IS_WINDOWS_PLATFORM, []);
   const [localSettings, setLocalSettings] = useState<SettingsType>(enforceTrayDefaults(settings));
   const [message, setMessage] = useState('');

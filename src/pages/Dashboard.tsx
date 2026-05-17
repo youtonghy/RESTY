@@ -1466,7 +1466,11 @@ export function Dashboard({
 }: DashboardProps) {
   const { t, i18n } = useTranslation();
   const isZh = i18n.language.startsWith("zh");
-  const { timerInfo, setTimerInfo, settings } = useAppStore();
+  const timerPhase = useAppStore((state) => state.timerInfo.phase);
+  const timerState = useAppStore((state) => state.timerInfo.state);
+  const nextBreakTime = useAppStore((state) => state.timerInfo.nextBreakTime);
+  const setTimerInfo = useAppStore((state) => state.setTimerInfo);
+  const flowModeEnabled = useAppStore((state) => state.settings.flowModeEnabled);
   const [now, setNow] = useState(() => new Date());
   const cardTabIndex = isReadOnly ? -1 : 0;
 
@@ -1498,22 +1502,6 @@ export function Dashboard({
       .catch((error) => {
         console.error("Failed to load timer info:", error);
       });
-
-    let unsubscribe: (() => void) | undefined;
-
-    const setup = async () => {
-      unsubscribe = await api.onTimerUpdate((info) => {
-        setTimerInfo(info);
-      });
-    };
-
-    setup();
-
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
   }, [setTimerInfo]);
 
   useEffect(() => {
@@ -1533,11 +1521,11 @@ export function Dashboard({
 
   // 计算“下次休息”的时间：优先使用后端提供的 nextBreakTime（已考虑抑制逻辑），否则回退到占位日程中的下一段 break
   const nextBreakSlot = useMemo<NextSlot | null>(() => {
-    if (settings.flowModeEnabled) {
+    if (flowModeEnabled) {
       return null;
     }
 
-    const raw = timerInfo.nextBreakTime as unknown as string | null | undefined;
+    const raw = nextBreakTime as unknown as string | null | undefined;
     if (raw) {
       const start = new Date(raw);
       if (!Number.isNaN(start.getTime())) {
@@ -1551,7 +1539,7 @@ export function Dashboard({
     return upcomingBreak
       ? { type: "break", start: upcomingBreak.start, source: "schedule" }
       : null;
-  }, [timerInfo, placeholderSlots, now, settings.flowModeEnabled]);
+  }, [flowModeEnabled, nextBreakTime, placeholderSlots, now]);
 
   const dayProgress = useMemo(() => {
     const start = new Date(now);
@@ -1604,7 +1592,7 @@ export function Dashboard({
     icon: ReactNode;
     tone?: FeatureCardProps["iconTone"];
   } => {
-    if (timerInfo.state === "running" && timerInfo.phase === "work") {
+    if (timerState === "running" && timerPhase === "work") {
       return {
         primary: t("dashboard.status.work.primary", {
           defaultValue: isZh ? "工作中" : "In focus",
@@ -1618,7 +1606,7 @@ export function Dashboard({
         tone: "focus",
       };
     }
-    if (timerInfo.state === "running" && timerInfo.phase === "break") {
+    if (timerState === "running" && timerPhase === "break") {
       return {
         primary: t("dashboard.status.break.primary", {
           defaultValue: isZh ? "休息中" : "On break",
@@ -1632,7 +1620,7 @@ export function Dashboard({
         tone: "break",
       };
     }
-    if (timerInfo.state === "paused") {
+    if (timerState === "paused") {
       return {
         primary: t("dashboard.status.paused.primary", {
           defaultValue: isZh ? "已暂停" : "Paused",
@@ -1646,7 +1634,7 @@ export function Dashboard({
         tone: "paused",
       };
     }
-    if (timerInfo.state === "stopped" && timerInfo.phase === "idle") {
+    if (timerState === "stopped" && timerPhase === "idle") {
       return {
         primary: t("dashboard.status.idle.primary", {
           defaultValue: isZh ? "待命" : "Idle",
@@ -1672,7 +1660,7 @@ export function Dashboard({
       icon: "⚫",
       tone: "offline",
     };
-  }, [t, timerInfo.state, timerInfo.phase, isZh]);
+  }, [t, timerState, timerPhase, isZh]);
 
   const systemTimeZone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone,

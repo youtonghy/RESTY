@@ -1,6 +1,5 @@
 import { ReactNode, useCallback, type PointerEvent as ReactPointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LogicalPosition } from '@tauri-apps/api/dpi';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useAppStore } from '../../store';
@@ -22,18 +21,16 @@ interface LayoutProps {
  */
 export function Layout({ children, showNavigation = true }: LayoutProps) {
   const { t } = useTranslation();
-  const {
-    updateManifest,
-    appVersion,
-    isUpdating,
-    updateError,
-    setUpdateManifest,
-    setUpdating,
-    setUpdateError,
-  } = useAppStore();
+  const updateManifest = useAppStore((state) => state.updateManifest);
+  const appVersion = useAppStore((state) => state.appVersion);
+  const isUpdating = useAppStore((state) => state.isUpdating);
+  const updateError = useAppStore((state) => state.updateError);
+  const setUpdateManifest = useAppStore((state) => state.setUpdateManifest);
+  const setUpdating = useAppStore((state) => state.setUpdating);
+  const setUpdateError = useAppStore((state) => state.setUpdateError);
   const { effectiveTheme } = useTheme();
 
-  const handleTitlebarPointerDown = useCallback(async (event: ReactPointerEvent<HTMLDivElement>) => {
+  const handleTitlebarPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
     if (!event.isPrimary) return;
 
@@ -47,48 +44,9 @@ export function Layout({ children, showNavigation = true }: LayoutProps) {
     }
 
     event.preventDefault();
-
-    try {
-      const appWindow = getCurrentWindow();
-      const [scaleFactor, startPosition] = await Promise.all([
-        appWindow.scaleFactor(),
-        appWindow.outerPosition(),
-      ]);
-      const startScreenX = event.screenX;
-      const startScreenY = event.screenY;
-      const startLogicalX = startPosition.x / scaleFactor;
-      const startLogicalY = startPosition.y / scaleFactor;
-      let latestScreenX = startScreenX;
-      let latestScreenY = startScreenY;
-      let frameRequested = false;
-
-      const updateWindowPosition = () => {
-        frameRequested = false;
-        const nextX = startLogicalX + latestScreenX - startScreenX;
-        const nextY = startLogicalY + latestScreenY - startScreenY;
-        void appWindow.setPosition(new LogicalPosition(nextX, nextY));
-      };
-
-      const handlePointerMove = (moveEvent: globalThis.PointerEvent) => {
-        latestScreenX = moveEvent.screenX;
-        latestScreenY = moveEvent.screenY;
-        if (frameRequested) return;
-        frameRequested = true;
-        window.requestAnimationFrame(updateWindowPosition);
-      };
-
-      const stopDragging = () => {
-        window.removeEventListener('pointermove', handlePointerMove);
-        window.removeEventListener('pointerup', stopDragging);
-        window.removeEventListener('pointercancel', stopDragging);
-      };
-
-      window.addEventListener('pointermove', handlePointerMove);
-      window.addEventListener('pointerup', stopDragging, { once: true });
-      window.addEventListener('pointercancel', stopDragging, { once: true });
-    } catch (error) {
+    void getCurrentWindow().startDragging().catch((error) => {
       console.error('Failed to start window dragging:', error);
-    }
+    });
   }, []);
 
   const handleOpenWebsite = useCallback(async () => {

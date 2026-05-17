@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
@@ -53,7 +53,11 @@ const cleanupUnsubscribers = (
  */
 function App() {
   const { i18n } = useTranslation();
-  const { settings, timerInfo, setTimerInfo, setAppVersion, setUpdateManifest } = useAppStore();
+  const settings = useAppStore((state) => state.settings);
+  const timerPhase = useAppStore((state) => state.timerInfo.phase);
+  const setTimerInfo = useAppStore((state) => state.setTimerInfo);
+  const setAppVersion = useAppStore((state) => state.setAppVersion);
+  const setUpdateManifest = useAppStore((state) => state.setUpdateManifest);
   const analyticsDisabled = settings.disableAnalytics;
 
   const isReminderWindow = (() => {
@@ -389,14 +393,14 @@ function App() {
       return;
     }
 
-    if (timerInfo.phase === 'break') {
+    if (timerPhase === 'break') {
       void startRestMusic(settings.restMusicEnabled, settings.restMusicDirectory);
     }
   }, [
     isSpecialWindow,
     settings.restMusicEnabled,
     settings.restMusicDirectory,
-    timerInfo.phase,
+    timerPhase,
     startRestMusic,
     stopRestMusic,
   ]);
@@ -481,7 +485,7 @@ function App() {
       ) : isReminderWindow ? (
         <Reminder isFullscreen={settings.reminderMode === 'fullscreen'} />
       ) : (
-        <BrowserRouter>
+        <HashRouter>
           {/* Bridge: listen to backend events and navigate */}
           <RouteEventBridge />
           <Layout>
@@ -498,7 +502,7 @@ function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Layout>
-        </BrowserRouter>
+        </HashRouter>
       )}
     </ThemeProvider>
   );
