@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { debugError, debugLog } from './debug';
 import type {
   AchievementUnlock,
   Settings,
@@ -13,6 +14,30 @@ import type {
   Session,
   UpdateManifest,
 } from '../types';
+
+const SLOW_COMMAND_MS = 500;
+
+const invokeWithDebug = async <T>(
+  command: string,
+  args?: Record<string, unknown>
+): Promise<T> => {
+  const startedAt = performance.now();
+  try {
+    const result = await invoke<T>(command, args);
+    const durationMs = Math.round(performance.now() - startedAt);
+    if (durationMs >= SLOW_COMMAND_MS) {
+      debugLog('api', `${command} resolved slowly`, { durationMs, args });
+    }
+    return result;
+  } catch (error) {
+    debugError('api', `${command} failed`, {
+      durationMs: Math.round(performance.now() - startedAt),
+      args,
+      error,
+    });
+    throw error;
+  }
+};
 
 /**
  * 鍓嶇涓?Tauri Rust 灞傞€氫俊鐨勭粺涓€灏佽銆? * 鎵€鏈?invoke 涓庝簨浠剁洃鍚湪姝ら泦涓鐞嗭紝涓氬姟缁勪欢鍙渶璋冪敤杩欎簺鍑芥暟鍗冲彲銆? */
@@ -67,12 +92,12 @@ export async function getTimerInfo(): Promise<TimerInfo> {
 // Analytics commands
 /** 鎸夋椂闂村尯闂磋幏鍙栫粺璁℃暟鎹€?*/
 export async function getAnalytics(query: AnalyticsQuery): Promise<AnalyticsData> {
-  return await invoke('get_analytics', { query });
+  return await invokeWithDebug('get_analytics', { query });
 }
 
 /** 鑾峰彇浼氳瘽鏁版嵁鐨勬椂闂磋寖鍥达紙鐢ㄤ簬鍒嗛〉绛夊満鏅級銆?*/
 export async function getSessionsBounds(): Promise<SessionsBounds> {
-  return await invoke('get_sessions_bounds');
+  return await invokeWithDebug('get_sessions_bounds');
 }
 
 /** 娓呴櫎缁熻鏁版嵁锛堜細璇濊褰曪級銆?*/

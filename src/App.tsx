@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import {
+  HashRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
@@ -24,6 +31,7 @@ import type { Settings as AppSettings } from './types';
 import * as api from './utils/api';
 import { changeLanguage, normalizeLanguage } from './i18n';
 import { isNewerVersion } from './utils/version';
+import { debugLog } from './utils/debug';
 import './App.css';
 import './i18n';
 
@@ -487,6 +495,7 @@ function App() {
       ) : (
         <HashRouter>
           {/* Bridge: listen to backend events and navigate */}
+          <RouteDebugLogger />
           <RouteEventBridge />
           <Layout>
             <Routes>
@@ -509,6 +518,21 @@ function App() {
 }
 
 export default App;
+
+function RouteDebugLogger() {
+  const location = useLocation();
+
+  useEffect(() => {
+    debugLog('route', 'location changed', {
+      pathname: location.pathname,
+      search: location.search,
+      hash: location.hash,
+      href: window.location.href,
+    });
+  }, [location.hash, location.pathname, location.search]);
+
+  return null;
+}
 
 /**
  * A tiny component that subscribes to backend events and performs router navigation.

@@ -20,6 +20,37 @@ pub struct AppState {
     pub last_auto_close: Arc<std::sync::Mutex<Option<Instant>>>,
 }
 
+/// Print frontend diagnostics to the Tauri dev terminal.
+#[tauri::command]
+pub fn debug_log(
+    level: String,
+    scope: String,
+    message: String,
+    details: Option<Value>,
+) -> Result<(), String> {
+    #[cfg(debug_assertions)]
+    {
+        let details_text = details
+            .map(|value| format!(" {}", value))
+            .unwrap_or_default();
+        eprintln!(
+            "[RESTY frontend][{}][{}][{}] {}{}",
+            Utc::now().to_rfc3339(),
+            level,
+            scope,
+            message,
+            details_text
+        );
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        let _ = (level, scope, message, details);
+    }
+
+    Ok(())
+}
+
 /// Check for a signed update using the official Tauri updater.
 #[tauri::command]
 pub async fn check_for_updates(app: AppHandle) -> Result<Option<UpdateManifest>, String> {

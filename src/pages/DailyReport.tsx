@@ -4,6 +4,7 @@ import { useAppStore } from '../store';
 import * as api from '../utils/api';
 import type { AnalyticsQuery, Session } from '../types';
 import { augmentSessionsWithMoreRest } from '../utils/analytics';
+import { debugError, debugLog, debugWarn } from '../utils/debug';
 import './DailyReport.css';
 
 type ReportLevel = 'excellent' | 'good' | 'fair' | 'poor';
@@ -48,6 +49,7 @@ const SCREEN_STEP_PENALTY = 10;
 
 const PAGE_SIZE = 15;
 const WINDOW_DAYS = 15;
+const MAX_WINDOWS_PER_BATCH = 8;
 
 const getSessionSeconds = (session: Session) => {
   if (Number.isFinite(session.duration) && session.duration > 0) {
@@ -315,8 +317,16 @@ export function DailyReport() {
     async (seq: number) => {
       const page: ReportCardData[] = [];
       let cursorEnd = cursorEndRef.current;
+      let scannedWindows = 0;
 
-      while (page.length < PAGE_SIZE) {
+      debugLog('daily-report', 'fetch page start', {
+        seq,
+        cursorEnd: cursorEnd.toISOString(),
+        earliestStart: earliestStartMsRef.current,
+      });
+
+      while (page.length < PAGE_SIZE && scannedWindows < MAX_WINDOWS_PER_BATCH) {
+        scannedWindows += 1;
         const earliestStartMs = earliestStartMsRef.current;
         if (earliestStartMs !== null && cursorEnd.getTime() < earliestStartMs) {
           break;
@@ -331,7 +341,17 @@ export function DailyReport() {
           endDate: windowEnd.toISOString(),
         };
 
+        const queryStartedAt = performance.now();
         const data = await api.getAnalytics(query);
+        debugLog('daily-report', 'analytics window loaded', {
+          seq,
+          scannedWindows,
+          startDate: query.startDate,
+          endDate: query.endDate,
+          sessions: data.sessions.length,
+          durationMs: Math.round(performance.now() - queryStartedAt),
+        });
+
         if (requestSeqRef.current !== seq) {
           return {
             page: [] as ReportCardData[],
@@ -374,6 +394,23 @@ export function DailyReport() {
       const earliestStartMs = earliestStartMsRef.current;
       const reachedEnd = earliestStartMs !== null && cursorEnd.getTime() < earliestStartMs;
 
+      if (!reachedEnd && page.length < PAGE_SIZE && scannedWindows >= MAX_WINDOWS_PER_BATCH) {
+        debugWarn('daily-report', 'page scan paused before reaching the end', {
+          seq,
+          scannedWindows,
+          collected: page.length,
+          nextCursorEnd: cursorEnd.toISOString(),
+        });
+      }
+
+      debugLog('daily-report', 'fetch page done', {
+        seq,
+        scannedWindows,
+        collected: page.length,
+        reachedEnd,
+        nextCursorEnd: cursorEnd.toISOString(),
+      });
+
       return {
         page,
         nextCursorEnd: cursorEnd,
@@ -393,6 +430,7 @@ export function DailyReport() {
     setLoadingMore(true);
 
     try {
+      debugLog('daily-report', 'load more start', { seq });
       const result = await fetchNextPage(seq);
       if (requestSeqRef.current !== seq || result.aborted) {
         return;
@@ -409,6 +447,7 @@ export function DailyReport() {
         setHasMore(false);
       }
     } catch (error) {
+      debugError('daily-report', 'load more failed', error);
       console.error('Failed to load more daily reports:', error);
     } finally {
       if (inFlightSeqRef.current === seq) {
@@ -435,6 +474,7 @@ export function DailyReport() {
 
     const loadInitial = async () => {
       try {
+        debugLog('daily-report', 'initial load start', { seq });
         const bounds = await api.getSessionsBounds();
         if (!active || requestSeqRef.current !== seq) return;
 
@@ -442,6 +482,18 @@ export function DailyReport() {
           ? new Date(bounds.earliestStart).getTime()
           : null;
         earliestStartMsRef.current = earliestStartMs;
+
+        const latestEnd = bounds.latestEnd ? new Date(bounds.latestEnd) : null;
+        if (latestEnd && !Number.isNaN(latestEnd.getTime())) {
+          cursorEndRef.current = endOfLocalDay(latestEnd);
+        }
+
+        debugLog('daily-report', 'session bounds loaded', {
+          seq,
+          earliestStart: bounds.earliestStart,
+          latestEnd: bounds.latestEnd,
+          initialCursorEnd: cursorEndRef.current.toISOString(),
+        });
 
         if (earliestStartMs === null) {
           hasMoreRef.current = false;
@@ -460,6 +512,7 @@ export function DailyReport() {
           setHasMore(false);
         }
       } catch (error) {
+        debugError('daily-report', 'initial load failed', error);
         console.error('Failed to load daily reports:', error);
       } finally {
         if (!active) return;

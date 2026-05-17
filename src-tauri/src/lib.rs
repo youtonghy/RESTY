@@ -502,6 +502,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::debug_log,
             commands::load_settings,
             commands::save_settings,
             commands::start_work,
