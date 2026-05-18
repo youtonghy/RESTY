@@ -2,6 +2,7 @@ import {
   ReactNode,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -402,6 +403,8 @@ interface GridMetrics {
 const GRID_COLUMNS = 12;
 const BASE_SPAN = 2;
 const FALLBACK_TRACK_SIZE = 120;
+const DRAG_INTENT_THRESHOLD_PX = 4;
+const DRAG_REORDER_DELAY_MS = 180;
 const CARD_ORDER: CardId[] = [
   "status",
   "next",
@@ -3139,10 +3142,113 @@ function DraggableCard({
   onStyleMenuClose,
 }: DraggableCardProps) {
   const [mode, setMode] = useState<"idle" | "dragging" | "resizing">("idle");
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(
+    null,
+  );
+  const [layoutOffset, setLayoutOffset] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [styleMenuOpen, setStyleMenuOpen] = useState(false);
   const styleMenuRef = useRef<HTMLDivElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const dragIntentRef = useRef(false);
+  const isDraggingRef = useRef(false);
+  const latestItemRef = useRef(item);
+  const dragReorderTimerRef = useRef<number | null>(null);
+  const pendingDragLayoutRef = useRef<LayoutItem | null>(null);
+  const lastDragLayoutRef = useRef<LayoutItem | null>(null);
+  const dragStartRef = useRef<{
+    pointerX: number;
+    pointerY: number;
+    original: LayoutItem;
+  } | null>(null);
+  const currentPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const previousRectRef = useRef<DOMRect | null>(null);
+  const layoutAnimationFrameRef = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    latestItemRef.current = item;
+    if (!isDraggingRef.current) return;
+
+    const dragStart = dragStartRef.current;
+    const currentPointer = currentPointerRef.current;
+    if (!dragStart || !currentPointer) return;
+
+    const deltaX = currentPointer.x - dragStart.pointerX;
+    const deltaY = currentPointer.y - dragStart.pointerY;
+    setDragOffset({
+      x: deltaX - (item.x - dragStart.original.x) * metrics.columnSpan,
+      y: deltaY - (item.y - dragStart.original.y) * metrics.rowSpan,
+    });
+  }, [item, metrics.columnSpan, metrics.rowSpan]);
+
+  const clearDragReorderTimer = useCallback(() => {
+    if (dragReorderTimerRef.current === null) return;
+    window.clearTimeout(dragReorderTimerRef.current);
+    dragReorderTimerRef.current = null;
+  }, []);
+
+  useEffect(() => clearDragReorderTimer, [clearDragReorderTimer]);
+
+  const clearLayoutAnimationFrame = useCallback(() => {
+    if (layoutAnimationFrameRef.current === null) return;
+    window.cancelAnimationFrame(layoutAnimationFrameRef.current);
+    layoutAnimationFrameRef.current = null;
+  }, []);
+
+  useEffect(() => clearLayoutAnimationFrame, [clearLayoutAnimationFrame]);
+
+  useLayoutEffect(() => {
+    if (!isDraggingRef.current) return;
+    const node = cardRef.current;
+    if (!node) return;
+    previousRectRef.current = node.getBoundingClientRect();
+  });
+
+  useLayoutEffect(() => {
+    const node = cardRef.current;
+    if (!node) return;
+
+    const previousRect = previousRectRef.current;
+    const nextRect = node.getBoundingClientRect();
+    previousRectRef.current = nextRect;
+
+    if (
+      !previousRect ||
+      isDraggingRef.current ||
+      mode === "resizing" ||
+      previousRect.width === 0 ||
+      previousRect.height === 0
+    ) {
+      return;
+    }
+
+    const deltaX = previousRect.left - nextRect.left;
+    const deltaY = previousRect.top - nextRect.top;
+    if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) {
+      return;
+    }
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+
+    clearLayoutAnimationFrame();
+    setLayoutOffset({ x: deltaX, y: deltaY });
+    layoutAnimationFrameRef.current = window.requestAnimationFrame(() => {
+      layoutAnimationFrameRef.current = window.requestAnimationFrame(() => {
+        layoutAnimationFrameRef.current = null;
+        setLayoutOffset(null);
+      });
+    });
+  }, [
+    clearLayoutAnimationFrame,
+    item.h,
+    item.w,
+    item.x,
+    item.y,
+    mode,
+  ]);
 
   const closeStyleMenu = useCallback(() => {
     setStyleMenuOpen(false);
@@ -3192,6 +3298,25 @@ function DraggableCard({
     [id, minH, minW, onChange],
   );
 
+  const scheduleDragReorder = useCallback(
+    (candidate: LayoutItem) => {
+      pendingDragLayoutRef.current = candidate;
+
+      if (dragReorderTimerRef.current !== null) {
+        return;
+      }
+
+      dragReorderTimerRef.current = window.setTimeout(() => {
+        dragReorderTimerRef.current = null;
+        const pending = pendingDragLayoutRef.current;
+        pendingDragLayoutRef.current = null;
+        if (!pending || !isDraggingRef.current) return;
+        applyWithBounds(pending);
+      }, DRAG_REORDER_DELAY_MS);
+    },
+    [applyWithBounds],
+  );
+
   const handleDragStart = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (mode !== "idle") return;
@@ -3205,14 +3330,24 @@ function DraggableCard({
       const node = event.currentTarget;
       node.setPointerCapture(event.pointerId);
       setMode("dragging");
+      isDraggingRef.current = true;
+      setDragOffset({ x: 0, y: 0 });
+      pendingDragLayoutRef.current = null;
+      lastDragLayoutRef.current = null;
 
       const start = {
         pointerX: event.clientX,
         pointerY: event.clientY,
         original: { ...item },
       };
+      dragStartRef.current = start;
+      currentPointerRef.current = { x: event.clientX, y: event.clientY };
 
       const handleMove = (moveEvent: PointerEvent) => {
+        currentPointerRef.current = {
+          x: moveEvent.clientX,
+          y: moveEvent.clientY,
+        };
         const deltaX = moveEvent.clientX - start.pointerX;
         const deltaY = moveEvent.clientY - start.pointerY;
 
@@ -3225,35 +3360,73 @@ function DraggableCard({
 
         if (
           !dragIntentRef.current &&
-          (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4)
+          (Math.abs(deltaX) > DRAG_INTENT_THRESHOLD_PX ||
+            Math.abs(deltaY) > DRAG_INTENT_THRESHOLD_PX)
         ) {
           dragIntentRef.current = true;
         }
 
-        applyWithBounds(next);
+        const currentItem = latestItemRef.current;
+        setDragOffset({
+          x: deltaX - (currentItem.x - start.original.x) * metrics.columnSpan,
+          y: deltaY - (currentItem.y - start.original.y) * metrics.rowSpan,
+        });
+        lastDragLayoutRef.current = next;
+        if (!dragIntentRef.current) return;
+        scheduleDragReorder(next);
       };
 
+      let didEnd = false;
       const handleEnd = () => {
+        if (didEnd) return;
+        didEnd = true;
         node.removeEventListener("pointermove", handleMove);
         node.removeEventListener("pointerup", handleEnd);
         node.removeEventListener("pointercancel", handleEnd);
+        node.removeEventListener("lostpointercapture", handleEnd);
+        window.removeEventListener("pointerup", handleEnd);
+        window.removeEventListener("pointercancel", handleEnd);
         try {
           node.releasePointerCapture(event.pointerId);
         } catch (error) {
           /* ignore */
         }
+        clearDragReorderTimer();
+        const finalLayout = lastDragLayoutRef.current;
+        pendingDragLayoutRef.current = null;
+        lastDragLayoutRef.current = null;
+        dragStartRef.current = null;
+        currentPointerRef.current = null;
+        isDraggingRef.current = false;
         setMode("idle");
+        setDragOffset(null);
         if (!dragIntentRef.current) {
           onStyleMenuClose?.();
           setStyleMenuOpen(true);
+          return;
+        }
+        if (finalLayout) {
+          applyWithBounds(finalLayout);
         }
       };
 
       node.addEventListener("pointermove", handleMove);
       node.addEventListener("pointerup", handleEnd, { once: true });
       node.addEventListener("pointercancel", handleEnd, { once: true });
+      node.addEventListener("lostpointercapture", handleEnd, { once: true });
+      window.addEventListener("pointerup", handleEnd, { once: true });
+      window.addEventListener("pointercancel", handleEnd, { once: true });
     },
-    [applyWithBounds, closeStyleMenu, item, metrics, mode, onStyleMenuClose],
+    [
+      applyWithBounds,
+      clearDragReorderTimer,
+      closeStyleMenu,
+      item,
+      metrics,
+      mode,
+      onStyleMenuClose,
+      scheduleDragReorder,
+    ],
   );
 
   const handleResizeStart = useCallback(
@@ -3286,10 +3459,16 @@ function DraggableCard({
         applyWithBounds(next);
       };
 
+      let didEnd = false;
       const handleEnd = () => {
+        if (didEnd) return;
+        didEnd = true;
         node.removeEventListener("pointermove", handleMove);
         node.removeEventListener("pointerup", handleEnd);
         node.removeEventListener("pointercancel", handleEnd);
+        node.removeEventListener("lostpointercapture", handleEnd);
+        window.removeEventListener("pointerup", handleEnd);
+        window.removeEventListener("pointercancel", handleEnd);
         try {
           node.releasePointerCapture(event.pointerId);
         } catch (error) {
@@ -3301,6 +3480,9 @@ function DraggableCard({
       node.addEventListener("pointermove", handleMove);
       node.addEventListener("pointerup", handleEnd, { once: true });
       node.addEventListener("pointercancel", handleEnd, { once: true });
+      node.addEventListener("lostpointercapture", handleEnd, { once: true });
+      window.addEventListener("pointerup", handleEnd, { once: true });
+      window.addEventListener("pointercancel", handleEnd, { once: true });
     },
     [applyWithBounds, item, metrics],
   );
@@ -3309,12 +3491,14 @@ function DraggableCard({
     const base = ["draggable-card"];
     if (mode === "dragging") base.push("is-dragging");
     if (mode === "resizing") base.push("is-resizing");
+    if (layoutOffset && mode === "idle") base.push("is-settling");
     if (isActionable) base.push("is-actionable");
     return base.join(" ");
-  }, [isActionable, mode]);
+  }, [isActionable, layoutOffset, mode]);
 
   const hasStyleOptions = styleOptions.length > 0;
   const hasCustomContent = typeof renderCustomContent === "function";
+  const activeOffset = dragOffset ?? layoutOffset;
 
   return (
     <div
@@ -3326,6 +3510,12 @@ function DraggableCard({
         gridColumnEnd: `span ${Math.max(minW, item.w)}`,
         gridRowStart: item.y + 1,
         gridRowEnd: `span ${Math.max(minH, item.h)}`,
+        ...(activeOffset
+          ? ({
+              "--drag-offset-x": `${activeOffset.x}px`,
+              "--drag-offset-y": `${activeOffset.y}px`,
+            } as CSSProperties)
+          : undefined),
         touchAction: isInteractive ? "none" : "auto",
       }}
     >

@@ -192,6 +192,8 @@
   align-items: stretch;
   height: 100%;
   touch-action: none;
+  transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
 }
 
 .draggable-card > .tile-card {
@@ -206,6 +208,33 @@
   cursor: grabbing;
   box-shadow: var(--shadow-lg);
   transform: translateY(0);
+}
+
+.draggable-card.is-dragging {
+  z-index: 6;
+  transform: translate3d(
+    var(--drag-offset-x, 0),
+    var(--drag-offset-y, 0),
+    0
+  );
+  transition: none;
+}
+
+.draggable-card.is-settling {
+  transform: translate3d(
+    var(--drag-offset-x, 0),
+    var(--drag-offset-y, 0),
+    0
+  );
+}
+
+.draggable-card.is-dragging > .tile-card {
+  box-shadow: 0 26px 52px rgba(15, 23, 42, 0.2);
+}
+
+.draggable-card.is-resizing {
+  z-index: 5;
+  transition: none;
 }
 
 .card-resize-handle {
@@ -828,6 +857,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .draggable-card {
+    transition: none;
+  }
+
   .next-split-overlay {
     transition: opacity 0.01ms linear;
     transform: none;
