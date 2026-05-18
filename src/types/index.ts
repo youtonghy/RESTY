@@ -46,6 +46,7 @@ export interface Settings {
   autostart: boolean;
   silentAutostart: boolean;
   autoSilentUpdateEnabled: boolean;
+  macosMenuBarOnly: boolean;
   minimizeToTray: boolean;
   closeToTray: boolean;
   disableAnalytics: boolean;
@@ -168,6 +169,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autostart: false,
   silentAutostart: false,
   autoSilentUpdateEnabled: false,
+  macosMenuBarOnly: false,
   minimizeToTray: true,
   closeToTray: true,
   disableAnalytics: false,

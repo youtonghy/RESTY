@@ -164,6 +164,8 @@
       "autostart": "開機自動啟動",
       "silentAutostart": "靜默啟動",
       "silentAutostartHint": "啟用後，自動啟動時僅在背景執行，不會彈出主視窗。",
+      "macosMenuBarOnly": "僅在選單列中執行（僅 macOS）",
+      "macosMenuBarOnlyHint": "啟用後 RESTY 不駐留在 Dock 中，功能僅透過選單列圖示生效。",
       "minimizeToTray": "最小化到系統匣",
       "closeToTray": "關閉到系統匣",
       "analytics": {

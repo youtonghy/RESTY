@@ -170,6 +170,8 @@ pub struct Settings {
     pub silent_autostart: bool,
     #[serde(default = "default_auto_silent_update_enabled")]
     pub auto_silent_update_enabled: bool,
+    #[serde(default)]
+    pub macos_menu_bar_only: bool,
     pub minimize_to_tray: bool,
     pub close_to_tray: bool,
     #[serde(default)]
@@ -205,6 +207,7 @@ impl Default for Settings {
             autostart: false,
             silent_autostart: false,
             auto_silent_update_enabled: false,
+            macos_menu_bar_only: false,
             minimize_to_tray: true,
             close_to_tray: true,
             disable_analytics: false,

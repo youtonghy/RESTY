@@ -58,6 +58,53 @@ fn resolve_tray_theme(preference: &SettingsTheme) -> Theme {
     }
 }
 
+#[cfg(target_os = "macos")]
+pub(crate) fn apply_macos_menu_bar_only(
+    app: &tauri::AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
+    app.set_activation_policy(if enabled {
+        tauri::ActivationPolicy::Accessory
+    } else {
+        tauri::ActivationPolicy::Regular
+    })
+    .map_err(|e| e.to_string())?;
+
+    if let Some(window) = app.get_webview_window("main") {
+        window
+            .set_skip_taskbar(enabled)
+            .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn apply_macos_menu_bar_only(
+    _app: &tauri::AppHandle,
+    _enabled: bool,
+) -> Result<(), String> {
+    Ok(())
+}
+
+async fn should_skip_main_taskbar_for_settings(state: &AppState) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        state
+            .database_service
+            .load_settings()
+            .await
+            .map(|settings| settings.macos_menu_bar_only)
+            .unwrap_or(false)
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = state;
+        false
+    }
+}
+
 /// Shared handler for tray actions used by both native menus and the custom window.
 pub(crate) async fn handle_tray_action(
     action: &str,
@@ -85,7 +132,8 @@ pub(crate) async fn handle_tray_action(
         "no_break_tomorrow" => state.timer_service.suppress_breaks_until_tomorrow_morning(),
         "settings" => {
             if let Some(win) = app.get_webview_window("main") {
-                let _ = win.set_skip_taskbar(false);
+                let should_skip_taskbar = should_skip_main_taskbar_for_settings(&state).await;
+                let _ = win.set_skip_taskbar(should_skip_taskbar);
                 let _ = win.show();
                 let _ = win.set_focus();
                 let _ = win.unminimize();
@@ -310,11 +358,17 @@ pub fn run() {
             let is_silent_autostart = launched_from_autostart
                 && initial_settings.autostart
                 && initial_settings.silent_autostart;
+            let is_menu_bar_only =
+                cfg!(target_os = "macos") && initial_settings.macos_menu_bar_only;
+
+            if let Err(e) = apply_macos_menu_bar_only(app.handle(), is_menu_bar_only) {
+                eprintln!("Failed to apply macOS menu bar only setting: {}", e);
+            }
 
             // Window is now invisible by default (visible: false in tauri.conf.json)
             // Only show window if NOT silent autostart
             if let Some(main_window) = app.get_webview_window("main") {
-                if is_silent_autostart {
+                if is_silent_autostart || is_menu_bar_only {
                     // Keep window hidden and skip taskbar for silent autostart
                     let _ = main_window.set_skip_taskbar(true);
                 } else {
@@ -411,7 +465,16 @@ pub fn run() {
                             ..
                         } => {
                             if let Some(win) = tray.app_handle().get_webview_window("main") {
-                                let _ = win.set_skip_taskbar(false);
+                                let app_handle = tray.app_handle();
+                                let should_skip_taskbar = {
+                                    let state = app_handle.state::<AppState>();
+                                    tauri::async_runtime::block_on(
+                                        state.database_service.load_settings(),
+                                    )
+                                    .map(|settings| settings.macos_menu_bar_only)
+                                    .unwrap_or(false)
+                                };
+                                let _ = win.set_skip_taskbar(should_skip_taskbar);
                                 let _ = win.show();
                                 let _ = win.unminimize();
                                 let _ = win.set_focus();

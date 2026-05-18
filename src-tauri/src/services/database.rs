@@ -438,6 +438,10 @@ impl DatabaseService {
         {
             normalized.auto_silent_update_enabled = false;
         }
+        #[cfg(not(target_os = "macos"))]
+        {
+            normalized.macos_menu_bar_only = false;
+        }
 
         // Update in-memory settings
         {

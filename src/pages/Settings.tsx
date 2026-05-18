@@ -17,6 +17,9 @@ const MAX_DURATION_MINUTES = 120;
 const MAX_REPEAT = 12;
 const IS_WINDOWS_PLATFORM =
   typeof navigator !== 'undefined' && /windows/i.test(navigator.userAgent);
+const IS_MACOS_PLATFORM =
+  typeof navigator !== 'undefined' &&
+  /macintosh|mac os x|macos/i.test(`${navigator.userAgent} ${navigator.platform ?? ''}`);
 
 // 设置数值归一化工具
 const clampNumber = (value: number, min: number, max: number) =>
@@ -94,6 +97,7 @@ const enforceTrayDefaults = (settings: SettingsType): SettingsType => {
     moreRestEnabled: settings.moreRestEnabled ?? DEFAULT_SETTINGS.moreRestEnabled,
     autoSilentUpdateEnabled:
       settings.autoSilentUpdateEnabled ?? DEFAULT_SETTINGS.autoSilentUpdateEnabled,
+    macosMenuBarOnly: settings.macosMenuBarOnly ?? DEFAULT_SETTINGS.macosMenuBarOnly,
     restStartSoonNotificationEnabled:
       settings.restStartSoonNotificationEnabled ??
       DEFAULT_SETTINGS.restStartSoonNotificationEnabled,
@@ -142,6 +146,7 @@ export function Settings() {
   const setSettings = useAppStore((state) => state.setSettings);
   const appVersion = useAppStore((state) => state.appVersion);
   const isWindows = useMemo(() => IS_WINDOWS_PLATFORM, []);
+  const isMacos = useMemo(() => IS_MACOS_PLATFORM, []);
   const [localSettings, setLocalSettings] = useState<SettingsType>(enforceTrayDefaults(settings));
   const [message, setMessage] = useState('');
   const [showSuccessToast, setShowSuccessToast] = useState(false);
@@ -204,6 +209,7 @@ export function Settings() {
         const normalized = enforceTrayDefaults({
           ...next,
           autoSilentUpdateEnabled: isWindows ? next.autoSilentUpdateEnabled : false,
+          macosMenuBarOnly: isMacos ? next.macosMenuBarOnly : false,
         });
         await api.saveSettings(normalized);
         if (!isMountedRef.current) return;
@@ -1083,6 +1089,30 @@ export function Settings() {
                     </span>
                   </label>
                   <p className="helper-text">{t('settings.system.autoSilentUpdateHint')}</p>
+                </div>
+              )}
+
+              {isMacos && (
+                <div className="form-group toggle-group">
+                  <label className="toggle-row">
+                    <span className="toggle-text">{t('settings.system.macosMenuBarOnly')}</span>
+                    <span className="switch">
+                      <input
+                        type="checkbox"
+                        checked={localSettings.macosMenuBarOnly}
+                        onChange={(e) => {
+                          const next = {
+                            ...localSettings,
+                            macosMenuBarOnly: e.target.checked,
+                          };
+                          setLocalSettings(next);
+                          saveSettingsAuto(next);
+                        }}
+                      />
+                      <span className="slider" />
+                    </span>
+                  </label>
+                  <p className="helper-text">{t('settings.system.macosMenuBarOnlyHint')}</p>
                 </div>
               )}
 

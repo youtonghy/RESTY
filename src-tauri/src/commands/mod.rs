@@ -1,10 +1,10 @@
-use crate::handle_tray_action;
 use crate::models::{
     AchievementUnlock, AnalyticsData, AnalyticsQuery, FloatingPosition, MonitorInfo, Session,
     SessionsBounds, Settings, SystemStatus, TimerInfo,
 };
 use crate::services::{updater::UpdateManifest, DatabaseService, TimerService};
 use crate::utils::AppError;
+use crate::{apply_macos_menu_bar_only, handle_tray_action};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -18,6 +18,21 @@ pub struct AppState {
     pub timer_service: Arc<TimerService>,
     pub database_service: Arc<DatabaseService>,
     pub last_auto_close: Arc<std::sync::Mutex<Option<Instant>>>,
+}
+
+fn should_skip_main_taskbar_for_settings(state: &AppState) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        tauri::async_runtime::block_on(state.database_service.load_settings())
+            .map(|settings| settings.macos_menu_bar_only)
+            .unwrap_or(false)
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = state;
+        false
+    }
 }
 
 /// Print frontend diagnostics to the Tauri dev terminal.
@@ -81,10 +96,15 @@ pub async fn load_settings(state: State<'_, AppState>) -> Result<Settings, Strin
 #[tauri::command]
 pub async fn save_settings(
     mut settings: Settings,
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     if !settings.autostart && settings.silent_autostart {
         settings.silent_autostart = false;
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        settings.macos_menu_bar_only = false;
     }
     // Validate settings
     validate_settings(&settings)?;
@@ -105,7 +125,9 @@ pub async fn save_settings(
         .database_service
         .save_settings(&settings)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    apply_macos_menu_bar_only(&app, settings.macos_menu_bar_only)
 }
 
 /// List audio files in the configured rest music directory.
@@ -545,7 +567,9 @@ pub fn close_reminder_window(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn show_main_window(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("main") {
-        let _ = window.set_skip_taskbar(false);
+        let state = app.state::<AppState>();
+        let should_skip_taskbar = should_skip_main_taskbar_for_settings(&state);
+        let _ = window.set_skip_taskbar(should_skip_taskbar);
         let _ = window.show();
         let _ = window.set_focus();
     }

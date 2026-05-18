@@ -164,6 +164,8 @@
       "autostart": "开机自启",
       "silentAutostart": "静默启动",
       "silentAutostartHint": "开启后,开机自启时仅在后台运行,不会弹出主窗口。",
+      "macosMenuBarOnly": "仅在菜单栏中运行（仅 macOS）",
+      "macosMenuBarOnlyHint": "开启后 RESTY 不驻留在 Dock 中，功能仅通过菜单栏图标生效。",
       "minimizeToTray": "最小化到托盘",
       "closeToTray": "关闭到托盘",
       "analytics": {

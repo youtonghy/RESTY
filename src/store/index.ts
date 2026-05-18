@@ -55,6 +55,8 @@ export const useAppStore = create<AppStore>((set) => ({
       }
       merged.autoSilentUpdateEnabled =
         merged.autoSilentUpdateEnabled ?? DEFAULT_SETTINGS.autoSilentUpdateEnabled;
+      merged.macosMenuBarOnly =
+        merged.macosMenuBarOnly ?? DEFAULT_SETTINGS.macosMenuBarOnly;
       merged.restStartSoonNotificationEnabled =
         merged.restStartSoonNotificationEnabled ??
         DEFAULT_SETTINGS.restStartSoonNotificationEnabled;

@@ -165,6 +165,8 @@
       "autostart": "Launch on system startup",
       "silentAutostart": "Silent startup",
       "silentAutostartHint": "Keep the window hidden and only show the tray icon when autostart runs.",
+      "macosMenuBarOnly": "Run in menu bar only (macOS only)",
+      "macosMenuBarOnlyHint": "Keep RESTY out of the Dock and use it from the menu bar icon only.",
       "minimizeToTray": "Minimize to system tray",
       "closeToTray": "Close to system tray",
       "analytics": {
