@@ -720,8 +720,8 @@
     filter 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.tile-card.tile-card-next-split:hover .next-split-overlay,
-.tile-card.tile-card-next-split:focus-within .next-split-overlay,
+.tile-card.tile-card-next-split:not(.tile-card-next-split-manual):hover .next-split-overlay,
+.tile-card.tile-card-next-split:not(.tile-card-next-split-manual):focus-within .next-split-overlay,
 .tile-card.tile-card-next-split.is-touch-actions-open .next-split-overlay {
   opacity: 1;
   transform: translateY(0) scale(1);

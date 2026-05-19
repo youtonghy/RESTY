@@ -56,6 +56,9 @@ const cleanupUnsubscribers = (
   );
 };
 
+const PRE_BREAK_NOTIFICATION_WINDOW_MS = 60_000;
+const PRE_BREAK_NOTIFICATION_MIN_MS = 5_000;
+
 /**
  * 根应用组件：负责初始化设置、监听 Tauri 后端事件，并配置全局路由/主题。
  */
@@ -86,6 +89,7 @@ function App() {
   const currentTrackRef = useRef<string | null>(null);
   const notifiedAchievementKeysRef = useRef<Set<string>>(new Set());
   const preBreakNotifiedTargetRef = useRef<string | null>(null);
+  const preBreakNotificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopRestMusic = useCallback(() => {
     const audio = audioRef.current;
@@ -144,6 +148,93 @@ function App() {
       }
     },
     [isSpecialWindow, stopRestMusic]
+  );
+
+  const clearPreBreakNotificationTimer = useCallback(() => {
+    if (preBreakNotificationTimerRef.current) {
+      clearTimeout(preBreakNotificationTimerRef.current);
+      preBreakNotificationTimerRef.current = null;
+    }
+  }, []);
+
+  const sendPreBreakNotification = useCallback(
+    (nextBreakTime: string) => {
+      if (preBreakNotifiedTargetRef.current === nextBreakTime) return;
+
+      const millisUntilBreak = Date.parse(nextBreakTime) - Date.now();
+      if (
+        Number.isNaN(millisUntilBreak) ||
+        millisUntilBreak <= PRE_BREAK_NOTIFICATION_MIN_MS
+      ) {
+        return;
+      }
+
+      preBreakNotifiedTargetRef.current = nextBreakTime;
+      void notifyRestStartsSoon(
+        i18n.t('notifications.restStartSoon.title', {
+          defaultValue: 'Break starts soon',
+        }),
+        i18n.t('notifications.restStartSoon.body', {
+          defaultValue: 'Break starts in 1 minute.',
+        }),
+        {
+          dismiss: i18n.t('notifications.restStartSoon.dismissAction', {
+            defaultValue: 'Got it',
+          }),
+          breakNow: i18n.t('notifications.restStartSoon.breakNowAction', {
+            defaultValue: 'Break now',
+          }),
+        }
+      );
+    },
+    [i18n]
+  );
+
+  const schedulePreBreakNotification = useCallback(
+    (nextBreakTime: string | null | undefined, remainingSeconds?: number) => {
+      clearPreBreakNotificationTimer();
+
+      if (isSpecialWindow || !settings.restStartSoonNotificationEnabled || !nextBreakTime) {
+        return;
+      }
+
+      const millisUntilBreak = Date.parse(nextBreakTime) - Date.now();
+      if (Number.isNaN(millisUntilBreak)) return;
+
+      if (
+        preBreakNotifiedTargetRef.current &&
+        preBreakNotifiedTargetRef.current !== nextBreakTime
+      ) {
+        preBreakNotifiedTargetRef.current = null;
+        void clearRestStartsSoonNotification();
+      }
+
+      if (preBreakNotifiedTargetRef.current === nextBreakTime) return;
+
+      const isPhaseTransition = remainingSeconds != null && remainingSeconds <= 1;
+      if (
+        !isPhaseTransition &&
+        millisUntilBreak > PRE_BREAK_NOTIFICATION_MIN_MS &&
+        millisUntilBreak <= PRE_BREAK_NOTIFICATION_WINDOW_MS
+      ) {
+        sendPreBreakNotification(nextBreakTime);
+        return;
+      }
+
+      const delayMs = millisUntilBreak - PRE_BREAK_NOTIFICATION_WINDOW_MS;
+      if (delayMs > 0) {
+        preBreakNotificationTimerRef.current = setTimeout(() => {
+          preBreakNotificationTimerRef.current = null;
+          sendPreBreakNotification(nextBreakTime);
+        }, delayMs);
+      }
+    },
+    [
+      clearPreBreakNotificationTimer,
+      isSpecialWindow,
+      sendPreBreakNotification,
+      settings.restStartSoonNotificationEnabled,
+    ]
   );
 
   useEffect(() => {
@@ -240,41 +331,9 @@ function App() {
                 preBreakNotifiedTargetRef.current = null;
                 void clearRestStartsSoonNotification();
               }
+              clearPreBreakNotificationTimer();
             } else {
-              if (
-                preBreakNotifiedTargetRef.current &&
-                preBreakNotifiedTargetRef.current !== nextBreakTime
-              ) {
-                preBreakNotifiedTargetRef.current = null;
-                void clearRestStartsSoonNotification();
-              }
-
-              if (preBreakNotifiedTargetRef.current !== nextBreakTime) {
-                const millisUntilBreak = Date.parse(nextBreakTime) - Date.now();
-                // 忽略阶段切换瞬间：work 阶段 remaining 归零时后端会先广播一次
-                // nextBreakTime≈now+1s 的中间态，若不过滤会在进入休息的瞬间再弹一次
-                // "休息即将开始" 提醒。同时 remainingSeconds 很小时已来不及作为提前通知。
-                const isPhaseTransition = info.remainingSeconds <= 1;
-                if (!isPhaseTransition && millisUntilBreak > 5_000 && millisUntilBreak <= 60_000) {
-                  preBreakNotifiedTargetRef.current = nextBreakTime;
-                  void notifyRestStartsSoon(
-                    i18n.t('notifications.restStartSoon.title', {
-                      defaultValue: 'Break starts soon',
-                    }),
-                    i18n.t('notifications.restStartSoon.body', {
-                      defaultValue: 'Break starts in 1 minute.',
-                    }),
-                    {
-                      dismiss: i18n.t('notifications.restStartSoon.dismissAction', {
-                        defaultValue: 'Got it',
-                      }),
-                      breakNow: i18n.t('notifications.restStartSoon.breakNowAction', {
-                        defaultValue: 'Break now',
-                      }),
-                    }
-                  );
-                }
-              }
+              schedulePreBreakNotification(nextBreakTime, info.remainingSeconds);
             }
           }
         }
@@ -371,11 +430,19 @@ function App() {
       }
       if (!isSpecialWindow) {
         stopRestMusic();
+        clearPreBreakNotificationTimer();
         void clearRestStartsSoonNotification();
         preBreakNotifiedTargetRef.current = null;
       }
     };
-  }, [i18n, isSpecialWindow, setTimerInfo, startRestMusic, stopRestMusic]);
+  }, [
+    clearPreBreakNotificationTimer,
+    isSpecialWindow,
+    schedulePreBreakNotification,
+    setTimerInfo,
+    startRestMusic,
+    stopRestMusic,
+  ]);
 
   // Update language when settings change
   useEffect(() => {
@@ -391,9 +458,14 @@ function App() {
     if (isSpecialWindow) return;
     if (settings.restStartSoonNotificationEnabled) return;
 
+    clearPreBreakNotificationTimer();
     preBreakNotifiedTargetRef.current = null;
     void clearRestStartsSoonNotification();
-  }, [isSpecialWindow, settings.restStartSoonNotificationEnabled]);
+  }, [
+    clearPreBreakNotificationTimer,
+    isSpecialWindow,
+    settings.restStartSoonNotificationEnabled,
+  ]);
 
   useEffect(() => {
     if (isSpecialWindow) return;

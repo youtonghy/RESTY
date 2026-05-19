@@ -1277,6 +1277,7 @@ interface NextSlotCardProps {
       title?: string;
       ariaLabel?: string;
     };
+    revealMode?: "hover" | "manual";
     touchFallback?: boolean;
   };
 }
@@ -1298,9 +1299,11 @@ function NextSlotCard({
   });
   const [isTouchActionsOpen, setTouchActionsOpen] = useState(false);
   const isSplitEnabled = splitActions?.enabled === true;
+  const usesManualReveal = splitActions?.revealMode === "manual";
   const supportsTouchFallback = splitActions?.touchFallback !== false;
   const canUseTouchFallback =
-    isSplitEnabled && supportsTouchFallback && !supportsHover;
+    isSplitEnabled &&
+    (usesManualReveal || (supportsTouchFallback && !supportsHover));
   const isActionable = typeof onActivate === "function";
 
   useEffect(() => {
@@ -1402,6 +1405,7 @@ function NextSlotCard({
   const cardClassName = [
     isActionable || isSplitEnabled ? "tile-card-actionable" : undefined,
     isSplitEnabled ? "tile-card-next-split" : undefined,
+    usesManualReveal ? "tile-card-next-split-manual" : undefined,
     canUseTouchFallback && isTouchActionsOpen
       ? "is-touch-actions-open"
       : undefined,
