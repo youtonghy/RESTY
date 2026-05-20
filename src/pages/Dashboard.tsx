@@ -12,6 +12,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { CSSProperties, SVGProps } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
 import type { TimerPhase } from "../types";
@@ -3503,6 +3504,84 @@ function DraggableCard({
   const hasStyleOptions = styleOptions.length > 0;
   const hasCustomContent = typeof renderCustomContent === "function";
   const activeOffset = dragOffset ?? layoutOffset;
+  const styleModal =
+    isInteractive && styleMenuOpen ? (
+      <div
+        className="card-style-modal-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`${id}-style-title`}
+        onClick={closeStyleMenu}
+        onPointerDown={(event) => {
+          event.stopPropagation();
+        }}
+      >
+        <div
+          className="card-style-modal"
+          ref={styleMenuRef}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="card-style-modal-header">
+            <h2 className="card-style-modal-title" id={`${id}-style-title`}>
+              {styleModalTitle}
+            </h2>
+            <button
+              type="button"
+              className="card-style-modal-close"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                closeStyleMenu();
+              }}
+              aria-label={styleModalCloseLabel}
+            >
+              ×
+            </button>
+          </div>
+          <div className="card-style-modal-body">
+            {hasCustomContent && (
+              <div className="card-style-custom-wrapper">
+                {renderCustomContent?.(closeStyleMenu)}
+              </div>
+            )}
+            {hasStyleOptions && (
+              <div className="card-style-menu-group">
+                <button
+                  type="button"
+                  className={`card-style-menu-item${selectedStyleId ? "" : " is-active"}`}
+                  onClick={() => {
+                    onSelectStyle(id, null);
+                    closeStyleMenu();
+                  }}
+                >
+                  {resetStyleLabel}
+                </button>
+                {styleOptions.map((style) => (
+                  <button
+                    key={style.id}
+                    type="button"
+                    className={`card-style-menu-item${selectedStyleId === style.id ? " is-active" : ""}`}
+                    onClick={() => {
+                      onSelectStyle(id, style.id);
+                      closeStyleMenu();
+                    }}
+                  >
+                    {style.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            {!hasStyleOptions && !hasCustomContent && (
+              <div className="card-style-menu-empty">{noStyleLabel}</div>
+            )}
+          </div>
+        </div>
+      </div>
+    ) : null;
+  const portaledStyleModal =
+    styleModal && typeof document !== "undefined"
+      ? createPortal(styleModal, document.body)
+      : styleModal;
 
   return (
     <div
@@ -3540,79 +3619,7 @@ function DraggableCard({
           ×
         </button>
       )}
-      {isInteractive && styleMenuOpen && (
-        <div
-          className="card-style-modal-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={`${id}-style-title`}
-          onClick={closeStyleMenu}
-          onPointerDown={(event) => {
-            event.stopPropagation();
-          }}
-        >
-          <div
-            className="card-style-modal"
-            ref={styleMenuRef}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="card-style-modal-header">
-              <h2 className="card-style-modal-title" id={`${id}-style-title`}>
-                {styleModalTitle}
-              </h2>
-              <button
-                type="button"
-                className="card-style-modal-close"
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  closeStyleMenu();
-                }}
-                aria-label={styleModalCloseLabel}
-              >
-                ×
-              </button>
-            </div>
-            <div className="card-style-modal-body">
-              {hasCustomContent && (
-                <div className="card-style-custom-wrapper">
-                  {renderCustomContent?.(closeStyleMenu)}
-                </div>
-              )}
-              {hasStyleOptions && (
-                <div className="card-style-menu-group">
-                  <button
-                    type="button"
-                    className={`card-style-menu-item${selectedStyleId ? "" : " is-active"}`}
-                    onClick={() => {
-                      onSelectStyle(id, null);
-                      closeStyleMenu();
-                    }}
-                  >
-                    {resetStyleLabel}
-                  </button>
-                  {styleOptions.map((style) => (
-                    <button
-                      key={style.id}
-                      type="button"
-                      className={`card-style-menu-item${selectedStyleId === style.id ? " is-active" : ""}`}
-                      onClick={() => {
-                        onSelectStyle(id, style.id);
-                        closeStyleMenu();
-                      }}
-                    >
-                      {style.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {!hasStyleOptions && !hasCustomContent && (
-                <div className="card-style-menu-empty">{noStyleLabel}</div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {portaledStyleModal}
       {children}
       {isInteractive && (
         <div
