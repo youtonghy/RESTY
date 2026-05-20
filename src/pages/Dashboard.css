@@ -961,6 +961,7 @@
 .tile-primary {
   font-size: clamp(1.8rem, 3.2vw, 2.9rem);
   font-weight: 600;
+  line-height: 1.16;
   letter-spacing: 0;
   color: var(--color-text-primary);
   max-width: 100%;
@@ -1021,16 +1022,14 @@
   }
 
   .tile-primary {
-    font-size: clamp(1.75rem, 24cqi, 2.7rem);
-    overflow: hidden;
-    text-overflow: clip;
+    font-size: clamp(1.55rem, 21cqi, 2.35rem);
     white-space: nowrap;
   }
 }
 
 @container (max-width: 210px) {
   .tile-primary {
-    font-size: clamp(1.55rem, 22cqi, 2.25rem);
+    font-size: clamp(1.35rem, 19cqi, 1.95rem);
   }
 }
 
