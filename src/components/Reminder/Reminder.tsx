@@ -230,7 +230,7 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
               actionLabel: panelActionLabel,
               splitActions: {
                 enabled: true,
-                revealMode: 'manual',
+                revealMode: 'hover',
                 touchFallback: true,
                 left: {
                   label: skipLabel,
