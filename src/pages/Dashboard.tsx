@@ -1958,16 +1958,6 @@ export function Dashboard({
     [i18n.language],
   );
 
-  const timeFormatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat(i18n.language, {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }),
-    [i18n.language],
-  );
-
   const statusContent = useMemo((): {
     primary: string;
     label: string;
@@ -2093,15 +2083,12 @@ export function Dashboard({
     defaultValue: isZh ? "今年进度" : "Year progress",
   });
 
-  const dayInfo = timeFormatter.format(now);
-
   const progressScopeData = useMemo(
     () => ({
       day: {
         value: dayProgress,
         formatted: percentFormatter.format(dayProgress),
         label: dayLabel,
-        info: dayInfo,
       },
       week: {
         value: weekProgress,
@@ -2122,7 +2109,6 @@ export function Dashboard({
     [
       dayProgress,
       dayLabel,
-      dayInfo,
       monthLabel,
       monthProgress,
       percentFormatter,
@@ -2368,7 +2354,6 @@ export function Dashboard({
     }),
     [
       cardTabIndex,
-      dayInfo,
       i18n.language,
       nextCardAction?.actionLabel,
       nextCardAction?.onActivate,
