@@ -929,17 +929,39 @@ const persistCards = (cards: CardInstance[]) => {
 // 进入视口时触发淡入动画（卡片出现动效）
 function useFadeInOnScroll<T extends HTMLElement>(delay: number) {
   const ref = useRef<T | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
     node.style.setProperty("--tile-delay", `${delay}ms`);
 
+    if (isVisible) return;
+
+    const rect = node.getBoundingClientRect();
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+    const viewportHeight =
+      window.innerHeight || document.documentElement.clientHeight;
+    if (
+      rect.bottom > 0 &&
+      rect.right > 0 &&
+      rect.top < viewportHeight &&
+      rect.left < viewportWidth
+    ) {
+      setIsVisible(true);
+      return;
+    }
+
+    if (typeof IntersectionObserver === "undefined") {
+      setIsVisible(true);
+      return;
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            entry.target.classList.add("is-visible");
+            setIsVisible(true);
             observer.unobserve(entry.target);
           }
         });
@@ -952,9 +974,10 @@ function useFadeInOnScroll<T extends HTMLElement>(delay: number) {
     return () => {
       observer.disconnect();
     };
-  }, [delay]);
+  }, [delay, isVisible]);
 
-  return ref;
+  return { ref, isVisible };
+
 }
 
 // 卡片图标：状态/下一段/进度/时钟
@@ -1157,11 +1180,12 @@ function FeatureCard({
   onKeyDown,
   onBlur,
 }: FeatureCardProps) {
-  const ref = useFadeInOnScroll<HTMLElement>(delay);
+  const { ref, isVisible } = useFadeInOnScroll<HTMLElement>(delay);
   const classes = [
     `tile-card`,
     className,
     progress !== undefined ? "has-progress" : undefined,
+    isVisible ? "is-visible" : undefined,
   ]
     .filter(Boolean)
     .join(" ");
@@ -1472,12 +1496,12 @@ interface TipsCardProps {
 
 // 贴士卡片：只展示文案
 function TipsCard({ tip, delay = 0, tabIndex = 0 }: TipsCardProps) {
-  const ref = useFadeInOnScroll<HTMLElement>(delay);
+  const { ref, isVisible } = useFadeInOnScroll<HTMLElement>(delay);
 
   return (
     <section
       ref={ref}
-      className="tile-card tips-card"
+      className={`tile-card tips-card${isVisible ? " is-visible" : ""}`}
       tabIndex={tabIndex}
       role="listitem"
     >
