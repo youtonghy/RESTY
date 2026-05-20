@@ -17,6 +17,14 @@ import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
 import type { TimerPhase } from "../types";
 import * as api from "../utils/api";
+import {
+  DRAG_INTENT_THRESHOLD_PX,
+  DRAG_REORDER_DELAY_MS,
+  getDragReorderCandidate,
+  type DragLayoutSnapshot,
+  type GridMetrics,
+  type LayoutItem,
+} from "./dashboardDrag";
 import "./Dashboard.css";
 
 type SlotType = Extract<TimerPhase, "work" | "break">;
@@ -349,13 +357,6 @@ const generateProgressGradient = (seed: string, tone: ProgressPalette) => {
   };
 };
 
-interface LayoutItem {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
 interface ClockCardSettings {
   timeZone: string | null;
   use12Hour: boolean;
@@ -391,21 +392,10 @@ interface CardInstance {
   settings?: CardSettings;
 }
 
-interface GridMetrics {
-  trackWidth: number;
-  trackHeight: number;
-  columnGap: number;
-  rowGap: number;
-  columnSpan: number;
-  rowSpan: number;
-}
-
 // 网格/卡片布局基础配置
 const GRID_COLUMNS = 12;
 const BASE_SPAN = 2;
 const FALLBACK_TRACK_SIZE = 120;
-const DRAG_INTENT_THRESHOLD_PX = 4;
-const DRAG_REORDER_DELAY_MS = 180;
 const CARD_ORDER: CardId[] = [
   "status",
   "next",
@@ -2417,6 +2407,15 @@ export function Dashboard({
     [t, isZh],
   );
 
+  const layoutSnapshots = useMemo(
+    () =>
+      cardInstances.map((instance) => ({
+        id: instance.instanceId,
+        layout: instance.layout,
+      })),
+    [cardInstances],
+  );
+
   const renderedCards = cardInstances.map((card, index) => {
     const config = cardCatalog[card.type];
     if (!config) return null;
@@ -3026,6 +3025,7 @@ export function Dashboard({
         key={card.instanceId}
         id={card.instanceId}
         item={card.layout}
+        layoutSnapshots={layoutSnapshots}
         minW={config.minW}
         minH={config.minH}
         metrics={metrics}
@@ -3110,6 +3110,7 @@ export function Dashboard({
 interface DraggableCardProps {
   id: string;
   item: LayoutItem;
+  layoutSnapshots: DragLayoutSnapshot[];
   minW: number;
   minH: number;
   metrics: GridMetrics;
@@ -3135,6 +3136,7 @@ interface DraggableCardProps {
 function DraggableCard({
   id,
   item,
+  layoutSnapshots,
   metrics,
   children,
   onChange,
@@ -3169,6 +3171,7 @@ function DraggableCard({
   const dragIntentRef = useRef(false);
   const isDraggingRef = useRef(false);
   const latestItemRef = useRef(item);
+  const latestLayoutSnapshotsRef = useRef(layoutSnapshots);
   const dragReorderTimerRef = useRef<number | null>(null);
   const pendingDragLayoutRef = useRef<LayoutItem | null>(null);
   const lastDragLayoutRef = useRef<LayoutItem | null>(null);
@@ -3196,6 +3199,10 @@ function DraggableCard({
       y: deltaY - (item.y - dragStart.original.y) * metrics.rowSpan,
     });
   }, [item, metrics.columnSpan, metrics.rowSpan]);
+
+  useEffect(() => {
+    latestLayoutSnapshotsRef.current = layoutSnapshots;
+  }, [layoutSnapshots]);
 
   const clearDragReorderTimer = useCallback(() => {
     if (dragReorderTimerRef.current === null) return;
@@ -3365,12 +3372,14 @@ function DraggableCard({
         const deltaX = moveEvent.clientX - start.pointerX;
         const deltaY = moveEvent.clientY - start.pointerY;
 
-        const next: LayoutItem = {
-          x: Math.round(start.original.x + deltaX / metrics.columnSpan),
-          y: Math.round(start.original.y + deltaY / metrics.rowSpan),
-          w: start.original.w,
-          h: start.original.h,
-        };
+        const next = getDragReorderCandidate({
+          activeId: id,
+          layouts: latestLayoutSnapshotsRef.current,
+          original: start.original,
+          deltaX,
+          deltaY,
+          metrics,
+        });
 
         if (
           !dragIntentRef.current &&

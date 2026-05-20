@@ -192,7 +192,9 @@
   align-items: stretch;
   height: 100%;
   touch-action: none;
-  transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    transform 0.34s cubic-bezier(0.2, 0.86, 0.18, 1),
+    filter 0.24s ease;
   will-change: transform;
 }
 
@@ -216,7 +218,7 @@
     var(--drag-offset-x, 0),
     var(--drag-offset-y, 0),
     0
-  );
+  ) scale(1.018);
   transition: none;
 }
 
@@ -226,10 +228,13 @@
     var(--drag-offset-y, 0),
     0
   );
+  transition:
+    transform 0.38s cubic-bezier(0.2, 0.86, 0.18, 1),
+    filter 0.24s ease;
 }
 
 .draggable-card.is-dragging > .tile-card {
-  box-shadow: 0 26px 52px rgba(15, 23, 42, 0.2);
+  box-shadow: 0 30px 64px rgba(15, 23, 42, 0.22);
 }
 
 .draggable-card.is-resizing {
