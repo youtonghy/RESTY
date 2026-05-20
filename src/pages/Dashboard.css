@@ -634,6 +634,7 @@
 
 .tile-card {
   position: relative;
+  container-type: inline-size;
   background: var(--color-surface);
   border-radius: 26px;
   border: 1px solid var(--color-border);
@@ -960,8 +961,10 @@
 .tile-primary {
   font-size: clamp(1.8rem, 3.2vw, 2.9rem);
   font-weight: 600;
-  letter-spacing: -0.015em;
+  letter-spacing: 0;
   color: var(--color-text-primary);
+  max-width: 100%;
+  min-width: 0;
 }
 
 .tile-label {
@@ -1008,6 +1011,28 @@
   line-height: 1.15;
 }
 
+@container (max-width: 260px) {
+  .tile-primary-row {
+    gap: 0;
+  }
+
+  .tile-icon {
+    display: none;
+  }
+
+  .tile-primary {
+    font-size: clamp(1.75rem, 24cqi, 2.7rem);
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: nowrap;
+  }
+}
+
+@container (max-width: 210px) {
+  .tile-primary {
+    font-size: clamp(1.55rem, 22cqi, 2.25rem);
+  }
+}
 
 @media (max-width: 1280px) {
   .tile-span-4 {
