@@ -193,8 +193,8 @@
   height: 100%;
   touch-action: none;
   transition:
-    transform 0.34s cubic-bezier(0.2, 0.86, 0.18, 1),
-    filter 0.24s ease;
+    transform 0.52s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 0.32s ease;
   will-change: transform;
 }
 
@@ -229,8 +229,8 @@
     0
   );
   transition:
-    transform 0.38s cubic-bezier(0.2, 0.86, 0.18, 1),
-    filter 0.24s ease;
+    transform 0.52s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 0.32s ease;
 }
 
 .draggable-card.is-dragging > .tile-card {

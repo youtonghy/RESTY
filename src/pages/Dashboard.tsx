@@ -396,6 +396,7 @@ interface CardInstance {
 const GRID_COLUMNS = 12;
 const BASE_SPAN = 2;
 const FALLBACK_TRACK_SIZE = 120;
+const DRAG_SETTLE_ANIMATION_MS = 520;
 const CARD_ORDER: CardId[] = [
   "status",
   "next",
@@ -3172,6 +3173,7 @@ function DraggableCard({
   const isDraggingRef = useRef(false);
   const latestItemRef = useRef(item);
   const latestLayoutSnapshotsRef = useRef(layoutSnapshots);
+  const dragOffsetRef = useRef<{ x: number; y: number } | null>(null);
   const dragReorderTimerRef = useRef<number | null>(null);
   const pendingDragLayoutRef = useRef<LayoutItem | null>(null);
   const lastDragLayoutRef = useRef<LayoutItem | null>(null);
@@ -3183,6 +3185,7 @@ function DraggableCard({
   const currentPointerRef = useRef<{ x: number; y: number } | null>(null);
   const previousRectRef = useRef<DOMRect | null>(null);
   const layoutAnimationFrameRef = useRef<number | null>(null);
+  const dragSettleTimerRef = useRef<number | null>(null);
 
   useLayoutEffect(() => {
     latestItemRef.current = item;
@@ -3219,6 +3222,14 @@ function DraggableCard({
   }, []);
 
   useEffect(() => clearLayoutAnimationFrame, [clearLayoutAnimationFrame]);
+
+  const clearDragSettleTimer = useCallback(() => {
+    if (dragSettleTimerRef.current === null) return;
+    window.clearTimeout(dragSettleTimerRef.current);
+    dragSettleTimerRef.current = null;
+  }, []);
+
+  useEffect(() => clearDragSettleTimer, [clearDragSettleTimer]);
 
   useLayoutEffect(() => {
     if (!isDraggingRef.current) return;
@@ -3352,9 +3363,12 @@ function DraggableCard({
       node.setPointerCapture(event.pointerId);
       setMode("dragging");
       isDraggingRef.current = true;
+      dragOffsetRef.current = { x: 0, y: 0 };
       setDragOffset({ x: 0, y: 0 });
+      setLayoutOffset(null);
       pendingDragLayoutRef.current = null;
       lastDragLayoutRef.current = null;
+      clearDragSettleTimer();
 
       const start = {
         pointerX: event.clientX,
@@ -3390,10 +3404,12 @@ function DraggableCard({
         }
 
         const currentItem = latestItemRef.current;
-        setDragOffset({
+        const nextDragOffset = {
           x: deltaX - (currentItem.x - start.original.x) * metrics.columnSpan,
           y: deltaY - (currentItem.y - start.original.y) * metrics.rowSpan,
-        });
+        };
+        dragOffsetRef.current = nextDragOffset;
+        setDragOffset(nextDragOffset);
         lastDragLayoutRef.current = next;
         if (!dragIntentRef.current) return;
         scheduleDragReorder(next);
@@ -3416,10 +3432,12 @@ function DraggableCard({
         }
         clearDragReorderTimer();
         const finalLayout = lastDragLayoutRef.current;
+        const finalDragOffset = dragOffsetRef.current;
         pendingDragLayoutRef.current = null;
         lastDragLayoutRef.current = null;
         dragStartRef.current = null;
         currentPointerRef.current = null;
+        dragOffsetRef.current = null;
         isDraggingRef.current = false;
         setMode("idle");
         setDragOffset(null);
@@ -3427,6 +3445,25 @@ function DraggableCard({
           onStyleMenuClose?.();
           setStyleMenuOpen(true);
           return;
+        }
+        if (
+          finalDragOffset &&
+          (Math.abs(finalDragOffset.x) >= 1 ||
+            Math.abs(finalDragOffset.y) >= 1) &&
+          !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ) {
+          clearLayoutAnimationFrame();
+          setLayoutOffset(finalDragOffset);
+          layoutAnimationFrameRef.current = window.requestAnimationFrame(() => {
+            layoutAnimationFrameRef.current = window.requestAnimationFrame(() => {
+              layoutAnimationFrameRef.current = null;
+              setLayoutOffset(null);
+            });
+          });
+          dragSettleTimerRef.current = window.setTimeout(() => {
+            dragSettleTimerRef.current = null;
+            setLayoutOffset(null);
+          }, DRAG_SETTLE_ANIMATION_MS + 80);
         }
         if (finalLayout) {
           applyWithBounds(finalLayout);
@@ -3442,6 +3479,8 @@ function DraggableCard({
     },
     [
       applyWithBounds,
+      clearDragSettleTimer,
+      clearLayoutAnimationFrame,
       clearDragReorderTimer,
       closeStyleMenu,
       item,
