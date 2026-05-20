@@ -39,6 +39,21 @@ const getGridStep = (delta: number, span: number) => {
   return direction * Math.floor(magnitude + (1 - DRAG_GRID_HYSTERESIS_RATIO));
 };
 
+const getFreePlacementStep = (
+  delta: number,
+  span: number,
+  preserveAxis: boolean,
+) => {
+  if (!preserveAxis) {
+    return getGridStep(delta, span);
+  }
+  const raw = delta / span;
+  if (Math.abs(raw) < 1) {
+    return 0;
+  }
+  return getGridStep(delta, span);
+};
+
 const clampCandidate = (candidate: LayoutItem) => ({
   ...candidate,
   x: Math.max(0, Math.min(candidate.x, 12 - candidate.w)),
@@ -48,12 +63,18 @@ const clampCandidate = (candidate: LayoutItem) => ({
 const layoutsEqual = (a: LayoutItem, b: LayoutItem) =>
   a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 
+const layoutsOverlapVertically = (a: LayoutItem, b: LayoutItem) =>
+  a.y < b.y + b.h && a.y + a.h > b.y;
+
+const layoutsOverlapHorizontally = (a: LayoutItem, b: LayoutItem) =>
+  a.x < b.x + b.w && a.x + a.w > b.x;
+
 const getCenter = (layout: LayoutItem) => ({
   x: layout.x + layout.w / 2,
   y: layout.y + layout.h / 2,
 });
 
-const isCenterInsideInfluence = (
+const isPointInsideInfluence = (
   center: { x: number; y: number },
   layout: LayoutItem,
 ) => {
@@ -65,6 +86,46 @@ const isCenterInsideInfluence = (
     center.y >= layout.y + insetY &&
     center.y <= layout.y + layout.h - insetY
   );
+};
+
+const isAxisInsideInfluence = (
+  value: number,
+  start: number,
+  size: number,
+) => {
+  const inset = Math.min(0.42, size * DRAG_TARGET_INFLUENCE_RATIO);
+  return value >= start + inset && value <= start + size - inset;
+};
+
+const getFloatingLayout = (
+  original: LayoutItem,
+  floatingCenter: { x: number; y: number },
+) => ({
+  x: floatingCenter.x - original.w / 2,
+  y: floatingCenter.y - original.h / 2,
+  w: original.w,
+  h: original.h,
+});
+
+const isInsideTargetInfluence = (
+  original: LayoutItem,
+  target: LayoutItem,
+  floatingCenter: { x: number; y: number },
+  dominantAxis: "horizontal" | "vertical" | null,
+) => {
+  if (dominantAxis === "horizontal") {
+    return (
+      isAxisInsideInfluence(floatingCenter.x, target.x, target.w) &&
+      layoutsOverlapVertically(getFloatingLayout(original, floatingCenter), target)
+    );
+  }
+  if (dominantAxis === "vertical") {
+    return (
+      isAxisInsideInfluence(floatingCenter.y, target.y, target.h) &&
+      layoutsOverlapHorizontally(getFloatingLayout(original, floatingCenter), target)
+    );
+  }
+  return isPointInsideInfluence(floatingCenter, target);
 };
 
 const getDirectionalPenalty = (
@@ -87,6 +148,7 @@ const getClosestCenterCandidate = (
   original: LayoutItem,
   floatingCenter: { x: number; y: number },
   movement: { x: number; y: number },
+  dominantAxis: "horizontal" | "vertical" | null,
 ) => {
   const originalCenter = getCenter(original);
   let best:
@@ -98,7 +160,28 @@ const getClosestCenterCandidate = (
 
   for (const item of layouts) {
     if (item.id === activeId) continue;
-    if (!isCenterInsideInfluence(floatingCenter, item.layout)) continue;
+    if (
+      dominantAxis === "horizontal" &&
+      !layoutsOverlapVertically(original, item.layout)
+    ) {
+      continue;
+    }
+    if (
+      dominantAxis === "vertical" &&
+      !layoutsOverlapHorizontally(original, item.layout)
+    ) {
+      continue;
+    }
+    if (
+      !isInsideTargetInfluence(
+        original,
+        item.layout,
+        floatingCenter,
+        dominantAxis,
+      )
+    ) {
+      continue;
+    }
 
     const targetCenter = getCenter(item.layout);
     const distance = Math.hypot(
@@ -143,6 +226,11 @@ export const getDragReorderCandidate = ({
     horizontalTravel > verticalTravel * DRAG_AXIS_LOCK_RATIO;
   const dominantVertical =
     verticalTravel > horizontalTravel * DRAG_AXIS_LOCK_RATIO;
+  const dominantAxis = dominantHorizontal
+    ? "horizontal"
+    : dominantVertical
+      ? "vertical"
+      : null;
 
   const floatingX = original.x + deltaX / metrics.columnSpan;
   const floatingY = original.y + deltaY / metrics.rowSpan;
@@ -160,12 +248,13 @@ export const getDragReorderCandidate = ({
       x: deltaX / metrics.columnSpan,
       y: deltaY / metrics.rowSpan,
     },
+    dominantAxis,
   );
 
   if (centerCandidate) {
     return clampCandidate({
       x: centerCandidate.x,
-      y: centerCandidate.y,
+      y: dominantHorizontal ? original.y : centerCandidate.y,
       w: original.w,
       h: original.h,
     });
@@ -174,11 +263,19 @@ export const getDragReorderCandidate = ({
   const xStep =
     dominantVertical && horizontalTravel < DRAG_AXIS_LOCK_RELEASE
       ? 0
-      : getGridStep(deltaX, metrics.columnSpan);
+      : getFreePlacementStep(
+          deltaX,
+          metrics.columnSpan,
+          dominantVertical,
+        );
   const yStep =
     dominantHorizontal && verticalTravel < DRAG_AXIS_LOCK_RELEASE
       ? 0
-      : getGridStep(deltaY, metrics.rowSpan);
+      : getFreePlacementStep(
+          deltaY,
+          metrics.rowSpan,
+          dominantHorizontal,
+        );
   const candidate = clampCandidate({
     x: original.x + xStep,
     y: original.y + yStep,

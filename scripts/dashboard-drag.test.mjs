@@ -77,6 +77,20 @@ test("dashboard drag keeps mostly horizontal movement from vertical jitter", () 
   );
 });
 
+test("dashboard drag does not snap horizontal collisions into another row", () => {
+  assert.deepEqual(
+    getDragReorderCandidate({
+      activeId: "active",
+      layouts,
+      original: active,
+      deltaX: 185,
+      deltaY: 96,
+      metrics,
+    }),
+    { x: 2, y: 0, w: 2, h: 2 },
+  );
+});
+
 test("dashboard drag still allows deliberate vertical movement", () => {
   assert.deepEqual(
     getDragReorderCandidate({
@@ -88,5 +102,19 @@ test("dashboard drag still allows deliberate vertical movement", () => {
       metrics,
     }),
     { x: 0, y: 2, w: 2, h: 2 },
+  );
+});
+
+test("dashboard drag preserves free placement into blank grid space", () => {
+  assert.deepEqual(
+    getDragReorderCandidate({
+      activeId: "active",
+      layouts,
+      original: active,
+      deltaX: 386,
+      deltaY: 260,
+      metrics,
+    }),
+    { x: 3, y: 2, w: 2, h: 2 },
   );
 });
