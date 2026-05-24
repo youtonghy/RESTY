@@ -250,9 +250,16 @@ function App() {
 
       const activeSettings = settingsOverride ?? useAppStore.getState().settings;
 
-      // Opening reminder window is handled by backend (timer service events) to avoid race conditions.
-      // We only handle closing here to ensure windows are cleaned up when phase changes away from break.
-      if (phase !== 'break') {
+      if (phase === 'break') {
+        api
+          .openReminderWindow(
+            activeSettings.reminderMode === 'fullscreen',
+            activeSettings.floatingPosition
+          )
+          .catch((error) => {
+            console.error('Failed to open reminder window:', error);
+          });
+      } else {
         api.closeReminderWindow().catch((error) => {
           console.error('Failed to close reminder window:', error);
         });
