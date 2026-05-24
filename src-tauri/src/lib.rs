@@ -10,7 +10,7 @@ use services::{updater, DatabaseService, TimerService};
 use std::sync::Arc;
 use tauri::image::Image;
 use tauri::tray::{TrayIcon, TrayIconBuilder};
-use tauri::{Emitter, Listener, Manager, Theme, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Emitter, Listener, Manager, Theme, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 const TRAY_ICON_LIGHT: &[u8] = include_bytes!("../icons/128x128.png");
 const TRAY_ICON_DARK: &[u8] = include_bytes!("../icons/128x128Night.png");
@@ -23,6 +23,44 @@ const FLOATING_MARGIN_X: i32 = 20;
 const FLOATING_MARGIN_Y: i32 = 96;
 const FLOATING_WINDOW_WIDTH: f64 = 340.0;
 const FLOATING_WINDOW_HEIGHT: f64 = 300.0;
+
+fn restore_reminder_window_presentation(
+    window: &WebviewWindow,
+    is_fullscreen: bool,
+    floating_position: FloatingPosition,
+) -> Result<(), Box<dyn std::error::Error>> {
+    window.set_always_on_top(true)?;
+    window.set_resizable(false)?;
+    window.set_decorations(false)?;
+    window.set_skip_taskbar(true)?;
+
+    if is_fullscreen {
+        if let Ok(Some(monitor)) = window.current_monitor() {
+            let _ = window.set_position(tauri::Position::Physical(*monitor.position()));
+        }
+        window.set_fullscreen(true)?;
+    } else {
+        window.set_fullscreen(false)?;
+        window.set_size(tauri::Size::Logical(tauri::LogicalSize {
+            width: FLOATING_WINDOW_WIDTH,
+            height: FLOATING_WINDOW_HEIGHT,
+        }))?;
+
+        if let Ok(Some(monitor)) = window.current_monitor() {
+            let screen = *monitor.size();
+            let origin = *monitor.position();
+            let window_size = resolve_window_size_for_monitor(window, &monitor);
+            let position =
+                resolve_floating_position(origin, screen, window_size, floating_position);
+            window.set_position(tauri::Position::Physical(position))?;
+        }
+    }
+
+    window.show()?;
+    window.unminimize()?;
+    window.set_focus()?;
+    Ok(())
+}
 
 fn load_tray_image(bytes: &[u8]) -> Option<Image<'static>> {
     Image::from_bytes(bytes).ok()
@@ -693,8 +731,7 @@ pub fn show_break_reminder_window(
         .collect();
     if !existing.is_empty() {
         for w in existing {
-            let _ = w.show();
-            let _ = w.set_focus();
+            restore_reminder_window_presentation(&w, is_fullscreen, floating_position.clone())?;
         }
         return Ok(());
     }

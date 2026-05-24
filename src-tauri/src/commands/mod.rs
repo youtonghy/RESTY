@@ -537,14 +537,36 @@ pub fn open_reminder_window(
 
 /// Show reminder window once frontend is ready
 #[tauri::command]
-pub fn show_reminder_window(app: AppHandle) -> Result<(), String> {
-    // Show all reminder windows (across monitors)
-    for (label, window) in app.webview_windows() {
-        if label.starts_with("break-reminder") {
-            let _ = window.show();
-            let _ = window.set_focus();
+pub async fn show_reminder_window(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let settings = state
+        .database_service
+        .load_settings()
+        .await
+        .map_err(|e| e.to_string())?;
+    let is_fullscreen = matches!(
+        settings.reminder_mode,
+        crate::models::ReminderMode::Fullscreen
+    );
+    let floating_position = settings.floating_position;
+
+    crate::show_break_reminder_window(&app, is_fullscreen, floating_position)
+        .map_err(|e| e.to_string())?;
+
+    if is_fullscreen {
+        for (label, window) in app.webview_windows() {
+            if label.starts_with("break-reminder") {
+                if let Ok(false) = window.is_fullscreen() {
+                    return Err(format!(
+                        "Reminder window {label} failed to enter fullscreen"
+                    ));
+                }
+            }
         }
     }
+
     Ok(())
 }
 
