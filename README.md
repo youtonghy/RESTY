@@ -40,16 +40,16 @@ RESTY 是一款跨平台的视力保护提醒工具，通过智能计时器帮�
 
 #### 浏览器调试（无需 Rust 环境）
 ```bash
-pnpm install
-pnpm run dev
+bun install
+bun run dev
 ```
 默认开发地址为 `http://127.0.0.1:21421/`。Windows 用户请使用 IPv4 地址以避免 IPv6 权限问题。
 
 #### 桌面应用（需要 Rust 与 Tauri）
 ```bash
-pnpm install
-pnpm tauri dev      # 桌面调试
-pnpm tauri build    # 生产构建
+bun install
+bun run tauri dev      # 桌面调试
+bun run tauri build    # 生产构建
 ```
 Windows 用户可直接双击 `start-dev.bat` 一键启动。更多桌面端说明请参考 `DESKTOP_APP.md`、`快速开始.md` 与 `WINDOWS.md`。
 
@@ -112,16 +112,16 @@ RESTY is a cross-platform eye-care companion that keeps you on a healthy work–
 
 #### Web-first workflow (no Rust required)
 ```bash
-pnpm install
-pnpm run dev
+bun install
+bun run dev
 ```
 Open the printed `http://127.0.0.1:21421/` URL in your browser. Stick to the IPv4 address on Windows to avoid IPv6 permission issues.
 
 #### Native desktop workflow (Rust toolchain required)
 ```bash
-pnpm install
-pnpm tauri dev      # desktop development
-pnpm tauri build    # production bundle
+bun install
+bun run tauri dev      # desktop development
+bun run tauri build    # production bundle
 ```
 On Windows you may double-click `start-dev.bat` for a one-click start. Refer to `DESKTOP_APP.md`, `快速开始.md`, and `WINDOWS.md` for platform guidance.
 

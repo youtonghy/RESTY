@@ -4,9 +4,9 @@
   "version": "0.0.0-dev",
   "identifier": "com.youtonghy.resty",
   "build": {
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": "bun run dev",
     "devUrl": "http://127.0.0.1:21421",
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "bun run build",
     "frontendDist": "../dist"
   },
   "app": {
