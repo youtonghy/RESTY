@@ -40,7 +40,10 @@ test('macOS break reminder stays on all workspaces without AppKit presentation c
   const libSource = await readFile(new URL('../src-tauri/src/lib.rs', import.meta.url), 'utf8');
 
   assert.match(libSource, /window\.set_visible_on_all_workspaces\(true\)\?/);
-  assert.match(libSource, /window\.set_fullscreen\(true\)\?/);
+  assert.match(libSource, /window\.set_position\(tauri::Position::Physical\(\*monitor\.position\(\)\)\)\?/);
+  assert.match(libSource, /window\.set_size\(tauri::Size::Physical\(\*monitor\.size\(\)\)\)\?/);
+  assert.match(libSource, /window\.as_ref\(\)\.window\(\)\.set_simple_fullscreen\(true\)\?/);
+  assert.match(libSource, /window\.as_ref\(\)\.window\(\)\.set_simple_fullscreen\(false\)/);
   assert.match(libSource, /window\.set_visible_on_all_workspaces\(false\)/);
   assert.doesNotMatch(libSource, /NSApplicationPresentation/);
   assert.doesNotMatch(libSource, /setPresentationOptions_/);

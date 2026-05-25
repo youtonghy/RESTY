@@ -4,6 +4,7 @@ import { useAppStore } from '../../store';
 import * as api from '../../utils/api';
 import './Reminder.css';
 import { useTheme } from '../Common/ThemeProvider';
+import { Dashboard } from '../../pages/Dashboard';
 
 interface ReminderProps {
   isFullscreen?: boolean;
@@ -19,6 +20,9 @@ export function Reminder({ isFullscreen = true, mode = 'break' }: ReminderProps)
   const timerTotalSeconds = useAppStore((state) => state.timerInfo.totalSeconds);
   const timerNextTransitionTime = useAppStore((state) => state.timerInfo.nextTransitionTime);
   const enableForceBreak = useAppStore((state) => state.settings.enableForceBreak);
+  const reminderFullscreenDisplay = useAppStore(
+    (state) => state.settings.reminderFullscreenDisplay
+  );
   const setTimerInfo = useAppStore((state) => state.setTimerInfo);
   const { effectiveTheme } = useTheme();
   const [optimisticSeconds, setOptimisticSeconds] = useState<number | null>(null);
@@ -29,6 +33,7 @@ export function Reminder({ isFullscreen = true, mode = 'break' }: ReminderProps)
   const isBreak = timerPhase === 'break';
   const canSkip = !enableForceBreak || !isBreak;
   const isPreBreak = mode === 'preBreak';
+  const isPanelDisplay = !isPreBreak && isFullscreen && reminderFullscreenDisplay === 'panel';
   const isZh = i18n.language.startsWith('zh');
   // Compute base remaining seconds using nextTransitionTime for higher precision
   const computeBaseSeconds = useMemo(() => {
@@ -174,6 +179,18 @@ export function Reminder({ isFullscreen = true, mode = 'break' }: ReminderProps)
   const extendLabel = t('reminder.actions.extendShort');
   const startBreakLabel = t('reminder.actions.startBreak');
   const timerLabel = t('reminder.simpleLabel');
+  const panelCountdownLabel = t('reminder.panel.breakCountdown', {
+    defaultValue: isZh ? '休息倒计时' : 'Break countdown',
+  });
+  const panelActionLabel = t('reminder.panel.actionLabel', {
+    defaultValue: isZh ? '休息倒计时操作' : 'Break countdown actions',
+  });
+  const panelSkipLabel = t('reminder.panel.skipBreak', {
+    defaultValue: isZh ? '跳过休息' : 'Skip break',
+  });
+  const panelExtendLabel = t('reminder.panel.extendBreak', {
+    defaultValue: isZh ? '增加5分钟' : 'Add 5 minutes',
+  });
   const preBreakTitle = t('reminder.preBreak.title', {
     defaultValue: isZh ? '即将休息' : 'Break starts soon',
   });
@@ -213,6 +230,7 @@ export function Reminder({ isFullscreen = true, mode = 'break' }: ReminderProps)
     phaseClass,
     `theme-${effectiveTheme}`,
     isReady ? 'is-ready' : '',
+    isPanelDisplay ? 'reminder-panel-mode' : '',
   ].join(' ');
 
   return (
@@ -251,6 +269,34 @@ export function Reminder({ isFullscreen = true, mode = 'break' }: ReminderProps)
               </button>
             </div>
           </div>
+        </div>
+      ) : isPanelDisplay ? (
+        <div className="reminder-dashboard">
+          <Dashboard
+            isReadOnly
+            nextCardAction={{
+              primary: formattedTime,
+              secondary: panelCountdownLabel,
+              actionLabel: panelActionLabel,
+              splitActions: {
+                enabled: true,
+                revealMode: 'hover',
+                touchFallback: true,
+                left: {
+                  label: skipLabel,
+                  onClick: handleSkip,
+                  disabled: !canSkip,
+                  title: !canSkip && isBreak ? t('reminder.forceBreakTooltip') : undefined,
+                  ariaLabel: panelSkipLabel,
+                },
+                right: {
+                  label: extendLabel,
+                  onClick: handleExtend,
+                  ariaLabel: panelExtendLabel,
+                },
+              },
+            }}
+          />
         </div>
       ) : (
         <>

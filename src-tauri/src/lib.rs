@@ -42,12 +42,14 @@ fn set_break_reminder_fullscreen(
 ) -> Result<(), Box<dyn std::error::Error>> {
     if let Some(monitor) = monitor {
         window.set_position(tauri::Position::Physical(*monitor.position()))?;
+        window.set_size(tauri::Size::Physical(*monitor.size()))?;
     }
 
     #[cfg(target_os = "macos")]
     {
+        window.as_ref().window().set_simple_fullscreen(false)?;
         window.set_visible_on_all_workspaces(true)?;
-        window.set_fullscreen(true)?;
+        window.as_ref().window().set_simple_fullscreen(true)?;
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -93,6 +95,7 @@ fn restore_reminder_window_presentation(
     } else {
         #[cfg(target_os = "macos")]
         {
+            let _ = window.as_ref().window().set_simple_fullscreen(false);
             let _ = window.set_visible_on_all_workspaces(false);
         }
         window.set_fullscreen(false)?;
@@ -122,6 +125,7 @@ fn restore_pre_break_reminder_window_presentation(
 ) -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(target_os = "macos")]
     {
+        let _ = window.as_ref().window().set_simple_fullscreen(false);
         let _ = window.set_visible_on_all_workspaces(false);
     }
     window.set_fullscreen(false)?;
