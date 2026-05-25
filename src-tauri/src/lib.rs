@@ -36,50 +36,6 @@ fn is_break_reminder_label(label: &str) -> bool {
     label.starts_with(BREAK_REMINDER_LABEL_PREFIX)
 }
 
-#[cfg(target_os = "macos")]
-fn apply_macos_break_reminder_lock(window: &WebviewWindow) {
-    use cocoa::appkit::{
-        NSApp, NSApplication, NSApplicationPresentationOptions, NSMainMenuWindowLevel, NSWindow,
-        NSWindowCollectionBehavior,
-    };
-    use cocoa::base::{id, nil};
-    use cocoa::foundation::NSInteger;
-
-    unsafe {
-        if let Ok(ns_window) = window.ns_window() {
-            let ns_window = ns_window as id;
-            ns_window.setCollectionBehavior_(
-                NSWindowCollectionBehavior::NSWindowCollectionBehaviorCanJoinAllSpaces
-                    | NSWindowCollectionBehavior::NSWindowCollectionBehaviorStationary
-                    | NSWindowCollectionBehavior::NSWindowCollectionBehaviorIgnoresCycle
-                    | NSWindowCollectionBehavior::NSWindowCollectionBehaviorFullScreenPrimary,
-            );
-            ns_window.setLevel_((NSMainMenuWindowLevel + 2) as NSInteger);
-            ns_window.makeKeyAndOrderFront_(nil);
-        }
-
-        let options = NSApplicationPresentationOptions::NSApplicationPresentationFullScreen
-            | NSApplicationPresentationOptions::NSApplicationPresentationHideDock
-            | NSApplicationPresentationOptions::NSApplicationPresentationHideMenuBar
-            | NSApplicationPresentationOptions::NSApplicationPresentationDisableProcessSwitching;
-        NSApp().setPresentationOptions_(options);
-    }
-}
-
-#[cfg(target_os = "macos")]
-pub(crate) fn release_macos_break_reminder_lock() {
-    use cocoa::appkit::{NSApp, NSApplication, NSApplicationPresentationOptions};
-
-    unsafe {
-        NSApp().setPresentationOptions_(
-            NSApplicationPresentationOptions::NSApplicationPresentationDefault,
-        );
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-pub(crate) fn release_macos_break_reminder_lock() {}
-
 fn set_break_reminder_fullscreen(
     window: &WebviewWindow,
     monitor: Option<&tauri::Monitor>,
@@ -90,11 +46,8 @@ fn set_break_reminder_fullscreen(
 
     #[cfg(target_os = "macos")]
     {
-        window.set_fullscreen(false)?;
-        if let Some(monitor) = monitor {
-            window.set_size(tauri::Size::Physical(*monitor.size()))?;
-        }
-        apply_macos_break_reminder_lock(window);
+        window.set_visible_on_all_workspaces(true)?;
+        window.set_fullscreen(true)?;
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -138,7 +91,10 @@ fn restore_reminder_window_presentation(
         let monitor = window.current_monitor().ok().flatten();
         set_break_reminder_fullscreen(window, monitor.as_ref())?;
     } else {
-        release_macos_break_reminder_lock();
+        #[cfg(target_os = "macos")]
+        {
+            let _ = window.set_visible_on_all_workspaces(false);
+        }
         window.set_fullscreen(false)?;
         window.set_size(tauri::Size::Logical(tauri::LogicalSize {
             width: FLOATING_WINDOW_WIDTH,
@@ -164,6 +120,10 @@ fn restore_reminder_window_presentation(
 fn restore_pre_break_reminder_window_presentation(
     window: &WebviewWindow,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = window.set_visible_on_all_workspaces(false);
+    }
     window.set_fullscreen(false)?;
     window.set_always_on_top(true)?;
     window.set_resizable(false)?;
@@ -869,6 +829,7 @@ pub fn show_break_reminder_window(
         .maximized(false)
         .decorations(false)
         .always_on_top(true)
+        .visible_on_all_workspaces(false)
         .skip_taskbar(true)
         .focused(true)
         .build()?;
@@ -887,6 +848,7 @@ pub fn show_break_reminder_window(
         .resizable(false)
         .decorations(false)
         .always_on_top(true)
+        .visible_on_all_workspaces(true)
         .skip_taskbar(true)
         .focused(true)
         .build()?;
@@ -903,6 +865,7 @@ pub fn show_break_reminder_window(
                 .resizable(false)
                 .decorations(false)
                 .always_on_top(true)
+                .visible_on_all_workspaces(true)
                 .skip_taskbar(true)
                 .focused(true)
                 .build()?;
@@ -939,6 +902,7 @@ pub fn show_pre_break_reminder_window(
     .maximized(false)
     .decorations(false)
     .always_on_top(true)
+    .visible_on_all_workspaces(false)
     .skip_taskbar(true)
     .focused(true)
     .build()?;

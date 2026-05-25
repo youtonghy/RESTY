@@ -36,16 +36,12 @@ test('pre-break reminder uses a dedicated large focused window', async () => {
   assert.match(commandsSource, /crate::show_pre_break_reminder_window\(&app\)/);
 });
 
-test('macOS break reminder applies and releases stronger presentation lock', async () => {
+test('macOS break reminder stays on all workspaces without AppKit presentation calls', async () => {
   const libSource = await readFile(new URL('../src-tauri/src/lib.rs', import.meta.url), 'utf8');
-  const commandsSource = await readFile(
-    new URL('../src-tauri/src/commands/mod.rs', import.meta.url),
-    'utf8'
-  );
 
-  assert.match(libSource, /fn apply_macos_break_reminder_lock/);
-  assert.match(libSource, /NSApplicationPresentationDisableProcessSwitching/);
-  assert.match(libSource, /NSWindowCollectionBehaviorCanJoinAllSpaces/);
-  assert.match(libSource, /release_macos_break_reminder_lock/);
-  assert.match(commandsSource, /crate::release_macos_break_reminder_lock\(\)/);
+  assert.match(libSource, /window\.set_visible_on_all_workspaces\(true\)\?/);
+  assert.match(libSource, /window\.set_fullscreen\(true\)\?/);
+  assert.match(libSource, /window\.set_visible_on_all_workspaces\(false\)/);
+  assert.doesNotMatch(libSource, /NSApplicationPresentation/);
+  assert.doesNotMatch(libSource, /setPresentationOptions_/);
 });

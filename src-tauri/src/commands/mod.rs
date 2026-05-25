@@ -598,7 +598,6 @@ pub fn close_reminder_window(app: AppHandle) -> Result<(), String> {
     for w in to_close {
         let _ = w.close();
     }
-    crate::release_macos_break_reminder_lock();
     Ok(())
 }
 
