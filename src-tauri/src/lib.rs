@@ -23,6 +23,106 @@ const FLOATING_MARGIN_X: i32 = 20;
 const FLOATING_MARGIN_Y: i32 = 96;
 const FLOATING_WINDOW_WIDTH: f64 = 340.0;
 const FLOATING_WINDOW_HEIGHT: f64 = 300.0;
+const BREAK_REMINDER_LABEL_PREFIX: &str = "break-reminder";
+const BREAK_REMINDER_ROUTE: &str = "index.html#reminder";
+const PRE_BREAK_REMINDER_LABEL: &str = "pre-break-reminder";
+const PRE_BREAK_REMINDER_ROUTE: &str = "index.html#pre-break-reminder";
+const PRE_BREAK_WINDOW_WIDTH: f64 = 680.0;
+const PRE_BREAK_WINDOW_HEIGHT: f64 = 420.0;
+const PRE_BREAK_WINDOW_MIN_WIDTH: f64 = 560.0;
+const PRE_BREAK_WINDOW_MIN_HEIGHT: f64 = 360.0;
+
+fn is_break_reminder_label(label: &str) -> bool {
+    label.starts_with(BREAK_REMINDER_LABEL_PREFIX)
+}
+
+#[cfg(target_os = "macos")]
+fn apply_macos_break_reminder_lock(window: &WebviewWindow) {
+    use cocoa::appkit::{
+        NSApp, NSApplication, NSApplicationPresentationOptions, NSMainMenuWindowLevel, NSWindow,
+        NSWindowCollectionBehavior,
+    };
+    use cocoa::base::{id, nil};
+    use cocoa::foundation::NSInteger;
+
+    unsafe {
+        if let Ok(ns_window) = window.ns_window() {
+            let ns_window = ns_window as id;
+            ns_window.setCollectionBehavior_(
+                NSWindowCollectionBehavior::NSWindowCollectionBehaviorCanJoinAllSpaces
+                    | NSWindowCollectionBehavior::NSWindowCollectionBehaviorStationary
+                    | NSWindowCollectionBehavior::NSWindowCollectionBehaviorIgnoresCycle
+                    | NSWindowCollectionBehavior::NSWindowCollectionBehaviorFullScreenPrimary,
+            );
+            ns_window.setLevel_((NSMainMenuWindowLevel + 2) as NSInteger);
+            ns_window.makeKeyAndOrderFront_(nil);
+        }
+
+        let options = NSApplicationPresentationOptions::NSApplicationPresentationFullScreen
+            | NSApplicationPresentationOptions::NSApplicationPresentationHideDock
+            | NSApplicationPresentationOptions::NSApplicationPresentationHideMenuBar
+            | NSApplicationPresentationOptions::NSApplicationPresentationDisableProcessSwitching;
+        NSApp().setPresentationOptions_(options);
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn release_macos_break_reminder_lock() {
+    use cocoa::appkit::{NSApp, NSApplication, NSApplicationPresentationOptions};
+
+    unsafe {
+        NSApp().setPresentationOptions_(
+            NSApplicationPresentationOptions::NSApplicationPresentationDefault,
+        );
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn release_macos_break_reminder_lock() {}
+
+fn set_break_reminder_fullscreen(
+    window: &WebviewWindow,
+    monitor: Option<&tauri::Monitor>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(monitor) = monitor {
+        window.set_position(tauri::Position::Physical(*monitor.position()))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        window.set_fullscreen(false)?;
+        if let Some(monitor) = monitor {
+            window.set_size(tauri::Size::Physical(*monitor.size()))?;
+        }
+        apply_macos_break_reminder_lock(window);
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = monitor;
+        window.set_fullscreen(true)?;
+    }
+
+    Ok(())
+}
+
+fn center_pre_break_window(window: &WebviewWindow) -> Result<(), Box<dyn std::error::Error>> {
+    window.set_size(tauri::Size::Logical(tauri::LogicalSize {
+        width: PRE_BREAK_WINDOW_WIDTH,
+        height: PRE_BREAK_WINDOW_HEIGHT,
+    }))?;
+
+    if let Ok(Some(monitor)) = window.current_monitor() {
+        let screen = *monitor.size();
+        let origin = *monitor.position();
+        let window_size = resolve_window_size_for_monitor(window, &monitor);
+        let x = origin.x + ((screen.width as i32 - window_size.width as i32) / 2).max(0);
+        let y = origin.y + ((screen.height as i32 - window_size.height as i32) / 2).max(0);
+        window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }))?;
+    }
+
+    Ok(())
+}
 
 fn restore_reminder_window_presentation(
     window: &WebviewWindow,
@@ -35,11 +135,10 @@ fn restore_reminder_window_presentation(
     window.set_skip_taskbar(true)?;
 
     if is_fullscreen {
-        if let Ok(Some(monitor)) = window.current_monitor() {
-            let _ = window.set_position(tauri::Position::Physical(*monitor.position()));
-        }
-        window.set_fullscreen(true)?;
+        let monitor = window.current_monitor().ok().flatten();
+        set_break_reminder_fullscreen(window, monitor.as_ref())?;
     } else {
+        release_macos_break_reminder_lock();
         window.set_fullscreen(false)?;
         window.set_size(tauri::Size::Logical(tauri::LogicalSize {
             width: FLOATING_WINDOW_WIDTH,
@@ -56,6 +155,21 @@ fn restore_reminder_window_presentation(
         }
     }
 
+    window.show()?;
+    window.unminimize()?;
+    window.set_focus()?;
+    Ok(())
+}
+
+fn restore_pre_break_reminder_window_presentation(
+    window: &WebviewWindow,
+) -> Result<(), Box<dyn std::error::Error>> {
+    window.set_fullscreen(false)?;
+    window.set_always_on_top(true)?;
+    window.set_resizable(false)?;
+    window.set_decorations(false)?;
+    window.set_skip_taskbar(true)?;
+    center_pre_break_window(window)?;
     window.show()?;
     window.unminimize()?;
     window.set_focus()?;
@@ -625,6 +739,8 @@ pub fn run() {
             commands::get_system_status,
             commands::open_reminder_window,
             commands::show_reminder_window,
+            commands::open_pre_break_reminder_window,
+            commands::close_pre_break_reminder_window,
             commands::close_reminder_window,
             commands::show_main_window,
             commands::tray_menu_action,
@@ -717,12 +833,15 @@ pub fn show_break_reminder_window(
     is_fullscreen: bool,
     floating_position: FloatingPosition,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // If any reminder windows already exist, bring them to front
+    let _ = app
+        .get_webview_window(PRE_BREAK_REMINDER_LABEL)
+        .map(|w| w.close());
+
     let existing: Vec<_> = app
         .webview_windows()
         .iter()
         .filter_map(|(label, w)| {
-            if label.starts_with("break-reminder") {
+            if is_break_reminder_label(label) {
                 Some(w.clone())
             } else {
                 None
@@ -736,85 +855,94 @@ pub fn show_break_reminder_window(
         return Ok(());
     }
 
-    // Try multi-monitor setup
     let monitors = app.available_monitors().unwrap_or_default();
-    if monitors.is_empty() {
-        // Fallback to single-window behavior (current monitor)
-        if is_fullscreen {
-            let _window = WebviewWindowBuilder::new(
-                app,
-                "break-reminder",
-                WebviewUrl::App("index.html#reminder".into()),
-            )
-            .title("Break Time - RESTY")
-            .visible(false)
-            .fullscreen(true)
-            .resizable(false)
-            .decorations(false)
-            .always_on_top(true)
-            .skip_taskbar(true)
-            .build()?;
-        } else {
-            let window = WebviewWindowBuilder::new(
-                app,
-                "break-reminder",
-                WebviewUrl::App("index.html#reminder".into()),
-            )
-            .title("Break Time - RESTY")
-            .visible(false)
-            .inner_size(FLOATING_WINDOW_WIDTH, FLOATING_WINDOW_HEIGHT)
-            .resizable(false)
-            .maximized(false)
-            .decorations(false)
-            .always_on_top(true)
-            .skip_taskbar(true)
-            .build()?;
-
-            if let Ok(Some(monitor)) = window.current_monitor() {
-                let screen = *monitor.size();
-                let origin = *monitor.position();
-                let window_size = resolve_window_size_for_monitor(&window, &monitor);
-                let position =
-                    resolve_floating_position(origin, screen, window_size, floating_position);
-                window.set_position(tauri::Position::Physical(position))?;
-            }
-        }
+    if !is_fullscreen {
+        let window = WebviewWindowBuilder::new(
+            app,
+            BREAK_REMINDER_LABEL_PREFIX,
+            WebviewUrl::App(BREAK_REMINDER_ROUTE.into()),
+        )
+        .title("Break Time - RESTY")
+        .visible(false)
+        .inner_size(FLOATING_WINDOW_WIDTH, FLOATING_WINDOW_HEIGHT)
+        .resizable(false)
+        .maximized(false)
+        .decorations(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .focused(true)
+        .build()?;
+        restore_reminder_window_presentation(&window, false, floating_position)?;
         return Ok(());
     }
 
-    // Create a window on each monitor
+    if monitors.is_empty() {
+        let window = WebviewWindowBuilder::new(
+            app,
+            BREAK_REMINDER_LABEL_PREFIX,
+            WebviewUrl::App(BREAK_REMINDER_ROUTE.into()),
+        )
+        .title("Break Time - RESTY")
+        .visible(false)
+        .resizable(false)
+        .decorations(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .focused(true)
+        .build()?;
+        restore_reminder_window_presentation(&window, true, floating_position)?;
+        return Ok(());
+    }
+
     for (idx, monitor) in monitors.iter().enumerate() {
-        let label = format!("break-reminder-{}", idx);
-        let mut builder =
-            WebviewWindowBuilder::new(app, &label, WebviewUrl::App("index.html#reminder".into()))
+        let label = format!("{BREAK_REMINDER_LABEL_PREFIX}-{idx}");
+        let window =
+            WebviewWindowBuilder::new(app, &label, WebviewUrl::App(BREAK_REMINDER_ROUTE.into()))
                 .title("Break Time - RESTY")
                 .visible(false)
                 .resizable(false)
                 .decorations(false)
                 .always_on_top(true)
-                .skip_taskbar(true);
-
-        if !is_fullscreen {
-            builder = builder
-                .inner_size(FLOATING_WINDOW_WIDTH, FLOATING_WINDOW_HEIGHT)
-                .maximized(false);
-        }
-
-        let window = builder.build()?;
-
+                .skip_taskbar(true)
+                .focused(true)
+                .build()?;
         let origin = *monitor.position();
-        if is_fullscreen {
-            // Place on target monitor and then make fullscreen
-            let _ = window.set_position(tauri::Position::Physical(origin));
-            let _ = window.set_fullscreen(true);
-        } else {
-            let screen = *monitor.size();
-            let win_size = resolve_window_size_for_monitor(&window, monitor);
-            let position =
-                resolve_floating_position(origin, screen, win_size, floating_position.clone());
-            let _ = window.set_position(tauri::Position::Physical(position));
-        }
+        window.set_position(tauri::Position::Physical(origin))?;
+        set_break_reminder_fullscreen(&window, Some(monitor))?;
+        window.show()?;
+        window.unminimize()?;
+        window.set_focus()?;
     }
 
+    Ok(())
+}
+
+/// Show the pre-break reminder as a larger focused window.
+pub fn show_pre_break_reminder_window(
+    app: &tauri::AppHandle,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(window) = app.get_webview_window(PRE_BREAK_REMINDER_LABEL) {
+        restore_pre_break_reminder_window_presentation(&window)?;
+        return Ok(());
+    }
+
+    let window = WebviewWindowBuilder::new(
+        app,
+        PRE_BREAK_REMINDER_LABEL,
+        WebviewUrl::App(PRE_BREAK_REMINDER_ROUTE.into()),
+    )
+    .title("Break Soon - RESTY")
+    .visible(false)
+    .inner_size(PRE_BREAK_WINDOW_WIDTH, PRE_BREAK_WINDOW_HEIGHT)
+    .min_inner_size(PRE_BREAK_WINDOW_MIN_WIDTH, PRE_BREAK_WINDOW_MIN_HEIGHT)
+    .resizable(false)
+    .maximized(false)
+    .decorations(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .focused(true)
+    .build()?;
+
+    restore_pre_break_reminder_window_presentation(&window)?;
     Ok(())
 }

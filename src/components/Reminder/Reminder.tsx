@@ -4,24 +4,21 @@ import { useAppStore } from '../../store';
 import * as api from '../../utils/api';
 import './Reminder.css';
 import { useTheme } from '../Common/ThemeProvider';
-import { Dashboard } from '../../pages/Dashboard';
 
 interface ReminderProps {
   isFullscreen?: boolean;
+  mode?: 'break' | 'preBreak';
 }
 
 const TIMER_SYNC_KEY = 'resty-timer-sync';
 
-export function Reminder({ isFullscreen = true }: ReminderProps) {
+export function Reminder({ isFullscreen = true, mode = 'break' }: ReminderProps) {
   const { t, i18n } = useTranslation();
   const timerPhase = useAppStore((state) => state.timerInfo.phase);
   const timerRemainingSeconds = useAppStore((state) => state.timerInfo.remainingSeconds);
   const timerTotalSeconds = useAppStore((state) => state.timerInfo.totalSeconds);
   const timerNextTransitionTime = useAppStore((state) => state.timerInfo.nextTransitionTime);
   const enableForceBreak = useAppStore((state) => state.settings.enableForceBreak);
-  const reminderFullscreenDisplay = useAppStore(
-    (state) => state.settings.reminderFullscreenDisplay
-  );
   const setTimerInfo = useAppStore((state) => state.setTimerInfo);
   const { effectiveTheme } = useTheme();
   const [optimisticSeconds, setOptimisticSeconds] = useState<number | null>(null);
@@ -31,7 +28,7 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
   const safeRemainingSeconds = Math.max(0, timerRemainingSeconds);
   const isBreak = timerPhase === 'break';
   const canSkip = !enableForceBreak || !isBreak;
-  const isPanelDisplay = isFullscreen && reminderFullscreenDisplay === 'panel';
+  const isPreBreak = mode === 'preBreak';
   const isZh = i18n.language.startsWith('zh');
   // Compute base remaining seconds using nextTransitionTime for higher precision
   const computeBaseSeconds = useMemo(() => {
@@ -175,18 +172,16 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
 
   const skipLabel = t('reminder.actions.skip');
   const extendLabel = t('reminder.actions.extendShort');
+  const startBreakLabel = t('reminder.actions.startBreak');
   const timerLabel = t('reminder.simpleLabel');
-  const panelCountdownLabel = t('reminder.panel.breakCountdown', {
-    defaultValue: isZh ? '休息倒计时' : 'Break countdown',
+  const preBreakTitle = t('reminder.preBreak.title', {
+    defaultValue: isZh ? '即将休息' : 'Break starts soon',
   });
-  const panelActionLabel = t('reminder.panel.actionLabel', {
-    defaultValue: isZh ? '休息倒计时操作' : 'Break countdown actions',
+  const preBreakMessage = t('reminder.preBreak.message', {
+    defaultValue: isZh ? '还有 1 分钟进入休息时间。' : 'Your break starts in 1 minute.',
   });
-  const panelSkipLabel = t('reminder.panel.skipBreak', {
-    defaultValue: isZh ? '跳过休息' : 'Skip break',
-  });
-  const panelExtendLabel = t('reminder.panel.extendBreak', {
-    defaultValue: isZh ? '增加5分钟' : 'Add 5 minutes',
+  const preBreakCountdownLabel = t('reminder.preBreak.countdownLabel', {
+    defaultValue: isZh ? '距离休息开始' : 'Until break starts',
   });
 
   const phaseClass = `phase-${timerPhase ?? 'break'}`;
@@ -196,10 +191,12 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
     let raf1 = 0;
     let raf2 = 0;
     raf1 = requestAnimationFrame(() => {
-      // Show the hidden window as soon as we have a frame
-      api
-        .showReminderWindow()
-        .catch((err) => console.error('Failed to show reminder window:', err));
+      if (!isPreBreak) {
+        // Show the hidden break window as soon as we have a frame.
+        api
+          .showReminderWindow()
+          .catch((err) => console.error('Failed to show reminder window:', err));
+      }
       // Next frame, enable fade-in for panel
       raf2 = requestAnimationFrame(() => setIsReady(true));
     });
@@ -207,46 +204,53 @@ export function Reminder({ isFullscreen = true }: ReminderProps) {
       if (raf1) cancelAnimationFrame(raf1);
       if (raf2) cancelAnimationFrame(raf2);
     };
-  }, []);
+  }, [isPreBreak]);
 
   const rootClassName = [
     'reminder',
+    isPreBreak ? 'reminder-pre-break' : '',
     isFullscreen ? 'reminder-fullscreen' : 'reminder-floating',
     phaseClass,
     `theme-${effectiveTheme}`,
     isReady ? 'is-ready' : '',
-    isPanelDisplay ? 'reminder-panel-mode' : '',
   ].join(' ');
 
   return (
     <div className={rootClassName}>
-      {isPanelDisplay ? (
-        <div className="reminder-dashboard">
-          <Dashboard
-            isReadOnly
-            nextCardAction={{
-              primary: formattedTime,
-              secondary: panelCountdownLabel,
-              actionLabel: panelActionLabel,
-              splitActions: {
-                enabled: true,
-                revealMode: 'hover',
-                touchFallback: true,
-                left: {
-                  label: skipLabel,
-                  onClick: handleSkip,
-                  disabled: !canSkip,
-                  title: !canSkip && isBreak ? t('reminder.forceBreakTooltip') : undefined,
-                  ariaLabel: panelSkipLabel,
-                },
-                right: {
-                  label: extendLabel,
-                  onClick: handleExtend,
-                  ariaLabel: panelExtendLabel,
-                },
-              },
-            }}
-          />
+      {isPreBreak ? (
+        <div
+          className="reminder-panel reminder-pre-break-panel"
+          role="dialog"
+          aria-label={preBreakTitle}
+        >
+          <div className="reminder-content">
+            <div className="reminder-simple-label">{preBreakCountdownLabel}</div>
+            <div className="reminder-simple-timer" aria-live="polite">{formattedTime}</div>
+            <h1 className="reminder-heading">{preBreakTitle}</h1>
+            <p className="reminder-message">{preBreakMessage}</p>
+
+            <div className="reminder-actions">
+              <button
+                className="btn btn-secondary btn-lg"
+                onClick={() => {
+                  void api.closePreBreakReminderWindow();
+                }}
+              >
+                {t('notifications.restStartSoon.dismissAction', {
+                  defaultValue: isZh ? '知道了' : 'Got it',
+                })}
+              </button>
+
+              <button
+                className="btn btn-primary btn-lg"
+                onClick={() => {
+                  void api.startBreak();
+                }}
+              >
+                {startBreakLabel}
+              </button>
+            </div>
+          </div>
         </div>
       ) : (
         <>

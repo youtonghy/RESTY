@@ -74,7 +74,13 @@ function App() {
   const isReminderWindow = (() => {
     if (typeof window === 'undefined') return false;
     const hash = window.location.hash.replace(/^#\/?/, '');
-    return hash.startsWith('reminder');
+    return hash.startsWith('reminder') || hash.startsWith('pre-break-reminder');
+  })();
+
+  const isPreBreakReminderWindow = (() => {
+    if (typeof window === 'undefined') return false;
+    const hash = window.location.hash.replace(/^#\/?/, '');
+    return hash.startsWith('pre-break-reminder');
   })();
 
   const isTrayMenuWindow = (() => {
@@ -170,6 +176,9 @@ function App() {
       }
 
       preBreakNotifiedTargetRef.current = nextBreakTime;
+      void api.openPreBreakReminderWindow().catch((error) => {
+        console.error('Failed to open pre-break reminder window:', error);
+      });
       void notifyRestStartsSoon(
         i18n.t('notifications.restStartSoon.title', {
           defaultValue: 'Break starts soon',
@@ -251,6 +260,7 @@ function App() {
       const activeSettings = settingsOverride ?? useAppStore.getState().settings;
 
       if (phase === 'break') {
+        void api.closePreBreakReminderWindow();
         api
           .openReminderWindow(
             activeSettings.reminderMode === 'fullscreen',
@@ -330,6 +340,7 @@ function App() {
             if (preBreakNotifiedTargetRef.current) {
               preBreakNotifiedTargetRef.current = null;
               void clearRestStartsSoonNotification();
+              void api.closePreBreakReminderWindow();
             }
           } else if (info.phase === 'work' && info.state === 'running') {
             const nextBreakTime = info.nextBreakTime ?? null;
@@ -337,6 +348,7 @@ function App() {
               if (preBreakNotifiedTargetRef.current) {
                 preBreakNotifiedTargetRef.current = null;
                 void clearRestStartsSoonNotification();
+                void api.closePreBreakReminderWindow();
               }
               clearPreBreakNotificationTimer();
             } else {
@@ -390,6 +402,7 @@ function App() {
           preBreakNotifiedTargetRef.current = null;
         }
         void clearRestStartsSoonNotification();
+        void api.closePreBreakReminderWindow();
         if (actionId === 'break-now') {
           const currentPhase = useAppStore.getState().timerInfo.phase;
           const enterBreak =
@@ -439,6 +452,7 @@ function App() {
         stopRestMusic();
         clearPreBreakNotificationTimer();
         void clearRestStartsSoonNotification();
+        void api.closePreBreakReminderWindow();
         preBreakNotifiedTargetRef.current = null;
       }
     };
@@ -468,6 +482,7 @@ function App() {
     clearPreBreakNotificationTimer();
     preBreakNotifiedTargetRef.current = null;
     void clearRestStartsSoonNotification();
+    void api.closePreBreakReminderWindow();
   }, [
     clearPreBreakNotificationTimer,
     isSpecialWindow,
@@ -576,7 +591,10 @@ function App() {
       {isTrayMenuWindow ? (
         <TrayMenu />
       ) : isReminderWindow ? (
-        <Reminder isFullscreen={settings.reminderMode === 'fullscreen'} />
+        <Reminder
+          isFullscreen={!isPreBreakReminderWindow && settings.reminderMode === 'fullscreen'}
+          mode={isPreBreakReminderWindow ? 'preBreak' : 'break'}
+        />
       ) : (
         <HashRouter>
           {/* Bridge: listen to backend events and navigate */}

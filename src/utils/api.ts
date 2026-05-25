@@ -220,6 +220,14 @@ export async function showReminderWindow(): Promise<void> {
   return await invokeWithDebug('show_reminder_window');
 }
 
+export async function openPreBreakReminderWindow(): Promise<void> {
+  return await invokeWithDebug('open_pre_break_reminder_window');
+}
+
+export async function closePreBreakReminderWindow(): Promise<void> {
+  return await invokeWithDebug('close_pre_break_reminder_window');
+}
+
 /** 鏄剧ず涓荤獥鍙ｏ紙鐢ㄤ簬鍓嶇鍒濆鍖栧畬鎴愬悗璋冪敤锛夈€?*/
 export async function showMainWindow(): Promise<void> {
   return await invokeWithDebug('show_main_window');

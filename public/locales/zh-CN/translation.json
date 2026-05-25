@@ -141,7 +141,7 @@
       "playSound": "播放提示音",
       "restStartSoonNotification": {
         "enable": "休息前 1 分钟系统通知",
-        "description": "将在休息开始前 1 分钟发送一次系统通知提醒。"
+        "description": "将在休息开始前 1 分钟弹出聚焦提醒窗口，并发送一次系统通知。"
       },
       "restMusic": {
         "title": "休息音乐",
@@ -248,6 +248,11 @@
       "actionDescription": "选择本次休息的操作",
       "skipBreak": "跳过休息",
       "extendBreak": "增加5分钟"
+    },
+    "preBreak": {
+      "title": "即将开始休息",
+      "message": "还有 1 分钟进入休息时间。",
+      "countdownLabel": "距离休息开始"
     }
   },
   "analytics": {

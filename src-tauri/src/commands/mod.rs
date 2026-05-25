@@ -555,6 +555,7 @@ pub async fn show_reminder_window(
     crate::show_break_reminder_window(&app, is_fullscreen, floating_position)
         .map_err(|e| e.to_string())?;
 
+    #[cfg(not(target_os = "macos"))]
     if is_fullscreen {
         for (label, window) in app.webview_windows() {
             if label.starts_with("break-reminder") {
@@ -570,18 +571,34 @@ pub async fn show_reminder_window(
     Ok(())
 }
 
+/// Open the 1-minute pre-break reminder window.
+#[tauri::command]
+pub fn open_pre_break_reminder_window(app: AppHandle) -> Result<(), String> {
+    crate::show_pre_break_reminder_window(&app).map_err(|e| e.to_string())
+}
+
+/// Close the 1-minute pre-break reminder window.
+#[tauri::command]
+pub fn close_pre_break_reminder_window(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("pre-break-reminder") {
+        let _ = window.close();
+    }
+    Ok(())
+}
+
 /// Close reminder window
 #[tauri::command]
 pub fn close_reminder_window(app: AppHandle) -> Result<(), String> {
     let mut to_close = vec![];
     for (label, window) in app.webview_windows() {
-        if label.starts_with("break-reminder") {
+        if label.starts_with("break-reminder") || label == "pre-break-reminder" {
             to_close.push(window);
         }
     }
     for w in to_close {
         let _ = w.close();
     }
+    crate::release_macos_break_reminder_lock();
     Ok(())
 }
 
