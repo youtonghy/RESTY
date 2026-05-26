@@ -1,12 +1,30 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isDmgBuild, normalizeTauriArgs, shouldRetryDmgBuild } from './run-tauri.mjs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  getTauriCliCommand,
+  isDmgBuild,
+  normalizeTauriArgs,
+  shouldRetryDmgBuild,
+} from './run-tauri.mjs';
+
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 test('normalizeTauriArgs removes package-manager argument separators', () => {
   assert.deepEqual(
     normalizeTauriArgs(['build', '--', '--bundles', 'dmg']),
     ['build', '--bundles', 'dmg'],
   );
+});
+
+test('getTauriCliCommand invokes the cross-platform JavaScript CLI entrypoint', () => {
+  const command = getTauriCliCommand('/usr/local/bin/bun');
+
+  assert.equal(command.command, '/usr/local/bin/bun');
+  assert.deepEqual(command.args, [
+    path.join(projectRoot, 'node_modules', '@tauri-apps', 'cli', 'tauri.js'),
+  ]);
 });
 
 test('isDmgBuild detects macOS builds that include DMG output', () => {

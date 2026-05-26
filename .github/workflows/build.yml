@@ -93,4 +93,4 @@ jobs:
           includeUpdaterJson: true
           updaterJsonPreferNsis: true
           tauriScript: bun run tauri
-          args: ${{ matrix.platform == 'macos-latest' && format('--config "{0}" --target universal-apple-darwin', steps.prepare-version.outputs.config_path) || format('--config "{0}"', steps.prepare-version.outputs.config_path) }}
+          args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin' || '' }}

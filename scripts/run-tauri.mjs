@@ -6,12 +6,14 @@ import { retryTauriDmg } from './retry-tauri-dmg.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(scriptDir, '..');
-const tauriBin = path.join(
-  projectRoot,
-  'node_modules',
-  '.bin',
-  process.platform === 'win32' ? 'tauri.cmd' : 'tauri',
-);
+const tauriCliScript = path.join(projectRoot, 'node_modules', '@tauri-apps', 'cli', 'tauri.js');
+
+export function getTauriCliCommand(execPath = process.execPath) {
+  return {
+    command: execPath,
+    args: [tauriCliScript],
+  };
+}
 
 function run(command, args) {
   return new Promise((resolve) => {
@@ -77,12 +79,13 @@ export function shouldRetryDmgBuild(args, exitCode, output, platform = process.p
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = normalizeTauriArgs(process.argv.slice(2));
   const removedArtifacts = await cleanTauriBundleArtifacts();
+  const tauriCli = getTauriCliCommand();
 
   if (removedArtifacts.length > 0) {
     console.log(`Removed stale Tauri DMG artifacts:\n${removedArtifacts.join('\n')}`);
   }
 
-  const result = await run(tauriBin, args);
+  const result = await run(tauriCli.command, [...tauriCli.args, ...args]);
 
   if (!shouldRetryDmgBuild(args, result.code, result.output)) {
     process.exitCode = result.code;
