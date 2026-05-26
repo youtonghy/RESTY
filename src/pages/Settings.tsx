@@ -3,6 +3,11 @@ import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener';
 import { confirm as confirmDialog, open, save } from '@tauri-apps/plugin-dialog';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store';
+import {
+  getNotificationPermissionStatus,
+  requestNotificationPermissionStatus,
+  type NotificationPermissionStatus,
+} from '../services/notifications';
 import * as api from '../utils/api';
 import {
   DEFAULT_SETTINGS,
@@ -20,6 +25,10 @@ const IS_WINDOWS_PLATFORM =
 const IS_MACOS_PLATFORM =
   typeof navigator !== 'undefined' &&
   /macintosh|mac os x|macos/i.test(`${navigator.userAgent} ${navigator.platform ?? ''}`);
+const MACOS_NOTIFICATION_SETTINGS_URL =
+  'x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=com.youtonghy.resty';
+const MACOS_NOTIFICATION_SETTINGS_FALLBACK_URL =
+  'x-apple.systempreferences:com.apple.preference.notifications';
 
 // 设置数值归一化工具
 const clampNumber = (value: number, min: number, max: number) =>
@@ -119,6 +128,9 @@ const enforceTrayDefaults = (settings: SettingsType): SettingsType => {
   return normalized;
 };
 
+const notificationPermissionStatusClass = (status: NotificationPermissionStatus) =>
+  status === 'notGranted' ? 'not-granted' : status;
+
 // 语言与提醒位置选项配置
 const LANGUAGE_OPTIONS: Array<{ value: Language; labelKey: string }> = [
   { value: 'en-US', labelKey: 'settings.language.options.enUS' },
@@ -154,6 +166,10 @@ export function Settings() {
   const [clearAnalyticsInput, setClearAnalyticsInput] = useState('');
   const [isClearingAnalytics, setIsClearingAnalytics] = useState(false);
   const [isTransferringData, setIsTransferringData] = useState(false);
+  const [notificationPermissionStatus, setNotificationPermissionStatus] =
+    useState<NotificationPermissionStatus>('unknown');
+  const [isCheckingNotificationPermission, setIsCheckingNotificationPermission] =
+    useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
   const sectionDefs = useMemo(
@@ -200,6 +216,59 @@ export function Settings() {
     void loadSettings();
   }, [loadSettings]);
 
+  const refreshNotificationPermissionStatus = useCallback(async () => {
+    if (!isMacos) return;
+    setIsCheckingNotificationPermission(true);
+    const status = await getNotificationPermissionStatus();
+    if (!isMountedRef.current) return;
+    setNotificationPermissionStatus(status);
+    setIsCheckingNotificationPermission(false);
+  }, [isMacos]);
+
+  useEffect(() => {
+    if (!isMacos) return;
+    void refreshNotificationPermissionStatus();
+
+    const handleFocus = () => {
+      void refreshNotificationPermissionStatus();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [isMacos, refreshNotificationPermissionStatus]);
+
+  const handleRequestNotificationPermission = useCallback(async () => {
+    if (!isMacos) return;
+    setMessage('');
+    setIsCheckingNotificationPermission(true);
+    const status = await requestNotificationPermissionStatus();
+    if (!isMountedRef.current) return;
+    setNotificationPermissionStatus(status);
+    setIsCheckingNotificationPermission(false);
+    setMessage(
+      status === 'granted'
+        ? t('settings.system.notificationPermission.grantedMessage')
+        : t('settings.system.notificationPermission.notGrantedMessage')
+    );
+  }, [isMacos, t]);
+
+  const handleOpenNotificationSettings = useCallback(async () => {
+    setMessage('');
+    try {
+      await openUrl(MACOS_NOTIFICATION_SETTINGS_URL);
+    } catch (primaryError) {
+      try {
+        await openUrl(MACOS_NOTIFICATION_SETTINGS_FALLBACK_URL);
+      } catch (fallbackError) {
+        console.error('Failed to open macOS notification settings:', {
+          primaryError,
+          fallbackError,
+        });
+        if (!isMountedRef.current) return;
+        setMessage(t('settings.system.notificationPermission.openFailed'));
+      }
+    }
+  }, [t]);
+
   /** 自动保存：将传入的新设置保存到后端并同步全局状态。 */
   const saveSettingsAuto = useCallback(
     async (next: SettingsType) => {
@@ -236,7 +305,7 @@ export function Settings() {
         setMessage(t('errors.saveFailed'));
       }
     },
-    [isWindows, setSettings, t]
+    [isMacos, isWindows, setSettings, t]
   );
 
   // 分段番茄的增删改：本地更新并按需持久化
@@ -1093,27 +1162,87 @@ export function Settings() {
               )}
 
               {isMacos && (
-                <div className="form-group toggle-group">
-                  <label className="toggle-row">
-                    <span className="toggle-text">{t('settings.system.macosMenuBarOnly')}</span>
-                    <span className="switch">
-                      <input
-                        type="checkbox"
-                        checked={localSettings.macosMenuBarOnly}
-                        onChange={(e) => {
-                          const next = {
-                            ...localSettings,
-                            macosMenuBarOnly: e.target.checked,
-                          };
-                          setLocalSettings(next);
-                          saveSettingsAuto(next);
-                        }}
-                      />
-                      <span className="slider" />
-                    </span>
-                  </label>
-                  <p className="helper-text">{t('settings.system.macosMenuBarOnlyHint')}</p>
-                </div>
+                <>
+                  <div className="form-group toggle-group">
+                    <label className="toggle-row">
+                      <span className="toggle-text">{t('settings.system.macosMenuBarOnly')}</span>
+                      <span className="switch">
+                        <input
+                          type="checkbox"
+                          checked={localSettings.macosMenuBarOnly}
+                          onChange={(e) => {
+                            const next = {
+                              ...localSettings,
+                              macosMenuBarOnly: e.target.checked,
+                            };
+                            setLocalSettings(next);
+                            saveSettingsAuto(next);
+                          }}
+                        />
+                        <span className="slider" />
+                      </span>
+                    </label>
+                    <p className="helper-text">{t('settings.system.macosMenuBarOnlyHint')}</p>
+                  </div>
+
+                  <div className="form-group macos-permission-panel">
+                    <div className="macos-permission-header">
+                      <div>
+                        <span className="toggle-text">
+                          {t('settings.system.notificationPermission.title')}
+                        </span>
+                        <p className="helper-text">
+                          {t('settings.system.notificationPermission.description')}
+                        </p>
+                      </div>
+                      <span
+                        className={`permission-status permission-status--${notificationPermissionStatusClass(
+                          notificationPermissionStatus
+                        )}`}
+                      >
+                        {isCheckingNotificationPermission
+                          ? t('settings.system.notificationPermission.status.checking')
+                          : t(
+                              `settings.system.notificationPermission.status.${notificationPermissionStatus}`
+                            )}
+                      </span>
+                    </div>
+                    <div className="permission-actions">
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={refreshNotificationPermissionStatus}
+                        disabled={isCheckingNotificationPermission}
+                      >
+                        {t('settings.system.notificationPermission.check')}
+                      </button>
+                      {notificationPermissionStatus !== 'granted' && (
+                        <button
+                          type="button"
+                          className="btn"
+                          onClick={handleRequestNotificationPermission}
+                          disabled={isCheckingNotificationPermission}
+                        >
+                          {t('settings.system.notificationPermission.request')}
+                        </button>
+                      )}
+                      {notificationPermissionStatus !== 'granted' && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={handleOpenNotificationSettings}
+                        >
+                          {t('settings.system.notificationPermission.openSettings')}
+                        </button>
+                      )}
+                    </div>
+                    {notificationPermissionStatus !== 'granted' && (
+                      <p className="helper-text">
+                        {t('settings.system.notificationPermission.notGrantedHint')}
+                      </p>
+                    )}
+                  </div>
+                </>
               )}
 
               <h3 className="card-subtitle">{t('settings.system.dataTransfer.title')}</h3>

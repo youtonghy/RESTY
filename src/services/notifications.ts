@@ -10,12 +10,25 @@ const isTauri = typeof window !== 'undefined' && Boolean((window as { __TAURI__?
 const PRE_BREAK_NOTIFICATION_ID = 10001;
 const PRE_BREAK_AUTO_DISMISS_MS = 10_000;
 
+export type NotificationPermissionStatus =
+  | 'unknown'
+  | 'granted'
+  | 'notGranted'
+  | 'unsupported'
+  | 'error';
+
 type PreBreakNotificationMode = 'plain' | 'actions';
 
 const isWindowsPlatform = (() => {
   if (typeof navigator === 'undefined') return false;
   const ua = `${navigator.userAgent} ${navigator.platform ?? ''}`.toLowerCase();
   return ua.includes('win');
+})();
+
+const isMacOSPlatform = (() => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = `${navigator.userAgent} ${navigator.platform ?? ''}`.toLowerCase();
+  return ua.includes('macintosh') || ua.includes('mac os x') || ua.includes('macos');
 })();
 
 let preBreakDismissTimer: ReturnType<typeof setTimeout> | null = null;
@@ -28,6 +41,40 @@ function clearPreBreakAutoDismissTimer() {
   }
 }
 
+const normalizeNotificationPermission = (
+  permission: NotificationPermission
+): NotificationPermissionStatus => (permission === 'granted' ? 'granted' : 'notGranted');
+
+export async function getNotificationPermissionStatus(): Promise<NotificationPermissionStatus> {
+  if (!isTauri) {
+    return 'unsupported';
+  }
+
+  try {
+    return (await isPermissionGranted()) ? 'granted' : 'notGranted';
+  } catch (error) {
+    console.warn('Failed to check notification permission:', error);
+    return 'error';
+  }
+}
+
+export async function requestNotificationPermissionStatus(): Promise<NotificationPermissionStatus> {
+  if (!isTauri) {
+    return 'unsupported';
+  }
+
+  try {
+    if (await isPermissionGranted()) {
+      return 'granted';
+    }
+
+    return normalizeNotificationPermission(await requestPermission());
+  } catch (error) {
+    console.warn('Failed to request notification permission:', error);
+    return 'error';
+  }
+}
+
 export async function ensureNotificationPermission(): Promise<boolean> {
   if (!isTauri) {
     return false;
@@ -36,6 +83,10 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   try {
     if (await isPermissionGranted()) {
       return true;
+    }
+
+    if (isMacOSPlatform) {
+      return false;
     }
 
     const permission = await requestPermission();
