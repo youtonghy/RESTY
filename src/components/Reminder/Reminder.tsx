@@ -177,7 +177,6 @@ export function Reminder({ isFullscreen = true, mode = 'break' }: ReminderProps)
 
   const skipLabel = t('reminder.actions.skip');
   const extendLabel = t('reminder.actions.extendShort');
-  const startBreakLabel = t('reminder.actions.startBreak');
   const timerLabel = t('reminder.simpleLabel');
   const panelCountdownLabel = t('reminder.panel.breakCountdown', {
     defaultValue: isZh ? '休息倒计时' : 'Break countdown',
@@ -246,28 +245,6 @@ export function Reminder({ isFullscreen = true, mode = 'break' }: ReminderProps)
             <div className="reminder-simple-timer" aria-live="polite">{formattedTime}</div>
             <h1 className="reminder-heading">{preBreakTitle}</h1>
             <p className="reminder-message">{preBreakMessage}</p>
-
-            <div className="reminder-actions">
-              <button
-                className="btn btn-secondary btn-lg"
-                onClick={() => {
-                  void api.closePreBreakReminderWindow();
-                }}
-              >
-                {t('notifications.restStartSoon.dismissAction', {
-                  defaultValue: isZh ? '知道了' : 'Got it',
-                })}
-              </button>
-
-              <button
-                className="btn btn-primary btn-lg"
-                onClick={() => {
-                  void api.startBreak();
-                }}
-              >
-                {startBreakLabel}
-              </button>
-            </div>
           </div>
         </div>
       ) : isPanelDisplay ? (

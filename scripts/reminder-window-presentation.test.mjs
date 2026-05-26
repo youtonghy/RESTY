@@ -32,6 +32,10 @@ test('pre-break reminder uses a dedicated large focused window', async () => {
   assert.match(libSource, /WebviewUrl::App\(PRE_BREAK_REMINDER_ROUTE\.into\(\)\)/);
   assert.match(libSource, /\.always_on_top\(true\)/);
   assert.match(libSource, /\.focused\(true\)/);
+  assert.match(libSource, /const PRE_BREAK_WINDOW_AUTO_CLOSE_SECS: u64 = 10/);
+  assert.match(libSource, /fn schedule_pre_break_window_auto_close/);
+  assert.match(libSource, /tokio::time::sleep\(Duration::from_secs\(PRE_BREAK_WINDOW_AUTO_CLOSE_SECS\)\)\.await/);
+  assert.match(libSource, /app\.get_webview_window\(PRE_BREAK_REMINDER_LABEL\)/);
   assert.match(commandsSource, /pub fn open_pre_break_reminder_window/);
   assert.match(commandsSource, /crate::show_pre_break_reminder_window\(&app\)/);
 });

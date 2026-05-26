@@ -8,6 +8,7 @@ use commands::AppState;
 use dark_light::Mode as SystemTheme;
 use services::{updater, DatabaseService, TimerService};
 use std::sync::Arc;
+use std::time::Duration;
 use tauri::image::Image;
 use tauri::tray::{TrayIcon, TrayIconBuilder};
 use tauri::{Emitter, Listener, Manager, Theme, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
@@ -31,6 +32,7 @@ const PRE_BREAK_WINDOW_WIDTH: f64 = 680.0;
 const PRE_BREAK_WINDOW_HEIGHT: f64 = 420.0;
 const PRE_BREAK_WINDOW_MIN_WIDTH: f64 = 560.0;
 const PRE_BREAK_WINDOW_MIN_HEIGHT: f64 = 360.0;
+const PRE_BREAK_WINDOW_AUTO_CLOSE_SECS: u64 = 10;
 
 fn is_break_reminder_label(label: &str) -> bool {
     label.starts_with(BREAK_REMINDER_LABEL_PREFIX)
@@ -138,6 +140,16 @@ fn restore_pre_break_reminder_window_presentation(
     window.unminimize()?;
     window.set_focus()?;
     Ok(())
+}
+
+fn schedule_pre_break_window_auto_close(app: &tauri::AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(PRE_BREAK_WINDOW_AUTO_CLOSE_SECS)).await;
+        if let Some(window) = app.get_webview_window(PRE_BREAK_REMINDER_LABEL) {
+            let _ = window.close();
+        }
+    });
 }
 
 fn load_tray_image(bytes: &[u8]) -> Option<Image<'static>> {
@@ -890,6 +902,7 @@ pub fn show_pre_break_reminder_window(
 ) -> Result<(), Box<dyn std::error::Error>> {
     if let Some(window) = app.get_webview_window(PRE_BREAK_REMINDER_LABEL) {
         restore_pre_break_reminder_window_presentation(&window)?;
+        schedule_pre_break_window_auto_close(app);
         return Ok(());
     }
 
@@ -912,5 +925,6 @@ pub fn show_pre_break_reminder_window(
     .build()?;
 
     restore_pre_break_reminder_window_presentation(&window)?;
+    schedule_pre_break_window_auto_close(app);
     Ok(())
 }

@@ -19,6 +19,8 @@ test('pre-break reminder stays separate from the dashboard panel', async () => {
 
   assert.match(source, /reminder-pre-break-panel/);
   assert.match(source, /if \(!isPreBreak\) \{/);
-  assert.match(source, /api\.closePreBreakReminderWindow\(\)/);
-  assert.match(source, /api\.startBreak\(\)/);
+  assert.match(source, /preBreakCountdownLabel/);
+  assert.match(source, /preBreakMessage/);
+  assert.doesNotMatch(source, /notifications\.restStartSoon\.dismissAction/);
+  assert.doesNotMatch(source, /api\.startBreak\(\)/);
 });

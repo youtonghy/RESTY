@@ -22,7 +22,6 @@ import { Achievements } from './pages/Achievements';
 import { getAchievementDefinitionById } from './features/achievements/definitions';
 import {
   clearRestStartsSoonNotification,
-  listenPreBreakNotificationAction,
   notifyAchievementUnlocked,
   notifyRestStartsSoon,
 } from './services/notifications';
@@ -58,6 +57,10 @@ const cleanupUnsubscribers = (
 
 const PRE_BREAK_NOTIFICATION_WINDOW_MS = 60_000;
 const PRE_BREAK_NOTIFICATION_MIN_MS = 5_000;
+const PRE_BREAK_REMINDER_WINDOW_AUTO_CLOSE_MS = 10_000;
+
+const isWindowsPlatform = () =>
+  typeof navigator !== 'undefined' && /windows/i.test(navigator.userAgent);
 
 /**
  * 根应用组件：负责初始化设置、监听 Tauri 后端事件，并配置全局路由/主题。
@@ -176,9 +179,13 @@ function App() {
       }
 
       preBreakNotifiedTargetRef.current = nextBreakTime;
-      void api.openPreBreakReminderWindow().catch((error) => {
-        console.error('Failed to open pre-break reminder window:', error);
-      });
+      const supportsPreBreakActions = isWindowsPlatform();
+      if (!supportsPreBreakActions) {
+        void api.openPreBreakReminderWindow().catch((error) => {
+          console.error('Failed to open pre-break reminder window:', error);
+        });
+        return;
+      }
       void notifyRestStartsSoon(
         i18n.t('notifications.restStartSoon.title', {
           defaultValue: 'Break starts soon',
@@ -193,7 +200,8 @@ function App() {
           breakNow: i18n.t('notifications.restStartSoon.breakNowAction', {
             defaultValue: 'Break now',
           }),
-        }
+        },
+        'actions'
       );
     },
     [i18n]
@@ -390,7 +398,6 @@ function App() {
       });
     }
 
-    let preBreakActionListener: { unregister: () => void } | null = null;
     let preBreakNativeListenerDispose: (() => void) | null = null;
     if (!isSpecialWindow) {
       const handlePreBreakAction = (actionId: string) => {
@@ -413,15 +420,6 @@ function App() {
         }
       };
 
-      void listenPreBreakNotificationAction(handlePreBreakAction).then((listener) => {
-        if (!listener) return;
-        if (!isMountedRef.current) {
-          listener.unregister();
-          return;
-        }
-        preBreakActionListener = listener;
-      });
-
       api
         .onPreBreakAction(handlePreBreakAction)
         .then((unsub) => {
@@ -440,10 +438,6 @@ function App() {
     return () => {
       isMountedRef.current = false;
       cleanupUnsubscribers(unsubscribers, isMountedRef);
-      if (preBreakActionListener) {
-        preBreakActionListener.unregister();
-        preBreakActionListener = null;
-      }
       if (preBreakNativeListenerDispose) {
         preBreakNativeListenerDispose();
         preBreakNativeListenerDispose = null;
@@ -521,10 +515,8 @@ function App() {
         const currentVersion = await getVersion();
         setAppVersion(currentVersion);
 
-        const isWindowsPlatform =
-          typeof navigator !== 'undefined' && /windows/i.test(navigator.userAgent);
         const shouldRunAutoSilentUpdate =
-          isWindowsPlatform && settings.autoSilentUpdateEnabled;
+          isWindowsPlatform() && settings.autoSilentUpdateEnabled;
 
         if (shouldRunAutoSilentUpdate) {
           setUpdateManifest(null);
@@ -544,6 +536,16 @@ function App() {
 
     void checkForUpdates();
   }, [isSpecialWindow, setAppVersion, setUpdateManifest, settings.autoSilentUpdateEnabled]);
+
+  useEffect(() => {
+    if (!isPreBreakReminderWindow) return undefined;
+
+    const closeTimer = window.setTimeout(() => {
+      void api.closePreBreakReminderWindow();
+    }, PRE_BREAK_REMINDER_WINDOW_AUTO_CLOSE_MS);
+
+    return () => window.clearTimeout(closeTimer);
+  }, [isPreBreakReminderWindow]);
 
   useEffect(() => {
     if (isSpecialWindow) {
