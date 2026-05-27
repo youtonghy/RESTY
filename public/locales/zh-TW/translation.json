@@ -164,27 +164,6 @@
       "autostart": "開機自動啟動",
       "silentAutostart": "靜默啟動",
       "silentAutostartHint": "啟用後，自動啟動時僅在背景執行，不會彈出主視窗。",
-      "macosMenuBarOnly": "僅在選單列中執行（僅 macOS）",
-      "macosMenuBarOnlyHint": "啟用後 RESTY 不駐留在 Dock 中，功能僅透過選單列圖示生效。",
-      "notificationPermission": {
-        "title": "系統通知權限（僅 macOS）",
-        "description": "檢查 RESTY 是否可以發送系統通知。未授權時，休息前通知不會彈出。",
-        "check": "檢查權限",
-        "request": "申請權限",
-        "openSettings": "開啟系統設定",
-        "notGrantedHint": "如果系統沒有彈出授權視窗，請在系統設定 > 通知中允許 RESTY 發送通知。",
-        "grantedMessage": "通知權限已允許。",
-        "notGrantedMessage": "尚未取得通知權限，系統通知不會彈出。",
-        "openFailed": "開啟 macOS 通知設定失敗，請手動前往系統設定 > 通知。",
-        "status": {
-          "unknown": "未檢查",
-          "checking": "檢查中",
-          "granted": "已允許",
-          "notGranted": "未授權",
-          "unsupported": "不可用",
-          "error": "檢查失敗"
-        }
-      },
       "minimizeToTray": "最小化到系統匣",
       "closeToTray": "關閉到系統匣",
       "analytics": {
@@ -214,6 +193,30 @@
       },
       "autoSilentUpdate": "自動靜默更新（僅 Windows）",
       "autoSilentUpdateHint": "偵測到帶簽章的新版本後，RESTY 會在背景下載，並在應用程式閒置且無全螢幕視窗時自動安裝並重新啟動。"
+    },
+    "macos": {
+      "title": "macOS",
+      "menuBarOnly": "僅在選單列中執行",
+      "menuBarOnlyHint": "啟用後 RESTY 不駐留在 Dock 中，功能僅透過選單列圖示生效。",
+      "notificationPermission": {
+        "title": "系統通知權限",
+        "description": "檢查 RESTY 是否可以發送系統通知。未授權時，休息前通知不會彈出。",
+        "check": "檢查權限",
+        "request": "申請權限",
+        "openSettings": "開啟系統設定",
+        "notGrantedHint": "如果系統沒有彈出授權視窗，請在系統設定 > 通知中允許 RESTY 發送通知。",
+        "grantedMessage": "通知權限已允許。",
+        "notGrantedMessage": "尚未取得通知權限，系統通知不會彈出。",
+        "openFailed": "開啟 macOS 通知設定失敗，請手動前往系統設定 > 通知。",
+        "status": {
+          "unknown": "未檢查",
+          "checking": "檢查中",
+          "granted": "已允許",
+          "notGranted": "未授權",
+          "unsupported": "不可用",
+          "error": "檢查失敗"
+        }
+      }
     },
     "language": {
       "title": "語言",

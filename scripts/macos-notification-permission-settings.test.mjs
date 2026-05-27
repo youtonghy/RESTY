@@ -13,7 +13,7 @@ const localeFiles = [
 const getPath = (source, path) =>
   path.split('.').reduce((value, key) => value?.[key], source);
 
-test('settings exposes notification permission controls only inside the macOS block', async () => {
+test('settings exposes macOS-only controls in a dedicated macOS section', async () => {
   const source = await readFile(new URL('../src/pages/Settings.tsx', import.meta.url), 'utf8');
 
   assert.match(source, /getNotificationPermissionStatus/);
@@ -22,8 +22,21 @@ test('settings exposes notification permission controls only inside the macOS bl
   assert.match(source, /MACOS_NOTIFICATION_SETTINGS_FALLBACK_URL/);
   assert.match(
     source,
-    /isMacos && \([\s\S]*settings\.system\.notificationPermission\.title[\s\S]*\)/
+    /if \(isMacos\) \{\s*sections\.push\(\{\s*id: 'macos',\s*label: t\('settings\.macos\.title'\)\s*\}\);\s*\}/
   );
+  assert.match(
+    source,
+    /isMacos && activeSection === 'macos'[\s\S]*settings\.macos\.menuBarOnly[\s\S]*settings\.macos\.notificationPermission\.title[\s\S]*\)/
+  );
+
+  const systemSectionStart = source.indexOf("{activeSection === 'system'");
+  const macosSectionStart = source.indexOf('{/* macOS Settings */}');
+  assert.notEqual(systemSectionStart, -1, 'system settings section is missing');
+  assert.notEqual(macosSectionStart, -1, 'macOS settings section is missing');
+  const systemSection = source.slice(systemSectionStart, macosSectionStart);
+  assert.doesNotMatch(systemSection, /settings\.macos\./);
+  assert.doesNotMatch(systemSection, /macosMenuBarOnly/);
+  assert.doesNotMatch(systemSection, /notificationPermission/);
 });
 
 test('macOS notification sends only use already-granted permission', async () => {
@@ -42,27 +55,38 @@ test('macOS notification sends only use already-granted permission', async () =>
 
 test('notification permission copy exists in every locale', async () => {
   const requiredKeys = [
+    'settings.macos.title',
+    'settings.macos.menuBarOnly',
+    'settings.macos.menuBarOnlyHint',
+    'settings.macos.notificationPermission.title',
+    'settings.macos.notificationPermission.description',
+    'settings.macos.notificationPermission.check',
+    'settings.macos.notificationPermission.request',
+    'settings.macos.notificationPermission.openSettings',
+    'settings.macos.notificationPermission.notGrantedHint',
+    'settings.macos.notificationPermission.grantedMessage',
+    'settings.macos.notificationPermission.notGrantedMessage',
+    'settings.macos.notificationPermission.openFailed',
+    'settings.macos.notificationPermission.status.unknown',
+    'settings.macos.notificationPermission.status.checking',
+    'settings.macos.notificationPermission.status.granted',
+    'settings.macos.notificationPermission.status.notGranted',
+    'settings.macos.notificationPermission.status.unsupported',
+    'settings.macos.notificationPermission.status.error',
+  ];
+  const movedSystemKeys = [
+    'settings.system.macosMenuBarOnly',
+    'settings.system.macosMenuBarOnlyHint',
     'settings.system.notificationPermission.title',
-    'settings.system.notificationPermission.description',
-    'settings.system.notificationPermission.check',
-    'settings.system.notificationPermission.request',
-    'settings.system.notificationPermission.openSettings',
-    'settings.system.notificationPermission.notGrantedHint',
-    'settings.system.notificationPermission.grantedMessage',
-    'settings.system.notificationPermission.notGrantedMessage',
-    'settings.system.notificationPermission.openFailed',
-    'settings.system.notificationPermission.status.unknown',
-    'settings.system.notificationPermission.status.checking',
-    'settings.system.notificationPermission.status.granted',
-    'settings.system.notificationPermission.status.notGranted',
-    'settings.system.notificationPermission.status.unsupported',
-    'settings.system.notificationPermission.status.error',
   ];
 
   for (const file of localeFiles) {
     const locale = JSON.parse(await readFile(new URL(file, import.meta.url), 'utf8'));
     for (const key of requiredKeys) {
       assert.equal(typeof getPath(locale, key), 'string', `${file} missing ${key}`);
+    }
+    for (const key of movedSystemKeys) {
+      assert.equal(getPath(locale, key), undefined, `${file} still has ${key}`);
     }
   }
 });

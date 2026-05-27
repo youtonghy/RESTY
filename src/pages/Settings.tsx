@@ -149,6 +149,20 @@ const FLOATING_POSITION_OPTIONS: Array<{
   { value: 'bottom-left', labelKey: 'settings.reminder.positionOptions.bottomLeft' },
 ];
 
+type SettingsSectionId =
+  | 'timer'
+  | 'reminder'
+  | 'appearance'
+  | 'system'
+  | 'macos'
+  | 'language'
+  | 'about';
+
+type SettingsSection = {
+  id: SettingsSectionId;
+  label: string;
+};
+
 /**
  * 设置页面：负责从后端加载配置、提供表单编辑与导入导出能力。
  */
@@ -172,18 +186,28 @@ export function Settings() {
     useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
-  const sectionDefs = useMemo(
-    () => [
-      { id: 'timer', label: t('settings.timer.title') },
-      { id: 'reminder', label: t('settings.reminder.title') },
-      { id: 'appearance', label: t('settings.appearance.title') },
-      { id: 'system', label: t('settings.system.title') },
-      { id: 'language', label: t('settings.language.title') },
-      { id: 'about', label: t('settings.about.title') },
-    ],
-    [t]
+  const sectionDefs = useMemo<SettingsSection[]>(
+    () => {
+      const sections: SettingsSection[] = [
+        { id: 'timer', label: t('settings.timer.title') },
+        { id: 'reminder', label: t('settings.reminder.title') },
+        { id: 'appearance', label: t('settings.appearance.title') },
+        { id: 'system', label: t('settings.system.title') },
+      ];
+      if (isMacos) {
+        sections.push({ id: 'macos', label: t('settings.macos.title') });
+      }
+      sections.push(
+        { id: 'language', label: t('settings.language.title') },
+        { id: 'about', label: t('settings.about.title') }
+      );
+      return sections;
+    },
+    [isMacos, t]
   );
-  const [activeSection, setActiveSection] = useState(sectionDefs[0]?.id ?? 'timer');
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>(
+    sectionDefs[0]?.id ?? 'timer'
+  );
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -216,6 +240,11 @@ export function Settings() {
     void loadSettings();
   }, [loadSettings]);
 
+  useEffect(() => {
+    if (sectionDefs.some((section) => section.id === activeSection)) return;
+    setActiveSection(sectionDefs[0]?.id ?? 'timer');
+  }, [activeSection, sectionDefs]);
+
   const refreshNotificationPermissionStatus = useCallback(async () => {
     if (!isMacos) return;
     setIsCheckingNotificationPermission(true);
@@ -246,8 +275,8 @@ export function Settings() {
     setIsCheckingNotificationPermission(false);
     setMessage(
       status === 'granted'
-        ? t('settings.system.notificationPermission.grantedMessage')
-        : t('settings.system.notificationPermission.notGrantedMessage')
+        ? t('settings.macos.notificationPermission.grantedMessage')
+        : t('settings.macos.notificationPermission.notGrantedMessage')
     );
   }, [isMacos, t]);
 
@@ -264,7 +293,7 @@ export function Settings() {
           fallbackError,
         });
         if (!isMountedRef.current) return;
-        setMessage(t('settings.system.notificationPermission.openFailed'));
+        setMessage(t('settings.macos.notificationPermission.openFailed'));
       }
     }
   }, [t]);
@@ -615,7 +644,9 @@ export function Settings() {
                 className="input settings-nav-select-control"
                 value={activeSection}
                 aria-label={t('settings.navigation.label', { defaultValue: 'Settings sections' })}
-                onChange={(event) => setActiveSection(event.target.value)}
+                onChange={(event) =>
+                  setActiveSection(event.target.value as SettingsSectionId)
+                }
               >
                 {sectionDefs.map((section) => (
                   <option key={section.id} value={section.id}>
@@ -1161,90 +1192,6 @@ export function Settings() {
                 </div>
               )}
 
-              {isMacos && (
-                <>
-                  <div className="form-group toggle-group">
-                    <label className="toggle-row">
-                      <span className="toggle-text">{t('settings.system.macosMenuBarOnly')}</span>
-                      <span className="switch">
-                        <input
-                          type="checkbox"
-                          checked={localSettings.macosMenuBarOnly}
-                          onChange={(e) => {
-                            const next = {
-                              ...localSettings,
-                              macosMenuBarOnly: e.target.checked,
-                            };
-                            setLocalSettings(next);
-                            saveSettingsAuto(next);
-                          }}
-                        />
-                        <span className="slider" />
-                      </span>
-                    </label>
-                    <p className="helper-text">{t('settings.system.macosMenuBarOnlyHint')}</p>
-                  </div>
-
-                  <div className="form-group macos-permission-panel">
-                    <div className="macos-permission-header">
-                      <div>
-                        <span className="toggle-text">
-                          {t('settings.system.notificationPermission.title')}
-                        </span>
-                        <p className="helper-text">
-                          {t('settings.system.notificationPermission.description')}
-                        </p>
-                      </div>
-                      <span
-                        className={`permission-status permission-status--${notificationPermissionStatusClass(
-                          notificationPermissionStatus
-                        )}`}
-                      >
-                        {isCheckingNotificationPermission
-                          ? t('settings.system.notificationPermission.status.checking')
-                          : t(
-                              `settings.system.notificationPermission.status.${notificationPermissionStatus}`
-                            )}
-                      </span>
-                    </div>
-                    <div className="permission-actions">
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={refreshNotificationPermissionStatus}
-                        disabled={isCheckingNotificationPermission}
-                      >
-                        {t('settings.system.notificationPermission.check')}
-                      </button>
-                      {notificationPermissionStatus !== 'granted' && (
-                        <button
-                          type="button"
-                          className="btn"
-                          onClick={handleRequestNotificationPermission}
-                          disabled={isCheckingNotificationPermission}
-                        >
-                          {t('settings.system.notificationPermission.request')}
-                        </button>
-                      )}
-                      {notificationPermissionStatus !== 'granted' && (
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          onClick={handleOpenNotificationSettings}
-                        >
-                          {t('settings.system.notificationPermission.openSettings')}
-                        </button>
-                      )}
-                    </div>
-                    {notificationPermissionStatus !== 'granted' && (
-                      <p className="helper-text">
-                        {t('settings.system.notificationPermission.notGrantedHint')}
-                      </p>
-                    )}
-                  </div>
-                </>
-              )}
-
               <h3 className="card-subtitle">{t('settings.system.dataTransfer.title')}</h3>
               <div className="form-group">
                 <p className="helper-text">{t('settings.system.dataTransfer.description')}</p>
@@ -1280,6 +1227,93 @@ export function Settings() {
                   {t('settings.system.analytics.clearButton')}
                 </button>
               </div>
+              </section>
+            )}
+
+            {/* macOS Settings */}
+            {isMacos && activeSection === 'macos' && (
+              <section id="settings-macos" className="settings-card settings-section">
+                <h2 className="card-header">{t('settings.macos.title')}</h2>
+
+                <div className="form-group toggle-group">
+                  <label className="toggle-row">
+                    <span className="toggle-text">{t('settings.macos.menuBarOnly')}</span>
+                    <span className="switch">
+                      <input
+                        type="checkbox"
+                        checked={localSettings.macosMenuBarOnly}
+                        onChange={(e) => {
+                          const next = {
+                            ...localSettings,
+                            macosMenuBarOnly: e.target.checked,
+                          };
+                          setLocalSettings(next);
+                          saveSettingsAuto(next);
+                        }}
+                      />
+                      <span className="slider" />
+                    </span>
+                  </label>
+                  <p className="helper-text">{t('settings.macos.menuBarOnlyHint')}</p>
+                </div>
+
+                <div className="form-group macos-permission-panel">
+                  <div className="macos-permission-header">
+                    <div>
+                      <span className="toggle-text">
+                        {t('settings.macos.notificationPermission.title')}
+                      </span>
+                      <p className="helper-text">
+                        {t('settings.macos.notificationPermission.description')}
+                      </p>
+                    </div>
+                    <span
+                      className={`permission-status permission-status--${notificationPermissionStatusClass(
+                        notificationPermissionStatus
+                      )}`}
+                    >
+                      {isCheckingNotificationPermission
+                        ? t('settings.macos.notificationPermission.status.checking')
+                        : t(
+                            `settings.macos.notificationPermission.status.${notificationPermissionStatus}`
+                          )}
+                    </span>
+                  </div>
+                  <div className="permission-actions">
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={refreshNotificationPermissionStatus}
+                      disabled={isCheckingNotificationPermission}
+                    >
+                      {t('settings.macos.notificationPermission.check')}
+                    </button>
+                    {notificationPermissionStatus !== 'granted' && (
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={handleRequestNotificationPermission}
+                        disabled={isCheckingNotificationPermission}
+                      >
+                        {t('settings.macos.notificationPermission.request')}
+                      </button>
+                    )}
+                    {notificationPermissionStatus !== 'granted' && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={handleOpenNotificationSettings}
+                      >
+                        {t('settings.macos.notificationPermission.openSettings')}
+                      </button>
+                    )}
+                  </div>
+                  {notificationPermissionStatus !== 'granted' && (
+                    <p className="helper-text">
+                      {t('settings.macos.notificationPermission.notGrantedHint')}
+                    </p>
+                  )}
+                </div>
               </section>
             )}
 

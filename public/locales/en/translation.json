@@ -122,27 +122,6 @@
       "autostart": "Launch on system startup",
       "silentAutostart": "Silent startup",
       "silentAutostartHint": "Keep the window hidden and only show the tray icon when autostart runs.",
-      "macosMenuBarOnly": "Run in menu bar only (macOS only)",
-      "macosMenuBarOnlyHint": "Keep RESTY out of the Dock and use it from the menu bar icon only.",
-      "notificationPermission": {
-        "title": "System notification permission (macOS only)",
-        "description": "Check whether RESTY can send system notifications. Without permission, pre-break notifications will not appear.",
-        "check": "Check permission",
-        "request": "Request permission",
-        "openSettings": "Open System Settings",
-        "notGrantedHint": "If macOS does not show a permission prompt, allow RESTY in System Settings > Notifications.",
-        "grantedMessage": "Notification permission is allowed.",
-        "notGrantedMessage": "Notification permission is not granted, so system notifications will not appear.",
-        "openFailed": "Failed to open macOS notification settings. Please go to System Settings > Notifications manually.",
-        "status": {
-          "unknown": "Not checked",
-          "checking": "Checking",
-          "granted": "Allowed",
-          "notGranted": "Not allowed",
-          "unsupported": "Unavailable",
-          "error": "Check failed"
-        }
-      },
       "minimizeToTray": "Minimize to system tray",
       "closeToTray": "Close to system tray",
       "analytics": {
@@ -172,6 +151,30 @@
       },
       "autoSilentUpdate": "Automatic silent updates (Windows only)",
       "autoSilentUpdateHint": "When a signed update is found, RESTY downloads it in the background and installs it automatically when the app is idle and no window is fullscreen."
+    },
+    "macos": {
+      "title": "macOS",
+      "menuBarOnly": "Run in menu bar only",
+      "menuBarOnlyHint": "Keep RESTY out of the Dock and use it from the menu bar icon only.",
+      "notificationPermission": {
+        "title": "System notification permission",
+        "description": "Check whether RESTY can send system notifications. Without permission, pre-break notifications will not appear.",
+        "check": "Check permission",
+        "request": "Request permission",
+        "openSettings": "Open System Settings",
+        "notGrantedHint": "If macOS does not show a permission prompt, allow RESTY in System Settings > Notifications.",
+        "grantedMessage": "Notification permission is allowed.",
+        "notGrantedMessage": "Notification permission is not granted, so system notifications will not appear.",
+        "openFailed": "Failed to open macOS notification settings. Please go to System Settings > Notifications manually.",
+        "status": {
+          "unknown": "Not checked",
+          "checking": "Checking",
+          "granted": "Allowed",
+          "notGranted": "Not allowed",
+          "unsupported": "Unavailable",
+          "error": "Check failed"
+        }
+      }
     },
     "language": {
       "title": "Language",
