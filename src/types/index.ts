@@ -128,25 +128,6 @@ export interface AnalyticsQuery {
 }
 
 /**
- * Monitor information
- */
-export interface MonitorInfo {
-  id: number;
-  name: string;
-  width: number;
-  height: number;
-  isPrimary: boolean;
-}
-
-/**
- * System status
- */
-export interface SystemStatus {
-  isFullscreen: boolean;
-  isDoNotDisturb: boolean;
-}
-
-/**
  * Default settings values
  */
 export const DEFAULT_SETTINGS: Settings = {

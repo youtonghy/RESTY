@@ -143,6 +143,8 @@ const formatDateInputValue = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+const formatLocalDateKey = formatDateInputValue;
+
 const parseDateInputValue = (value: string): Date | null => {
   if (!value) return null;
   const [yearRaw, monthRaw, dayRaw] = value.split('-');
@@ -217,6 +219,21 @@ const createAnalyticsQuery = (bounds: TimelineBounds): AnalyticsQuery => ({
   startDate: new Date(bounds.start).toISOString(),
   endDate: new Date(bounds.end).toISOString(),
 });
+
+const generateHeatmapDates = () => {
+  const dates: string[] = [];
+  const end = new Date();
+  const start = new Date();
+  start.setMonth(start.getMonth() - 6);
+  start.setHours(0, 0, 0, 0);
+
+  const current = new Date(start);
+  while (current <= end) {
+    dates.push(formatLocalDateKey(current));
+    current.setDate(current.getDate() + 1);
+  }
+  return { start, end, dates };
+};
 
 const getSessionSeconds = (session: Session) => {
   if (Number.isFinite(session.duration) && session.duration > 0) {
@@ -599,26 +616,8 @@ export function Analytics() {
     [customAppliedEnd, customAppliedStart, range]
   );
 
-  // 生成最近 6 个月日期序列（用于热力图底板）
-  const generateHeatmapDates = () => {
-    const dates: string[] = [];
-    const end = new Date();
-    // 6 months ago
-    const start = new Date();
-    start.setMonth(start.getMonth() - 6);
-    start.setHours(0, 0, 0, 0);
-
-    const current = new Date(start);
-    while (current <= end) {
-      dates.push(current.toISOString().split('T')[0]);
-      current.setDate(current.getDate() + 1);
-    }
-    return { start, end, dates };
-  };
-
   // 加载热力图数据：按天统计休息完成度
   const loadHeatmapData = useCallback(async (force = false) => {
-    const requestSeq = ++heatmapRequestSeqRef.current;
     const { start, end, dates } = generateHeatmapDates();
     const query: AnalyticsQuery = {
       startDate: start.toISOString(),
@@ -630,6 +629,7 @@ export function Analytics() {
       return;
     }
     heatmapRequestKeyRef.current = requestKey;
+    const requestSeq = ++heatmapRequestSeqRef.current;
 
     setHeatmapLoading(true);
     debugLog('analytics', 'load heatmap start', {
@@ -656,7 +656,7 @@ export function Analytics() {
 
       sessions.forEach(session => {
         if (session.type !== 'break') return;
-        const date = session.startTime.split('T')[0];
+        const date = formatLocalDateKey(new Date(session.startTime));
         const stats = dailyStats.get(date) || { completed: 0, skipped: 0 };
 
         if (session.isSkipped) {
@@ -866,6 +866,12 @@ export function Analytics() {
    */
   const computedTotals = useMemo(() => {
     if (!data) return { work: 0, rest: 0 };
+    if (!moreRestEnabled) {
+      return {
+        work: data.totalWorkSeconds,
+        rest: data.totalBreakSeconds,
+      };
+    }
     const R0 = displayBounds.start;
     const R1 = displayBounds.end;
     let work = 0;
@@ -880,7 +886,7 @@ export function Analytics() {
       else if (s.type === 'break' && !s.isSkipped) rest += seconds;
     }
     return { work, rest };
-  }, [data, displayBounds, sessionsWithMoreRest]);
+  }, [data, displayBounds, moreRestEnabled, sessionsWithMoreRest]);
 
   // 加载中状态
   if (loading) {

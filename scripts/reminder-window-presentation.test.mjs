@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-test('existing reminder windows restore fullscreen presentation before showing', async () => {
+test('break reminder routing restores fullscreen presentation before showing', async () => {
   const libSource = await readFile(new URL('../src-tauri/src/lib.rs', import.meta.url), 'utf8');
   const commandsSource = await readFile(
     new URL('../src-tauri/src/commands/mod.rs', import.meta.url),
@@ -14,9 +14,9 @@ test('existing reminder windows restore fullscreen presentation before showing',
   assert.match(libSource, /fn set_break_reminder_fullscreen/);
   assert.match(libSource, /set_break_reminder_fullscreen\(window, monitor\.as_ref\(\)\)\?/);
   assert.match(libSource, /restore_reminder_window_presentation\(&w, is_fullscreen, floating_position\.clone\(\)\)\?/);
-  assert.match(commandsSource, /crate::show_break_reminder_window\(&app, is_fullscreen, floating_position\)/);
-  assert.match(commandsSource, /#\[cfg\(not\(target_os = "macos"\)\)\]/);
-  assert.match(commandsSource, /window\.is_fullscreen\(\)/);
+  assert.match(libSource, /app\.listen\("show-break-reminder"/);
+  assert.match(libSource, /show_break_reminder_window\(&app, is_fullscreen, floating_position\)/);
+  assert.doesNotMatch(commandsSource, /pub (?:async )?fn (?:open|show)_reminder_window/);
 });
 
 test('pre-break reminder uses a dedicated large focused window', async () => {

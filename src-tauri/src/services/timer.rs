@@ -244,7 +244,6 @@ impl TimerService {
         drop(state);
 
         self.emit_timer_update()?;
-        self.emit_phase_change("work")?;
         self.persist_session_start();
         Ok(())
     }
@@ -268,7 +267,6 @@ impl TimerService {
         drop(state);
 
         self.emit_timer_update()?;
-        self.emit_phase_change("break")?;
         self.persist_session_start();
         Ok(())
     }
@@ -438,7 +436,6 @@ impl TimerService {
                 "TimerService: timer finished, auto_cycle={}",
                 should_auto_cycle
             );
-            self.emit_timer_finished()?;
             if let Some(s) = session.clone() {
                 self.persist_session_finish(s);
             }
@@ -744,24 +741,6 @@ impl TimerService {
         let info = self.get_info();
         self.app
             .emit("timer-update", info)
-            .map_err(|e| crate::utils::AppError::TauriError(e.to_string()))?;
-        Ok(())
-    }
-
-    /// Emit phase change event
-    /// 通知前端阶段切换，用于弹窗或文案更新。
-    fn emit_phase_change(&self, phase: &str) -> AppResult<()> {
-        self.app
-            .emit("phase-change", phase)
-            .map_err(|e| crate::utils::AppError::TauriError(e.to_string()))?;
-        Ok(())
-    }
-
-    /// Emit timer finished event
-    /// 通知前端计时结束，可触发提示音或其他反馈。
-    fn emit_timer_finished(&self) -> AppResult<()> {
-        self.app
-            .emit("timer-finished", ())
             .map_err(|e| crate::utils::AppError::TauriError(e.to_string()))?;
         Ok(())
     }

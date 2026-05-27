@@ -259,24 +259,16 @@ function App() {
     const isMountedRef = { current: true };
 
     /**
-     * 根据当前阶段控制提醒窗口（全屏或浮窗）。
+     * 根据当前阶段处理窗口清理与休息音乐。
+     * 休息提醒窗口由 Rust 侧 `show-break-reminder` 事件统一打开，避免重复聚焦/恢复窗口状态。
      */
-    // Helper to open/close reminder window based on phase
-    const handleReminderForPhase = (phase: string, settingsOverride?: AppSettings) => {
+    const handlePhaseSideEffects = (phase: string, settingsOverride?: AppSettings) => {
       if (!isMountedRef.current) return;
 
       const activeSettings = settingsOverride ?? useAppStore.getState().settings;
 
       if (phase === 'break') {
         void api.closePreBreakReminderWindow();
-        api
-          .openReminderWindow(
-            activeSettings.reminderMode === 'fullscreen',
-            activeSettings.floatingPosition
-          )
-          .catch((error) => {
-            console.error('Failed to open reminder window:', error);
-          });
       } else {
         api.closeReminderWindow().catch((error) => {
           console.error('Failed to close reminder window:', error);
@@ -366,24 +358,8 @@ function App() {
         }
 
         if (previousPhase !== info.phase) {
-          handleReminderForPhase(info.phase, store.settings);
+          handlePhaseSideEffects(info.phase, store.settings);
         }
-      })
-    );
-
-    // Listen for phase changes
-    unsubscribers.push(
-      api.onPhaseChange((phase) => {
-        if (!isMountedRef.current) return;
-        console.log('Phase changed to:', phase);
-        handleReminderForPhase(phase);
-      })
-    );
-
-    // Listen for timer finished (for logging only)
-    unsubscribers.push(
-      api.onTimerFinished(() => {
-        console.log('Timer finished');
       })
     );
 

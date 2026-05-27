@@ -179,8 +179,9 @@ impl DatabaseService {
                 AppError::DatabaseError(format!("Failed to read achievements file: {}", e))
             })?;
 
-            let loaded: Vec<AchievementUnlock> = serde_json::from_str(&content)
-                .map_err(|e| AppError::DatabaseError(format!("Failed to parse achievements: {}", e)))?;
+            let loaded: Vec<AchievementUnlock> = serde_json::from_str(&content).map_err(|e| {
+                AppError::DatabaseError(format!("Failed to parse achievements: {}", e))
+            })?;
 
             let mut achievements = self.achievements.lock().await;
             *achievements = loaded;
@@ -248,11 +249,10 @@ impl DatabaseService {
                 continue;
             }
             let prev_note = prev.notes.as_deref();
-            let should_fill =
-                (matches!(prev.session_type, SessionType::Work)
-                    && matches!(next.session_type, SessionType::Work)
-                    && prev_note != Some(POWER_INTERRUPT_WORK_NOTE))
-                    || prev_note == Some(POWER_INTERRUPT_BREAK_NOTE);
+            let should_fill = (matches!(prev.session_type, SessionType::Work)
+                && matches!(next.session_type, SessionType::Work)
+                && prev_note != Some(POWER_INTERRUPT_WORK_NOTE))
+                || prev_note == Some(POWER_INTERRUPT_BREAK_NOTE);
             if !should_fill {
                 continue;
             }
@@ -263,8 +263,9 @@ impl DatabaseService {
     }
 
     fn persist_achievements(&self, achievements: &[AchievementUnlock]) -> AppResult<()> {
-        let json = serde_json::to_string_pretty(achievements)
-            .map_err(|e| AppError::DatabaseError(format!("Failed to serialize achievements: {}", e)))?;
+        let json = serde_json::to_string_pretty(achievements).map_err(|e| {
+            AppError::DatabaseError(format!("Failed to serialize achievements: {}", e))
+        })?;
 
         std::fs::write(self.achievements_file(), json).map_err(|e| {
             AppError::DatabaseError(format!("Failed to write achievements file: {}", e))
@@ -350,7 +351,9 @@ impl DatabaseService {
         };
 
         if settings_snapshot.autostart {
-            let _ = self.unlock_achievement(ACHIEVEMENT_ENABLE_AUTOSTART).await?;
+            let _ = self
+                .unlock_achievement(ACHIEVEMENT_ENABLE_AUTOSTART)
+                .await?;
         }
 
         if sessions_snapshot.iter().any(Self::is_completed_work) {
@@ -361,12 +364,29 @@ impl DatabaseService {
             let _ = self.unlock_achievement(ACHIEVEMENT_FIRST_BREAK).await?;
         }
 
-        self.unlock_duration_achievements(
-            &sessions_snapshot,
-            settings_snapshot.more_rest_enabled,
-        )
-        .await?;
+        self.unlock_duration_achievements(&sessions_snapshot, settings_snapshot.more_rest_enabled)
+            .await?;
 
+        Ok(())
+    }
+
+    async fn analytics_disabled(&self) -> bool {
+        let settings = self.settings.lock().await;
+        settings.disable_analytics
+    }
+
+    async fn remove_session_by_id(&self, session_id: &str) -> AppResult<()> {
+        let sessions_snapshot = {
+            let mut sessions = self.sessions.write().await;
+            let original_len = sessions.len();
+            sessions.retain(|session| session.id != session_id);
+            if sessions.len() == original_len {
+                return Ok(());
+            }
+            sessions.clone()
+        };
+
+        self.persist_sessions(&sessions_snapshot)?;
         Ok(())
     }
 
@@ -391,7 +411,10 @@ impl DatabaseService {
         Ok(())
     }
 
-    pub async fn replace_achievements(&self, achievements: Vec<AchievementUnlock>) -> AppResult<()> {
+    pub async fn replace_achievements(
+        &self,
+        achievements: Vec<AchievementUnlock>,
+    ) -> AppResult<()> {
         {
             let mut stored = self.achievements.lock().await;
             *stored = achievements.clone();
@@ -408,7 +431,9 @@ impl DatabaseService {
         let normalized = self.persist_settings(settings).await?;
 
         if normalized.autostart {
-            let _ = self.unlock_achievement(ACHIEVEMENT_ENABLE_AUTOSTART).await?;
+            let _ = self
+                .unlock_achievement(ACHIEVEMENT_ENABLE_AUTOSTART)
+                .await?;
         }
 
         let sessions_snapshot = {
@@ -526,35 +551,14 @@ impl DatabaseService {
         Ok(snapshot)
     }
 
-    /// Save a completed session
-    /// 追加会话记录并写入 `sessions.json`。
-    pub async fn save_session(&self, session: &Session) -> AppResult<()> {
-        let sessions_snapshot = {
-            let mut sessions = self.sessions.write().await;
-            sessions.push(session.clone());
-            sessions.clone()
-        };
-
-        self.persist_sessions(&sessions_snapshot)?;
-
-        let settings_snapshot = {
-            let settings = self.settings.lock().await;
-            settings.clone()
-        };
-
-        // Notify frontend listeners for real-time updates
-        let _ = self.app.emit("session-upserted", session.clone());
-
-        self.unlock_for_session(session).await?;
-        self.unlock_duration_achievements(&sessions_snapshot, settings_snapshot.more_rest_enabled)
-            .await?;
-
-        Ok(())
-    }
-
     /// Insert or update a session by `id`.
     /// 如果已存在相同 `id` 的会话，则更新其字段；否则追加。
     pub async fn save_or_update_session(&self, session: &Session) -> AppResult<()> {
+        if self.analytics_disabled().await {
+            self.remove_session_by_id(&session.id).await?;
+            return Ok(());
+        }
+
         let sessions_snapshot = {
             let mut sessions = self.sessions.write().await;
 
@@ -600,6 +604,17 @@ impl DatabaseService {
     /// Get analytics data for a date range
     /// 按时间区间筛选会话，计算统计指标。
     pub async fn get_analytics(&self, query: &AnalyticsQuery) -> AppResult<AnalyticsData> {
+        if self.analytics_disabled().await {
+            return Ok(AnalyticsData {
+                total_work_seconds: 0,
+                total_break_seconds: 0,
+                break_count: 0,
+                completed_breaks: 0,
+                skipped_breaks: 0,
+                sessions: Vec::new(),
+            });
+        }
+
         let filtered: Vec<Session> = {
             let sessions = self.sessions.read().await;
 
@@ -612,17 +627,33 @@ impl DatabaseService {
                 .collect()
         };
 
-        // Calculate statistics
+        let overlap_seconds = |session: &Session| {
+            let start = if session.start_time > query.start_date {
+                session.start_time
+            } else {
+                query.start_date
+            };
+            let end = if session.end_time < query.end_date {
+                session.end_time
+            } else {
+                query.end_date
+            };
+            (end - start).num_seconds().max(0)
+        };
+
+        // Calculate statistics using only the portion that overlaps the requested range.
         let total_work_seconds: i64 = filtered
             .iter()
             .filter(|s| matches!(s.session_type, crate::models::SessionType::Work))
-            .map(|s| s.duration)
+            .map(overlap_seconds)
             .sum();
 
         let total_break_seconds: i64 = filtered
             .iter()
-            .filter(|s| matches!(s.session_type, crate::models::SessionType::Break))
-            .map(|s| s.duration)
+            .filter(|s| {
+                matches!(s.session_type, crate::models::SessionType::Break) && !s.is_skipped
+            })
+            .map(overlap_seconds)
             .sum();
 
         let break_count = filtered
@@ -655,6 +686,13 @@ impl DatabaseService {
     /// Get sessions time bounds
     /// 获取会话数据的时间范围（最早开始/最晚结束）。
     pub async fn get_sessions_bounds(&self) -> AppResult<SessionsBounds> {
+        if self.analytics_disabled().await {
+            return Ok(SessionsBounds {
+                earliest_start: None,
+                latest_end: None,
+            });
+        }
+
         let sessions = self.sessions.read().await;
         let earliest_start = sessions.iter().map(|s| s.start_time).min();
         let latest_end = sessions.iter().map(|s| s.end_time).max();

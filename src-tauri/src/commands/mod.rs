@@ -1,6 +1,5 @@
 use crate::models::{
-    AchievementUnlock, AnalyticsData, AnalyticsQuery, FloatingPosition, MonitorInfo, Session,
-    SessionsBounds, Settings, SystemStatus, TimerInfo,
+    AchievementUnlock, AnalyticsData, AnalyticsQuery, Session, SessionsBounds, Settings, TimerInfo,
 };
 use crate::services::{updater::UpdateManifest, DatabaseService, TimerService};
 use crate::utils::AppError;
@@ -274,7 +273,10 @@ pub async fn get_analytics(
     eprintln!(
         "[RESTY backend][{}][get_analytics] done elapsed_ms={} result={}",
         Utc::now().to_rfc3339(),
-        started_at.elapsed().map(|duration| duration.as_millis()).unwrap_or(0),
+        started_at
+            .elapsed()
+            .map(|duration| duration.as_millis())
+            .unwrap_or(0),
         if result.is_ok() { "ok" } else { "err" }
     );
 
@@ -303,7 +305,10 @@ pub async fn get_sessions_bounds(state: State<'_, AppState>) -> Result<SessionsB
     eprintln!(
         "[RESTY backend][{}][get_sessions_bounds] done elapsed_ms={} result={}",
         Utc::now().to_rfc3339(),
-        started_at.elapsed().map(|duration| duration.as_millis()).unwrap_or(0),
+        started_at
+            .elapsed()
+            .map(|duration| duration.as_millis())
+            .unwrap_or(0),
         if result.is_ok() { "ok" } else { "err" }
     );
 
@@ -497,78 +502,6 @@ pub async fn import_app_data_from_file(
         .map_err(|e| e.to_string())?;
 
     Ok(settings)
-}
-
-/// Get list of monitors
-#[tauri::command]
-pub fn get_monitors(_app: AppHandle) -> Result<Vec<MonitorInfo>, String> {
-    // This is a placeholder implementation
-    // In production, you would query actual monitor information
-    Ok(vec![MonitorInfo {
-        id: 0,
-        name: "Primary Monitor".to_string(),
-        width: 1920,
-        height: 1080,
-        is_primary: true,
-    }])
-}
-
-/// Get system status (fullscreen, DND, etc.)
-#[tauri::command]
-pub fn get_system_status() -> Result<SystemStatus, String> {
-    // This is a placeholder implementation
-    // In production, you would check actual system status
-    Ok(SystemStatus {
-        is_fullscreen: false,
-        is_do_not_disturb: false,
-    })
-}
-
-/// Open reminder window
-#[tauri::command]
-pub fn open_reminder_window(
-    app: AppHandle,
-    fullscreen: bool,
-    floating_position: Option<FloatingPosition>,
-) -> Result<(), String> {
-    let position = floating_position.unwrap_or(FloatingPosition::TopRight);
-    crate::show_break_reminder_window(&app, fullscreen, position).map_err(|e| e.to_string())
-}
-
-/// Show reminder window once frontend is ready
-#[tauri::command]
-pub async fn show_reminder_window(
-    app: AppHandle,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
-    let settings = state
-        .database_service
-        .load_settings()
-        .await
-        .map_err(|e| e.to_string())?;
-    let is_fullscreen = matches!(
-        settings.reminder_mode,
-        crate::models::ReminderMode::Fullscreen
-    );
-    let floating_position = settings.floating_position;
-
-    crate::show_break_reminder_window(&app, is_fullscreen, floating_position)
-        .map_err(|e| e.to_string())?;
-
-    #[cfg(not(target_os = "macos"))]
-    if is_fullscreen {
-        for (label, window) in app.webview_windows() {
-            if label.starts_with("break-reminder") {
-                if let Ok(false) = window.is_fullscreen() {
-                    return Err(format!(
-                        "Reminder window {label} failed to enter fullscreen"
-                    ));
-                }
-            }
-        }
-    }
-
-    Ok(())
 }
 
 /// Open the 1-minute pre-break reminder window.

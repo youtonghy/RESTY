@@ -3231,6 +3231,10 @@ function DraggableCard({
 
   useEffect(() => clearDragSettleTimer, [clearDragSettleTimer]);
 
+  const hasStyleOptions = styleOptions.length > 0;
+  const hasCustomContent = typeof renderCustomContent === "function";
+  const canOpenStyleMenu = hasStyleOptions || hasCustomContent;
+
   useLayoutEffect(() => {
     if (!isDraggingRef.current) return;
     const node = cardRef.current;
@@ -3442,8 +3446,10 @@ function DraggableCard({
         setMode("idle");
         setDragOffset(null);
         if (!dragIntentRef.current) {
-          onStyleMenuClose?.();
-          setStyleMenuOpen(true);
+          if (canOpenStyleMenu) {
+            onStyleMenuClose?.();
+            setStyleMenuOpen(true);
+          }
           return;
         }
         if (
@@ -3486,6 +3492,7 @@ function DraggableCard({
       item,
       metrics,
       mode,
+      canOpenStyleMenu,
       onStyleMenuClose,
       scheduleDragReorder,
     ],
@@ -3558,8 +3565,6 @@ function DraggableCard({
     return base.join(" ");
   }, [isActionable, layoutOffset, mode]);
 
-  const hasStyleOptions = styleOptions.length > 0;
-  const hasCustomContent = typeof renderCustomContent === "function";
   const activeOffset = dragOffset ?? layoutOffset;
   const styleModal =
     isInteractive && styleMenuOpen ? (

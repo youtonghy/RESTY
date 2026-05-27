@@ -288,22 +288,3 @@ pub struct AnalyticsQuery {
     pub start_date: DateTime<Utc>,
     pub end_date: DateTime<Utc>,
 }
-
-/// Monitor information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MonitorInfo {
-    pub id: u32,
-    pub name: String,
-    pub width: u32,
-    pub height: u32,
-    pub is_primary: bool,
-}
-
-/// System status
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SystemStatus {
-    pub is_fullscreen: bool,
-    pub is_do_not_disturb: bool,
-}

@@ -2,14 +2,31 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-test('main app opens reminder window when timer enters break', async () => {
-  const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
+test('break reminder opening is owned by the Rust show-break-reminder path', async () => {
+  const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  const timerSource = await readFile(
+    new URL('../src-tauri/src/services/timer.rs', import.meta.url),
+    'utf8'
+  );
+  const commandsSource = await readFile(
+    new URL('../src-tauri/src/commands/mod.rs', import.meta.url),
+    'utf8'
+  );
+  const libSource = await readFile(new URL('../src-tauri/src/lib.rs', import.meta.url), 'utf8');
 
-  assert.match(source, /if \(phase === 'break'\) \{/);
-  assert.match(source, /api\.closePreBreakReminderWindow\(\)/);
-  assert.match(source, /api\s*\.\s*openReminderWindow\(/);
-  assert.match(source, /activeSettings\.reminderMode === 'fullscreen'/);
-  assert.match(source, /activeSettings\.floatingPosition/);
+  assert.match(appSource, /const handlePhaseSideEffects/);
+  assert.match(appSource, /if \(phase === 'break'\) \{\s*void api\.closePreBreakReminderWindow\(\);\s*\}/);
+  assert.match(appSource, /api\.closeReminderWindow\(\)/);
+  assert.doesNotMatch(appSource, /api\s*\.\s*openReminderWindow\(/);
+  assert.doesNotMatch(appSource, /api\.onPhaseChange/);
+  assert.doesNotMatch(timerSource, /emit_phase_change|emit_timer_finished/);
+  assert.doesNotMatch(timerSource, /"phase-change"|"timer-finished"/);
+  assert.doesNotMatch(commandsSource, /pub (?:async )?fn (?:open|show)_reminder_window/);
+  assert.doesNotMatch(libSource, /commands::(?:open|show)_reminder_window/);
+  assert.match(timerSource, /self\.start_break\(\)\?;\s*self\.show_break_reminder\(\)\?/);
+  assert.match(commandsSource, /let _ = app\.emit\("show-break-reminder", \(\)\)/);
+  assert.match(libSource, /app\.listen\("show-break-reminder"/);
+  assert.match(libSource, /show_break_reminder_window\(&app, is_fullscreen, floating_position\)/);
 });
 
 test('main app opens a large pre-break reminder window before notification', async () => {

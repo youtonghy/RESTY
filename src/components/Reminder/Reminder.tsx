@@ -202,25 +202,13 @@ export function Reminder({ isFullscreen = true, mode = 'break' }: ReminderProps)
 
   const phaseClass = `phase-${timerPhase ?? 'break'}`;
 
-  // Reveal the window, then mark ready to trigger panel fade-in
+  // Mark ready on the next paint to trigger panel fade-in.
   useEffect(() => {
-    let raf1 = 0;
-    let raf2 = 0;
-    raf1 = requestAnimationFrame(() => {
-      if (!isPreBreak) {
-        // Show the hidden break window as soon as we have a frame.
-        api
-          .showReminderWindow()
-          .catch((err) => console.error('Failed to show reminder window:', err));
-      }
-      // Next frame, enable fade-in for panel
-      raf2 = requestAnimationFrame(() => setIsReady(true));
-    });
+    const raf = requestAnimationFrame(() => setIsReady(true));
     return () => {
-      if (raf1) cancelAnimationFrame(raf1);
-      if (raf2) cancelAnimationFrame(raf2);
+      cancelAnimationFrame(raf);
     };
-  }, [isPreBreak]);
+  }, []);
 
   const rootClassName = [
     'reminder',

@@ -18,9 +18,10 @@ test('pre-break reminder stays separate from the dashboard panel', async () => {
   const source = await readFile(new URL('../src/components/Reminder/Reminder.tsx', import.meta.url), 'utf8');
 
   assert.match(source, /reminder-pre-break-panel/);
-  assert.match(source, /if \(!isPreBreak\) \{/);
+  assert.match(source, /requestAnimationFrame\(\(\) => setIsReady\(true\)\)/);
   assert.match(source, /preBreakCountdownLabel/);
   assert.match(source, /preBreakMessage/);
   assert.doesNotMatch(source, /notifications\.restStartSoon\.dismissAction/);
   assert.doesNotMatch(source, /api\.startBreak\(\)/);
+  assert.doesNotMatch(source, /showReminderWindow/);
 });
