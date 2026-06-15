@@ -29,25 +29,24 @@ test('break reminder opening is owned by the Rust show-break-reminder path', asy
   assert.match(libSource, /show_break_reminder_window\(&app, is_fullscreen, floating_position\)/);
 });
 
-test('main app opens a large pre-break reminder window before notification', async () => {
+test('main app sends a system pre-break notification without opening a window', async () => {
   const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
   const apiSource = await readFile(new URL('../src/utils/api.ts', import.meta.url), 'utf8');
 
   assert.match(source, /const PRE_BREAK_NOTIFICATION_WINDOW_MS = 60_000/);
-  assert.match(source, /const PRE_BREAK_REMINDER_WINDOW_AUTO_CLOSE_MS = 10_000/);
   assert.match(source, /supportsPreBreakActions/);
-  assert.match(source, /api\.openPreBreakReminderWindow\(\)[\s\S]*notifyRestStartsSoon\(/);
+  assert.match(source, /const notificationResult = await notifyRestStartsSoon\(/);
   assert.match(source, /supportsPreBreakActions \? 'actions' : 'plain'/);
   assert.match(source, /notificationResult === 'permissionMissing'/);
   assert.match(source, /api\.closePreBreakReminderWindow\(\)/);
-  assert.match(source, /api\.openPreBreakReminderWindow\(\)/);
+  assert.doesNotMatch(source, /sendPreBreakNotification[\s\S]*api\.openPreBreakReminderWindow\(\)/);
   assert.match(source, /notifyRestStartsSoon\(/);
   assert.match(source, /mode=\{isPreBreakReminderWindow \? 'preBreak' : 'break'\}/);
   assert.match(apiSource, /open_pre_break_reminder_window/);
   assert.match(apiSource, /close_pre_break_reminder_window/);
 });
 
-test('pre-break fallback window is a plain auto-closing reminder without action buttons', async () => {
+test('non-Windows pre-break notification is plain and has no action buttons', async () => {
   const appSource = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
   const reminderSource = await readFile(
     new URL('../src/components/Reminder/Reminder.tsx', import.meta.url),
@@ -58,7 +57,7 @@ test('pre-break fallback window is a plain auto-closing reminder without action 
     'utf8'
   );
 
-  assert.match(appSource, /api\.openPreBreakReminderWindow\(\)[\s\S]*notifyRestStartsSoon\(/);
+  assert.doesNotMatch(appSource, /sendPreBreakNotification[\s\S]*api\.openPreBreakReminderWindow\(\)/);
   assert.match(appSource, /supportsPreBreakActions \? 'actions' : 'plain'/);
   assert.match(notificationSource, /type PreBreakNotificationMode = 'plain' \| 'actions'/);
   assert.doesNotMatch(notificationSource, /actionTypeId/);

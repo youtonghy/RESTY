@@ -179,10 +179,6 @@ function App() {
       }
 
       preBreakNotifiedTargetRef.current = nextBreakTime;
-      void api.openPreBreakReminderWindow().catch((error) => {
-        console.error('Failed to open pre-break reminder window:', error);
-      });
-
       const supportsPreBreakActions = isWindowsPlatform();
       const notificationResult = await notifyRestStartsSoon(
         i18n.t('notifications.restStartSoon.title', {
