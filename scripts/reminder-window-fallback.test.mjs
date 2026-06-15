@@ -36,9 +36,9 @@ test('main app opens a large pre-break reminder window before notification', asy
   assert.match(source, /const PRE_BREAK_NOTIFICATION_WINDOW_MS = 60_000/);
   assert.match(source, /const PRE_BREAK_REMINDER_WINDOW_AUTO_CLOSE_MS = 10_000/);
   assert.match(source, /supportsPreBreakActions/);
-  assert.match(source, /!supportsPreBreakActions[\s\S]*api\.openPreBreakReminderWindow\(\)/);
-  assert.match(source, /!supportsPreBreakActions[\s\S]*return;/);
-  assert.match(source, /notifyRestStartsSoon\([\s\S]*'actions'[\s\S]*\)/);
+  assert.match(source, /api\.openPreBreakReminderWindow\(\)[\s\S]*notifyRestStartsSoon\(/);
+  assert.match(source, /supportsPreBreakActions \? 'actions' : 'plain'/);
+  assert.match(source, /notificationResult === 'permissionMissing'/);
   assert.match(source, /api\.closePreBreakReminderWindow\(\)/);
   assert.match(source, /api\.openPreBreakReminderWindow\(\)/);
   assert.match(source, /notifyRestStartsSoon\(/);
@@ -58,8 +58,8 @@ test('pre-break fallback window is a plain auto-closing reminder without action 
     'utf8'
   );
 
-  assert.match(appSource, /!supportsPreBreakActions[\s\S]*api\.openPreBreakReminderWindow\(\)/);
-  assert.match(appSource, /!supportsPreBreakActions[\s\S]*return;/);
+  assert.match(appSource, /api\.openPreBreakReminderWindow\(\)[\s\S]*notifyRestStartsSoon\(/);
+  assert.match(appSource, /supportsPreBreakActions \? 'actions' : 'plain'/);
   assert.match(notificationSource, /type PreBreakNotificationMode = 'plain' \| 'actions'/);
   assert.doesNotMatch(notificationSource, /actionTypeId/);
   assert.doesNotMatch(notificationSource, /registerActionTypes/);

@@ -167,7 +167,7 @@ function App() {
   }, []);
 
   const sendPreBreakNotification = useCallback(
-    (nextBreakTime: string) => {
+    async (nextBreakTime: string) => {
       if (preBreakNotifiedTargetRef.current === nextBreakTime) return;
 
       const millisUntilBreak = Date.parse(nextBreakTime) - Date.now();
@@ -179,14 +179,12 @@ function App() {
       }
 
       preBreakNotifiedTargetRef.current = nextBreakTime;
+      void api.openPreBreakReminderWindow().catch((error) => {
+        console.error('Failed to open pre-break reminder window:', error);
+      });
+
       const supportsPreBreakActions = isWindowsPlatform();
-      if (!supportsPreBreakActions) {
-        void api.openPreBreakReminderWindow().catch((error) => {
-          console.error('Failed to open pre-break reminder window:', error);
-        });
-        return;
-      }
-      void notifyRestStartsSoon(
+      const notificationResult = await notifyRestStartsSoon(
         i18n.t('notifications.restStartSoon.title', {
           defaultValue: 'Break starts soon',
         }),
@@ -201,8 +199,11 @@ function App() {
             defaultValue: 'Break now',
           }),
         },
-        'actions'
+        supportsPreBreakActions ? 'actions' : 'plain'
       );
+      if (notificationResult === 'permissionMissing') {
+        console.warn('Pre-break system notification was skipped because permission is missing.');
+      }
     },
     [i18n]
   );
@@ -234,7 +235,7 @@ function App() {
         millisUntilBreak > PRE_BREAK_NOTIFICATION_MIN_MS &&
         millisUntilBreak <= PRE_BREAK_NOTIFICATION_WINDOW_MS
       ) {
-        sendPreBreakNotification(nextBreakTime);
+        void sendPreBreakNotification(nextBreakTime);
         return;
       }
 
@@ -242,7 +243,7 @@ function App() {
       if (delayMs > 0) {
         preBreakNotificationTimerRef.current = setTimeout(() => {
           preBreakNotificationTimerRef.current = null;
-          sendPreBreakNotification(nextBreakTime);
+          void sendPreBreakNotification(nextBreakTime);
         }, delayMs);
       }
     },

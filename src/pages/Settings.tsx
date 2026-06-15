@@ -131,6 +131,9 @@ const enforceTrayDefaults = (settings: SettingsType): SettingsType => {
 const notificationPermissionStatusClass = (status: NotificationPermissionStatus) =>
   status === 'notGranted' ? 'not-granted' : status;
 
+const isNotificationPermissionAttentionStatus = (status: NotificationPermissionStatus) =>
+  status === 'notGranted' || status === 'unsupported' || status === 'error';
+
 // 语言与提醒位置选项配置
 const LANGUAGE_OPTIONS: Array<{ value: Language; labelKey: string }> = [
   { value: 'en-US', labelKey: 'settings.language.options.enUS' },
@@ -297,6 +300,38 @@ export function Settings() {
       }
     }
   }, [t]);
+
+  const verifyNotificationPermissionForReminder = useCallback(async () => {
+    const requestStatus = await requestNotificationPermissionStatus();
+    if (!isMountedRef.current) return requestStatus;
+
+    if (isMacos) {
+      setNotificationPermissionStatus(requestStatus);
+    }
+
+    if (requestStatus === 'granted') {
+      setMessage(t('settings.reminder.restStartSoonNotification.permissionGranted'));
+      return requestStatus;
+    }
+
+    const checkStatus =
+      requestStatus === 'notGranted'
+        ? await getNotificationPermissionStatus()
+        : requestStatus;
+
+    if (!isMountedRef.current) return checkStatus;
+
+    if (isMacos) {
+      setNotificationPermissionStatus(checkStatus);
+    }
+
+    setMessage(
+      isNotificationPermissionAttentionStatus(checkStatus)
+        ? t('settings.reminder.restStartSoonNotification.permissionRequired')
+        : t('settings.macos.notificationPermission.notGrantedMessage')
+    );
+    return checkStatus;
+  }, [isMacos, t]);
 
   /** 自动保存：将传入的新设置保存到后端并同步全局状态。 */
   const saveSettingsAuto = useCallback(
@@ -1017,12 +1052,18 @@ export function Settings() {
                       type="checkbox"
                       checked={localSettings.restStartSoonNotificationEnabled}
                       onChange={(e) => {
+                        const enabled = e.target.checked;
                         const next = {
                           ...localSettings,
-                          restStartSoonNotificationEnabled: e.target.checked,
+                          restStartSoonNotificationEnabled: enabled,
                         };
                         setLocalSettings(next);
                         saveSettingsAuto(next);
+                        if (enabled) {
+                          void verifyNotificationPermissionForReminder();
+                        } else {
+                          setMessage('');
+                        }
                       }}
                     />
                     <span className="slider" />

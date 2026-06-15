@@ -47,14 +47,33 @@ test('macOS notification sends only use already-granted permission', async () =>
 
   assert.match(source, /const isMacOSPlatform/);
   assert.match(source, /requestNotificationPermissionStatus/);
+  assert.match(source, /type NotificationSendResult/);
+  assert.match(source, /export async function notifyRestStartsSoon/);
   assert.match(
     source,
-    /if \(isMacOSPlatform\) \{\s*return false;\s*\}\s*const permission = await requestPermission/
+    /if \(isMacOSPlatform\) \{\s*return 'notGranted';\s*\}\s*const permission = await requestPermission/
+  );
+  assert.match(source, /permissionStatus !== 'granted'[\s\S]*'permissionMissing'/);
+});
+
+test('rest-start-soon setting verifies notification permission when enabled', async () => {
+  const source = await readFile(new URL('../src/pages/Settings.tsx', import.meta.url), 'utf8');
+
+  assert.match(source, /verifyNotificationPermissionForReminder/);
+  assert.match(source, /requestNotificationPermissionStatus\(\)/);
+  assert.match(source, /getNotificationPermissionStatus\(\)/);
+  assert.match(source, /settings\.reminder\.restStartSoonNotification\.permissionGranted/);
+  assert.match(source, /settings\.reminder\.restStartSoonNotification\.permissionRequired/);
+  assert.match(
+    source,
+    /if \(enabled\) \{\s*void verifyNotificationPermissionForReminder\(\);\s*\} else \{\s*setMessage\(''\);\s*\}/
   );
 });
 
 test('notification permission copy exists in every locale', async () => {
   const requiredKeys = [
+    'settings.reminder.restStartSoonNotification.permissionGranted',
+    'settings.reminder.restStartSoonNotification.permissionRequired',
     'settings.macos.title',
     'settings.macos.menuBarOnly',
     'settings.macos.menuBarOnlyHint',

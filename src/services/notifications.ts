@@ -17,6 +17,12 @@ export type NotificationPermissionStatus =
   | 'unsupported'
   | 'error';
 
+export type NotificationSendResult =
+  | 'sent'
+  | 'permissionMissing'
+  | 'unsupported'
+  | 'failed';
+
 type PreBreakNotificationMode = 'plain' | 'actions';
 
 const isWindowsPlatform = (() => {
@@ -75,26 +81,30 @@ export async function requestNotificationPermissionStatus(): Promise<Notificatio
   }
 }
 
-export async function ensureNotificationPermission(): Promise<boolean> {
+async function ensureNotificationPermissionStatus(): Promise<NotificationPermissionStatus> {
   if (!isTauri) {
-    return false;
+    return 'unsupported';
   }
 
   try {
     if (await isPermissionGranted()) {
-      return true;
+      return 'granted';
     }
 
     if (isMacOSPlatform) {
-      return false;
+      return 'notGranted';
     }
 
     const permission = await requestPermission();
-    return permission === 'granted';
+    return normalizeNotificationPermission(permission);
   } catch (error) {
     console.warn('Failed to request notification permission:', error);
-    return false;
+    return 'error';
   }
+}
+
+export async function ensureNotificationPermission(): Promise<boolean> {
+  return (await ensureNotificationPermissionStatus()) === 'granted';
 }
 
 export async function notifyAchievementUnlocked(title: string, body: string): Promise<void> {
@@ -114,9 +124,14 @@ export async function notifyRestStartsSoon(
   body: string,
   actionLabels?: { dismiss: string; breakNow: string },
   mode: PreBreakNotificationMode = actionLabels ? 'actions' : 'plain'
-): Promise<void> {
-  if (!(await ensureNotificationPermission())) {
-    return;
+): Promise<NotificationSendResult> {
+  const permissionStatus = await ensureNotificationPermissionStatus();
+  if (permissionStatus !== 'granted') {
+    return permissionStatus === 'unsupported'
+      ? 'unsupported'
+      : permissionStatus === 'error'
+        ? 'failed'
+        : 'permissionMissing';
   }
 
   // Prefer Windows native Toast (with real action buttons) when available.
@@ -127,7 +142,7 @@ export async function notifyRestStartsSoon(
       preBreakDismissTimer = setTimeout(() => {
         preBreakDismissTimer = null;
       }, PRE_BREAK_AUTO_DISMISS_MS);
-      return;
+      return 'sent';
     } catch (error) {
       console.warn('Windows native toast failed, falling back to plugin notification:', error);
       nativeToastAvailable = false;
@@ -147,8 +162,10 @@ export async function notifyRestStartsSoon(
       preBreakDismissTimer = null;
       void clearRestStartsSoonNotification();
     }, PRE_BREAK_AUTO_DISMISS_MS);
+    return 'sent';
   } catch (error) {
     console.warn('Failed to send pre-break notification:', error);
+    return 'failed';
   }
 }
 

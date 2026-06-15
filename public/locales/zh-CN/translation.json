@@ -141,7 +141,9 @@
       "playSound": "播放提示音",
       "restStartSoonNotification": {
         "enable": "休息前 1 分钟系统通知",
-        "description": "将在休息开始前 1 分钟弹出聚焦提醒窗口，并发送一次系统通知。"
+        "description": "将在休息开始前 1 分钟弹出聚焦提醒窗口，并发送一次系统通知。",
+        "permissionGranted": "通知权限已允许，休息前 1 分钟提醒可以发送系统通知。",
+        "permissionRequired": "尚未允许系统通知权限。提醒窗口仍会弹出，但系统通知可能不会显示。"
       },
       "restMusic": {
         "title": "休息音乐",
@@ -200,13 +202,13 @@
       "menuBarOnlyHint": "开启后 RESTY 不驻留在 Dock 中，功能仅通过菜单栏图标生效。",
       "notificationPermission": {
         "title": "系统通知权限",
-        "description": "检查 RESTY 是否可以发送系统通知。未授权时，休息前通知不会弹出。",
+        "description": "检查 RESTY 是否可以发送系统通知。未授权时，提醒窗口仍会弹出，但系统通知可能不会显示。",
         "check": "检查权限",
         "request": "申请权限",
         "openSettings": "打开系统设置",
         "notGrantedHint": "如果系统没有弹出授权窗口，请在系统设置 > 通知中允许 RESTY 发送通知。",
         "grantedMessage": "通知权限已允许。",
-        "notGrantedMessage": "尚未获得通知权限，系统通知不会弹出。",
+        "notGrantedMessage": "尚未获得通知权限。提醒窗口仍会弹出，但系统通知可能不会显示。",
         "openFailed": "打开 macOS 通知设置失败，请手动前往系统设置 > 通知。",
         "status": {
           "unknown": "未检查",
