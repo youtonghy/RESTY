@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../../store';
 import * as api from '../../utils/api';
@@ -16,6 +17,7 @@ const TIMER_SYNC_KEY = 'resty-timer-sync';
 export function Reminder({ isFullscreen = true, mode = 'break' }: ReminderProps) {
   const { t, i18n } = useTranslation();
   const timerPhase = useAppStore((state) => state.timerInfo.phase);
+  const timerState = useAppStore((state) => state.timerInfo.state);
   const timerRemainingSeconds = useAppStore((state) => state.timerInfo.remainingSeconds);
   const timerTotalSeconds = useAppStore((state) => state.timerInfo.totalSeconds);
   const timerNextTransitionTime = useAppStore((state) => state.timerInfo.nextTransitionTime);
@@ -23,6 +25,7 @@ export function Reminder({ isFullscreen = true, mode = 'break' }: ReminderProps)
   const reminderFullscreenDisplay = useAppStore(
     (state) => state.settings.reminderFullscreenDisplay
   );
+  const reminderOpacity = useAppStore((state) => state.settings.opacity);
   const setTimerInfo = useAppStore((state) => state.setTimerInfo);
   const { effectiveTheme } = useTheme();
   const [optimisticSeconds, setOptimisticSeconds] = useState<number | null>(null);
@@ -118,6 +121,21 @@ export function Reminder({ isFullscreen = true, mode = 'break' }: ReminderProps)
     }
   };
 
+  const handleTogglePause = async () => {
+    try {
+      if (timerState === 'paused') {
+        await api.resumeTimer();
+      } else {
+        await api.pauseTimer();
+      }
+      const latest = await api.getTimerInfo();
+      setTimerInfo(latest);
+      broadcastTimerSync();
+    } catch (err) {
+      console.error('Failed to toggle pause state:', err);
+    }
+  };
+
   // Reconcile optimistic state when real timer info catches up
   useEffect(() => {
     const shouldClearByTotal =
@@ -177,6 +195,10 @@ export function Reminder({ isFullscreen = true, mode = 'break' }: ReminderProps)
 
   const skipLabel = t('reminder.actions.skip');
   const extendLabel = t('reminder.actions.extendShort');
+  const pauseToggleLabel =
+    timerState === 'paused'
+      ? t('reminder.actions.resume')
+      : t('reminder.actions.pause');
   const timerLabel = t('reminder.simpleLabel');
   const panelCountdownLabel = t('reminder.panel.breakCountdown', {
     defaultValue: isZh ? '休息倒计时' : 'Break countdown',
@@ -219,9 +241,12 @@ export function Reminder({ isFullscreen = true, mode = 'break' }: ReminderProps)
     isReady ? 'is-ready' : '',
     isPanelDisplay ? 'reminder-panel-mode' : '',
   ].join(' ');
+  const rootStyle = {
+    '--reminder-opacity': String(Math.max(0, Math.min(100, reminderOpacity)) / 100),
+  } as CSSProperties;
 
   return (
-    <div className={rootClassName}>
+    <div className={rootClassName} style={rootStyle}>
       {isPreBreak ? (
         <div
           className="reminder-panel reminder-pre-break-panel"
@@ -291,6 +316,13 @@ export function Reminder({ isFullscreen = true, mode = 'break' }: ReminderProps)
               <div className="reminder-simple-timer" aria-live="polite">{formattedTime}</div>
 
               <div className="reminder-actions">
+                <button
+                  className="btn btn-secondary btn-lg"
+                  onClick={handleTogglePause}
+                >
+                  {pauseToggleLabel}
+                </button>
+
                 <button
                   className="btn btn-secondary btn-lg"
                   onClick={handleSkip}

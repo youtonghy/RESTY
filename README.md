@@ -15,9 +15,9 @@ RESTY 是一款跨平台的视力保护提醒工具，通过智能计时器帮�
 ### 核心功能
 
 - **智能番茄计时**：自定义工作/休息时长、自动阶段切换、支持暂停、继续、跳过与延长等操作。
-- **多模式提醒**：提供全屏强制休息与悬浮提醒两种模式，可调节窗口透明度和提示音。
-- **个性化体验**：内置亮色、暗色、跟随系统三种主题，支持英文与简体中文的即时切换。
-- **数据追踪**：使用 SQLite 记录会话历史、完成率与用眼行为统计，为健康习惯提供量化反馈。
+- **多模式提醒**：提供全屏强制休息与悬浮提醒两种模式，悬浮提醒支持透明度调节。
+- **个性化体验**：内置亮色、暗色、跟随系统三种主题，支持 en-US、en-GB、zh-CN、zh-TW 即时切换。
+- **数据追踪**：使用本地 JSON 文件记录会话历史、完成率与用眼行为统计，为健康习惯提供量化反馈。
 - **系统集成**：桌面版本支持托盘控制、开机自启动、窗口生命周期管理等多项原生能力。
 
 ### 使用流程
@@ -30,10 +30,10 @@ RESTY 是一款跨平台的视力保护提醒工具，通过智能计时器帮�
 
 ### 主要配置项
 
-- **计时**：工作时长、休息时长、强制休息开关、延迟策略。  
-- **提醒**：显示模式、透明度、提示音、提醒文案。  
-- **外观**：主题、语言、窗口布局、字体缩放。  
-- **系统**：托盘行为、开机启动、关闭时最小化或退出。  
+- **计时**：固定或分段工作节奏、工作时长、休息时长、强制休息、心流模式、更多休息。
+- **提醒**：显示模式、全屏画面、悬浮位置、悬浮透明度、休息前通知、休息音乐。
+- **外观**：主题、语言。
+- **系统**：开机启动、静默开机启动、macOS 菜单栏模式、自动静默更新、数据导入导出。
 - **数据**：会话统计、导入/导出配置、清除历史记录。
 
 ### 运行方式
@@ -51,7 +51,7 @@ bun install
 bun run tauri dev      # 桌面调试
 bun run tauri build    # 生产构建
 ```
-Windows 用户可直接双击 `start-dev.bat` 一键启动。更多桌面端说明请参考 `DESKTOP_APP.md`、`快速开始.md` 与 `WINDOWS.md`。
+开发时以 `bun run tauri dev` 为统一桌面入口。
 
 ### 代码结构
 
@@ -66,15 +66,16 @@ RESTY/
 ├── src-tauri/          # Rust 后端
 │   ├── commands/       # 前后端通信命令
 │   ├── services/       # 计时调度、数据库、系统集成模块
-│   └── main.rs         # Tauri 应用入口
+│   ├── lib.rs          # Tauri 应用入口与窗口/托盘编排
+│   └── main.rs         # 调用库入口
 └── public/locales/     # 语言资源包
 ```
 
 ### 开发提示
 
 - 前端：Vite + React + TypeScript，Zustand 管理状态，React Router 负责路由，所有文案通过 i18next 管理。  
-- 后端：Rust + Tauri + Tokio，实现计时器调度、SQLite 持久化与系统集成。  
-- 新增语言：复制 `public/locales/en/translation.json`，翻译后在设置页语言列表中注册。
+- 后端：Rust + Tauri + Tokio，实现计时器调度、JSON 文件持久化与系统集成。
+- 新增语言：复制 `public/locales/en-US/translation.json`，翻译后在设置页语言列表中注册。
 
 ---
 
@@ -87,9 +88,9 @@ RESTY is a cross-platform eye-care companion that keeps you on a healthy work–
 ### Key Capabilities
 
 - **Adaptive Pomodoro Timer**: configure focus and break durations, automatic phase switching, pause/resume/skip/extend controls, and a precise low-overhead timing loop.
-- **Flexible Reminder Surfaces**: choose between full-screen enforced breaks or floating overlays, tune window opacity, and manage notification sounds.
-- **Personalised Experience**: light/dark/system themes, in-app language switching (English, Simplified Chinese), plus layout and accessibility tweaks.
-- **Insightful Analytics**: SQLite-backed session history, completion-rate tracking, and work-versus-rest analytics that reinforce healthy habits.
+- **Flexible Reminder Surfaces**: choose between full-screen enforced breaks or floating overlays, and tune floating-window opacity.
+- **Personalised Experience**: light/dark/system themes and in-app language switching for en-US, en-GB, zh-CN, and zh-TW.
+- **Insightful Analytics**: JSON-backed session history, completion-rate tracking, and work-versus-rest analytics that reinforce healthy habits.
 - **Desktop Integration**: tray controls, launch-on-startup, window lifecycle management, and multi-surface support when running natively.
 
 ### Typical Workflow
@@ -102,10 +103,10 @@ RESTY is a cross-platform eye-care companion that keeps you on a healthy work–
 
 ### Configuration Highlights
 
-- **Timer**: focus length, break length, enforced breaks, deferral strategy.  
-- **Reminder**: display mode, opacity, sound feedback, reminder copy.  
-- **Appearance**: theme, language, window layout, font scaling.  
-- **System**: tray behaviour, auto-launch, close-to-tray or exit.  
+- **Timer**: fixed or segmented cadence, focus length, break length, enforced breaks, flow mode, and more-rest accounting.
+- **Reminder**: display mode, fullscreen scene, floating position, floating opacity, pre-break notification, and rest music.
+- **Appearance**: theme and language.
+- **System**: auto-launch, silent auto-launch, macOS menu-bar mode, silent updates, and data transfer.
 - **Data**: session analytics, import/export, history management.
 
 ### Run Modes
@@ -123,7 +124,7 @@ bun install
 bun run tauri dev      # desktop development
 bun run tauri build    # production bundle
 ```
-On Windows you may double-click `start-dev.bat` for a one-click start. Refer to `DESKTOP_APP.md`, `快速开始.md`, and `WINDOWS.md` for platform guidance.
+Use `bun run tauri dev` as the unified desktop development entry point.
 
 ### Code Map
 
@@ -138,15 +139,16 @@ RESTY/
 ├── src-tauri/          # Rust backend
 │   ├── commands/       # Tauri command handlers (IPC entry points)
 │   ├── services/       # Scheduler, persistence, platform integration
-│   └── main.rs         # Tauri entry
+│   ├── lib.rs          # Tauri entry, windows, and tray orchestration
+│   └── main.rs         # Calls the library entry
 └── public/locales/     # Language packs
 ```
 
 ### Development Notes
 
 - **Frontend**: Vite + React + TypeScript, Zustand for state, React Router for navigation, i18next for localisation.  
-- **Backend**: Rust + Tauri + Tokio; commands and events expose timer control, analytics, and system hooks; SQLite ensures reliable storage.  
-- **Localisation**: duplicate `public/locales/en/translation.json`, translate the strings, then register the new locale inside the Settings language selector.
+- **Backend**: Rust + Tauri + Tokio; commands and events expose timer control, analytics, and system hooks; local JSON files store settings and history.
+- **Localisation**: duplicate `public/locales/en-US/translation.json`, translate the strings, then register the new locale inside the Settings language selector.
 
 ---
 

@@ -15,6 +15,7 @@
 }
 
 .reminder {
+  --reminder-opacity: 1;
   width: 100vw;
   height: 100vh;
   display: flex;
@@ -62,6 +63,7 @@
 
 .reminder-floating {
   position: relative;
+  opacity: var(--reminder-opacity);
 }
 
 .reminder-pre-break {

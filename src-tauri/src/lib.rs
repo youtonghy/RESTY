@@ -6,7 +6,7 @@ mod utils;
 use crate::models::{FloatingPosition, Theme as SettingsTheme};
 use commands::AppState;
 use dark_light::Mode as SystemTheme;
-use services::{updater, DatabaseService, TimerService};
+use services::{updater, DatabaseService, TimerService, TimerServiceConfig};
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::image::Image;
@@ -269,7 +269,15 @@ pub(crate) async fn handle_tray_action(
             let _ = app.emit("open-settings", ());
         }
         "quit" => {
-            std::process::exit(0);
+            if let Some(session) = state.timer_service.current_session_snapshot() {
+                state
+                    .database_service
+                    .save_or_update_session(&session)
+                    .await
+                    .map_err(|e| e.to_string())?;
+            }
+            state.timer_service.stop().map_err(|e| e.to_string())?;
+            app.exit(0);
         }
         _ => {}
     }
@@ -390,31 +398,27 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            Some(vec!["--autostart".into()]),
+            Some(vec!["--autostart"]),
         ))
         .on_window_event(move |window, event| {
             match event {
-                tauri::WindowEvent::CloseRequested { api, .. } => {
-                    // Only affect the main window
-                    if window.label() == "main" {
-                        api.prevent_close();
-                        // Hide window and keep app running in tray
-                        let _ = window.hide();
-                        let _ = window.set_skip_taskbar(true);
-                    }
+                // Only affect the main window.
+                tauri::WindowEvent::CloseRequested { api, .. } if window.label() == "main" => {
+                    api.prevent_close();
+                    // Hide window and keep app running in tray
+                    let _ = window.hide();
+                    let _ = window.set_skip_taskbar(true);
                 }
-                tauri::WindowEvent::Focused(focused) => {
-                    // Hide tray menu when it loses focus
-                    if !focused && window.label() == "tray-menu" {
-                        let _ = window.hide();
-                        // Record close time to prevent immediate reopen on tray click
-                        {
-                            let state = window.state::<AppState>();
-                            let last_auto_close = state.last_auto_close.clone();
-                            if let Ok(mut last) = last_auto_close.lock() {
-                                *last = Some(std::time::Instant::now());
-                            };
-                        }
+                // Hide tray menu when it loses focus.
+                tauri::WindowEvent::Focused(false) if window.label() == "tray-menu" => {
+                    let _ = window.hide();
+                    // Record close time to prevent immediate reopen on tray click
+                    {
+                        let state = window.state::<AppState>();
+                        let last_auto_close = state.last_auto_close.clone();
+                        if let Ok(mut last) = last_auto_close.lock() {
+                            *last = Some(std::time::Instant::now());
+                        };
                     }
                 }
                 _ => {}
@@ -443,11 +447,14 @@ pub fn run() {
             let timer_service = TimerService::new(
                 app_handle.clone(),
                 Arc::clone(&db_service),
-                initial_settings.work_duration,
-                initial_settings.break_duration,
-                initial_settings.flow_mode_enabled,
-                initial_settings.segmented_work_enabled,
-                initial_settings.work_segments.clone(),
+                TimerServiceConfig {
+                    work_duration: initial_settings.work_duration,
+                    break_duration: initial_settings.break_duration,
+                    flow_mode: initial_settings.flow_mode_enabled,
+                    enable_force_break: initial_settings.enable_force_break,
+                    segmented_enabled: initial_settings.segmented_work_enabled,
+                    segments: initial_settings.work_segments.clone(),
+                },
             );
 
             // Set up application state
@@ -586,29 +593,26 @@ pub fn run() {
                             let _ = handle_tray_action(&action, app, cloned_state).await;
                         });
                     })
-                    .on_tray_icon_event(|tray, event| match event {
-                        TrayIconEvent::Click {
+                    .on_tray_icon_event(|tray, event| {
+                        if let TrayIconEvent::Click {
                             button: tauri::tray::MouseButton::Left,
                             button_state: tauri::tray::MouseButtonState::Up,
                             ..
-                        } => {
-                            if let Some(win) = tray.app_handle().get_webview_window("main") {
-                                let app_handle = tray.app_handle();
-                                let should_skip_taskbar = {
+                        } = event
+                        {
+                            let app_handle = tray.app_handle().clone();
+                            tauri::async_runtime::spawn(async move {
+                                if let Some(win) = app_handle.get_webview_window("main") {
                                     let state = app_handle.state::<AppState>();
-                                    tauri::async_runtime::block_on(
-                                        state.database_service.load_settings(),
-                                    )
-                                    .map(|settings| settings.macos_menu_bar_only)
-                                    .unwrap_or(false)
-                                };
-                                let _ = win.set_skip_taskbar(should_skip_taskbar);
-                                let _ = win.show();
-                                let _ = win.unminimize();
-                                let _ = win.set_focus();
-                            }
+                                    let should_skip_taskbar =
+                                        should_skip_main_taskbar_for_settings(&state).await;
+                                    let _ = win.set_skip_taskbar(should_skip_taskbar);
+                                    let _ = win.show();
+                                    let _ = win.unminimize();
+                                    let _ = win.set_focus();
+                                }
+                            });
                         }
-                        _ => {}
                     })
                     .tooltip("RESTY");
 

@@ -153,7 +153,6 @@ pub struct Settings {
     pub reminder_fullscreen_display: ReminderFullscreenDisplay,
     pub floating_position: FloatingPosition,
     pub opacity: u8, // 0-100
-    pub play_sound: bool,
     #[serde(default = "default_rest_music_enabled")]
     pub rest_music_enabled: bool,
     #[serde(default = "default_rest_music_directory")]
@@ -199,7 +198,6 @@ impl Default for Settings {
             reminder_fullscreen_display: ReminderFullscreenDisplay::Panel,
             floating_position: FloatingPosition::TopRight,
             opacity: 95,
-            play_sound: true,
             rest_music_enabled: default_rest_music_enabled(),
             rest_music_directory: rest_music_directory_default(),
             rest_start_soon_notification_enabled: default_rest_start_soon_notification_enabled(),

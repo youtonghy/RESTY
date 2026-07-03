@@ -5,4 +5,4 @@ pub mod timer;
 pub mod updater;
 
 pub use database::DatabaseService;
-pub use timer::TimerService;
+pub use timer::{TimerService, TimerServiceConfig};

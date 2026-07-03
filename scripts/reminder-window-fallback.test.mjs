@@ -23,7 +23,7 @@ test('break reminder opening is owned by the Rust show-break-reminder path', asy
   assert.doesNotMatch(timerSource, /"phase-change"|"timer-finished"/);
   assert.doesNotMatch(commandsSource, /pub (?:async )?fn (?:open|show)_reminder_window/);
   assert.doesNotMatch(libSource, /commands::(?:open|show)_reminder_window/);
-  assert.match(timerSource, /self\.start_break\(\)\?;\s*self\.show_break_reminder\(\)\?/);
+  assert.match(timerSource, /self\.start_break\(\)\?;\s*self\.show_break_reminder\(\);/);
   assert.match(commandsSource, /let _ = app\.emit\("show-break-reminder", \(\)\)/);
   assert.match(libSource, /app\.listen\("show-break-reminder"/);
   assert.match(libSource, /show_break_reminder_window\(&app, is_fullscreen, floating_position\)/);

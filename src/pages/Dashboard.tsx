@@ -1909,6 +1909,29 @@ export function Dashboard({
     };
   }, [hasLiveSecondTick]);
 
+  const handleTogglePause = useCallback(() => {
+    const request =
+      timerState === "paused" ? api.resumeTimer() : api.pauseTimer();
+    request
+      .then(() => api.getTimerInfo())
+      .then(setTimerInfo)
+      .catch((error) => {
+        console.error("Failed to toggle timer pause state:", error);
+      });
+  }, [setTimerInfo, timerState]);
+
+  const canTogglePause =
+    timerState === "paused" ||
+    (timerState === "running" && timerPhase !== "idle");
+  const pauseToggleLabel =
+    timerState === "paused"
+      ? t("dashboard.actions.resume", {
+          defaultValue: isZh ? "继续" : "Resume",
+        })
+      : t("dashboard.actions.pause", {
+          defaultValue: isZh ? "暂停" : "Pause",
+        });
+
   const dateKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
 
   const placeholderSlots = useMemo(
@@ -3064,6 +3087,15 @@ export function Dashboard({
       <div className="dashboard-content">
         {!isReadOnly && (
           <div className="dashboard-toolbar">
+            {canTogglePause && (
+              <button
+                type="button"
+                className="dashboard-control-button"
+                onClick={handleTogglePause}
+              >
+                {pauseToggleLabel}
+              </button>
+            )}
             <button
               ref={addButtonRef}
               type="button"

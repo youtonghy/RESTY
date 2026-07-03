@@ -3,7 +3,6 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const localeFiles = [
-  '../public/locales/en/translation.json',
   '../public/locales/en-US/translation.json',
   '../public/locales/en-GB/translation.json',
   '../public/locales/zh-CN/translation.json',

@@ -4,7 +4,9 @@ use crate::models::{
 };
 use crate::utils::{AppError, AppResult};
 use chrono::Utc;
-use std::path::PathBuf;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::{Mutex, RwLock};
 
@@ -70,6 +72,7 @@ pub struct DatabaseService {
     settings: Mutex<Settings>,
     sessions: RwLock<Vec<Session>>,
     achievements: Mutex<Vec<AchievementUnlock>>,
+    file_write_lock: Mutex<()>,
     data_dir: PathBuf,
 }
 
@@ -88,6 +91,7 @@ impl DatabaseService {
             settings: Mutex::new(Settings::default()),
             sessions: RwLock::new(Vec::new()),
             achievements: Mutex::new(Vec::new()),
+            file_write_lock: Mutex::new(()),
             data_dir,
         }
     }
@@ -97,7 +101,7 @@ impl DatabaseService {
     pub async fn initialize(&self) -> AppResult<()> {
         // Create data directory if it doesn't exist
         if !self.data_dir.exists() {
-            std::fs::create_dir_all(&self.data_dir).map_err(|e| {
+            fs::create_dir_all(&self.data_dir).map_err(|e| {
                 AppError::DatabaseError(format!("Failed to create data directory: {}", e))
             })?;
         }
@@ -132,17 +136,115 @@ impl DatabaseService {
         self.data_dir.join("achievements.json")
     }
 
+    fn emit_recovery_warning(&self, file_name: &str, backup_path: &Path) {
+        let payload = serde_json::json!({
+            "file": file_name,
+            "backupPath": backup_path.to_string_lossy(),
+        });
+        let _ = self.app.emit("data-recovery-warning", payload);
+    }
+
+    fn backup_corrupted_file(&self, path: &Path) -> AppResult<PathBuf> {
+        let timestamp = Utc::now().format("%Y%m%d%H%M%S");
+        let file_name = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("data.json");
+        let backup_path = path.with_file_name(format!("{file_name}.corrupted.{timestamp}"));
+
+        fs::rename(path, &backup_path).map_err(|e| {
+            AppError::DatabaseError(format!(
+                "Failed to back up corrupted file {}: {}",
+                path.display(),
+                e
+            ))
+        })?;
+
+        if let Some(name) = path.file_name().and_then(|value| value.to_str()) {
+            self.emit_recovery_warning(name, &backup_path);
+        }
+
+        Ok(backup_path)
+    }
+
+    fn write_json_atomic(&self, target: PathBuf, json: &str) -> AppResult<()> {
+        let parent = target.parent().unwrap_or(&self.data_dir);
+        fs::create_dir_all(parent).map_err(|e| {
+            AppError::DatabaseError(format!(
+                "Failed to create data directory {}: {}",
+                parent.display(),
+                e
+            ))
+        })?;
+
+        let file_name = target
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("data.json");
+        let tmp_path = target.with_file_name(format!("{file_name}.tmp"));
+
+        {
+            let mut file = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(&tmp_path)
+                .map_err(|e| {
+                    AppError::DatabaseError(format!(
+                        "Failed to create temp file {}: {}",
+                        tmp_path.display(),
+                        e
+                    ))
+                })?;
+            file.write_all(json.as_bytes()).map_err(|e| {
+                AppError::DatabaseError(format!(
+                    "Failed to write temp file {}: {}",
+                    tmp_path.display(),
+                    e
+                ))
+            })?;
+            file.sync_all().map_err(|e| {
+                AppError::DatabaseError(format!(
+                    "Failed to sync temp file {}: {}",
+                    tmp_path.display(),
+                    e
+                ))
+            })?;
+        }
+
+        fs::rename(&tmp_path, &target).map_err(|e| {
+            AppError::DatabaseError(format!(
+                "Failed to replace file {} atomically: {}",
+                target.display(),
+                e
+            ))
+        })?;
+
+        let _ = OpenOptions::new()
+            .read(true)
+            .open(parent)
+            .and_then(|dir| dir.sync_all());
+
+        Ok(())
+    }
+
     /// Load settings from file
     async fn load_settings_from_file(&self) -> AppResult<()> {
         let file_path = self.settings_file();
 
         if file_path.exists() {
-            let content = std::fs::read_to_string(&file_path).map_err(|e| {
+            let content = fs::read_to_string(&file_path).map_err(|e| {
                 AppError::DatabaseError(format!("Failed to read settings file: {}", e))
             })?;
 
-            let loaded_settings: Settings = serde_json::from_str(&content)
-                .map_err(|e| AppError::DatabaseError(format!("Failed to parse settings: {}", e)))?;
+            let loaded_settings: Settings = match serde_json::from_str(&content) {
+                Ok(settings) => settings,
+                Err(e) => {
+                    let _ = self.backup_corrupted_file(&file_path)?;
+                    eprintln!("Failed to parse settings; using defaults: {}", e);
+                    Settings::default()
+                }
+            };
 
             let mut settings = self.settings.lock().await;
             *settings = loaded_settings;
@@ -156,12 +258,18 @@ impl DatabaseService {
         let file_path = self.sessions_file();
 
         if file_path.exists() {
-            let content = std::fs::read_to_string(&file_path).map_err(|e| {
+            let content = fs::read_to_string(&file_path).map_err(|e| {
                 AppError::DatabaseError(format!("Failed to read sessions file: {}", e))
             })?;
 
-            let loaded_sessions: Vec<Session> = serde_json::from_str(&content)
-                .map_err(|e| AppError::DatabaseError(format!("Failed to parse sessions: {}", e)))?;
+            let loaded_sessions: Vec<Session> = match serde_json::from_str(&content) {
+                Ok(sessions) => sessions,
+                Err(e) => {
+                    let _ = self.backup_corrupted_file(&file_path)?;
+                    eprintln!("Failed to parse sessions; starting with empty cache: {}", e);
+                    Vec::new()
+                }
+            };
 
             let mut sessions = self.sessions.write().await;
             *sessions = loaded_sessions;
@@ -175,13 +283,18 @@ impl DatabaseService {
         let file_path = self.achievements_file();
 
         if file_path.exists() {
-            let content = std::fs::read_to_string(&file_path).map_err(|e| {
+            let content = fs::read_to_string(&file_path).map_err(|e| {
                 AppError::DatabaseError(format!("Failed to read achievements file: {}", e))
             })?;
 
-            let loaded: Vec<AchievementUnlock> = serde_json::from_str(&content).map_err(|e| {
-                AppError::DatabaseError(format!("Failed to parse achievements: {}", e))
-            })?;
+            let loaded: Vec<AchievementUnlock> = match serde_json::from_str(&content) {
+                Ok(achievements) => achievements,
+                Err(e) => {
+                    let _ = self.backup_corrupted_file(&file_path)?;
+                    eprintln!("Failed to parse achievements; starting empty: {}", e);
+                    Vec::new()
+                }
+            };
 
             let mut achievements = self.achievements.lock().await;
             *achievements = loaded;
@@ -262,25 +375,23 @@ impl DatabaseService {
         total
     }
 
-    fn persist_achievements(&self, achievements: &[AchievementUnlock]) -> AppResult<()> {
+    async fn persist_achievements(&self, achievements: &[AchievementUnlock]) -> AppResult<()> {
         let json = serde_json::to_string_pretty(achievements).map_err(|e| {
             AppError::DatabaseError(format!("Failed to serialize achievements: {}", e))
         })?;
 
-        std::fs::write(self.achievements_file(), json).map_err(|e| {
-            AppError::DatabaseError(format!("Failed to write achievements file: {}", e))
-        })?;
+        let _guard = self.file_write_lock.lock().await;
+        self.write_json_atomic(self.achievements_file(), &json)?;
 
         Ok(())
     }
 
-    fn persist_sessions(&self, sessions: &[Session]) -> AppResult<()> {
+    async fn persist_sessions(&self, sessions: &[Session]) -> AppResult<()> {
         let json = serde_json::to_string_pretty(sessions)
             .map_err(|e| AppError::DatabaseError(format!("Failed to serialize sessions: {}", e)))?;
 
-        std::fs::write(self.sessions_file(), json).map_err(|e| {
-            AppError::DatabaseError(format!("Failed to write sessions file: {}", e))
-        })?;
+        let _guard = self.file_write_lock.lock().await;
+        self.write_json_atomic(self.sessions_file(), &json)?;
 
         Ok(())
     }
@@ -296,7 +407,7 @@ impl DatabaseService {
             unlocked_at: Utc::now(),
         };
         achievements.push(unlock.clone());
-        self.persist_achievements(&achievements)?;
+        self.persist_achievements(&achievements).await?;
 
         let _ = self.app.emit("achievement-unlocked", unlock.clone());
 
@@ -386,7 +497,7 @@ impl DatabaseService {
             sessions.clone()
         };
 
-        self.persist_sessions(&sessions_snapshot)?;
+        self.persist_sessions(&sessions_snapshot).await?;
         Ok(())
     }
 
@@ -406,7 +517,7 @@ impl DatabaseService {
             *stored = sessions.clone();
         }
 
-        self.persist_sessions(&sessions)?;
+        self.persist_sessions(&sessions).await?;
 
         Ok(())
     }
@@ -420,7 +531,7 @@ impl DatabaseService {
             *stored = achievements.clone();
         }
 
-        self.persist_achievements(&achievements)?;
+        self.persist_achievements(&achievements).await?;
 
         Ok(())
     }
@@ -478,14 +589,15 @@ impl DatabaseService {
         let json = serde_json::to_string_pretty(&normalized)
             .map_err(|e| AppError::DatabaseError(format!("Failed to serialize settings: {}", e)))?;
 
-        std::fs::write(self.settings_file(), json).map_err(|e| {
-            AppError::DatabaseError(format!("Failed to write settings file: {}", e))
-        })?;
+        {
+            let _guard = self.file_write_lock.lock().await;
+            self.write_json_atomic(self.settings_file(), &json)?;
+        }
 
         // Ensure rest music directory exists when settings change
         if !normalized.rest_music_directory.trim().is_empty() {
             let target = PathBuf::from(&normalized.rest_music_directory);
-            if let Err(e) = std::fs::create_dir_all(&target) {
+            if let Err(e) = fs::create_dir_all(&target) {
                 return Err(AppError::DatabaseError(format!(
                     "Failed to create rest music directory: {}",
                     e
@@ -532,7 +644,7 @@ impl DatabaseService {
 
             let dir = PathBuf::from(&settings.rest_music_directory);
             if !dir.exists() {
-                if let Err(e) = std::fs::create_dir_all(&dir) {
+                if let Err(e) = fs::create_dir_all(&dir) {
                     return Err(AppError::DatabaseError(format!(
                         "Failed to create rest music directory: {}",
                         e
@@ -563,7 +675,9 @@ impl DatabaseService {
             let mut sessions = self.sessions.write().await;
 
             if let Some(existing) = sessions.iter_mut().find(|s| s.id == session.id) {
-                *existing = session.clone();
+                if !(existing.duration > 0 && session.duration == 0) {
+                    *existing = session.clone();
+                }
             } else {
                 sessions.push(session.clone());
             }
@@ -571,7 +685,7 @@ impl DatabaseService {
             sessions.clone()
         };
 
-        self.persist_sessions(&sessions_snapshot)?;
+        self.persist_sessions(&sessions_snapshot).await?;
 
         let settings_snapshot = {
             let settings = self.settings.lock().await;
@@ -596,7 +710,7 @@ impl DatabaseService {
             *sessions = empty.clone();
         }
 
-        self.persist_sessions(&empty)?;
+        self.persist_sessions(&empty).await?;
 
         Ok(())
     }

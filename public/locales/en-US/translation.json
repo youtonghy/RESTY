@@ -139,7 +139,6 @@
         "bottomRight": "Bottom Right"
       },
       "opacity": "Window Opacity",
-      "playSound": "Play notification sound",
       "restStartSoonNotification": {
         "enable": "Notify 1 minute before break",
         "description": "Send a system notification 1 minute before each break starts.",
@@ -242,6 +241,7 @@
     "actions": {
       "save": "Save Settings",
       "reset": "Reset to Defaults",
+      "resetConfirm": "Reset to the last saved settings?",
       "import": "Import Configuration",
       "export": "Export Configuration"
     }
@@ -264,6 +264,8 @@
       "extend": "Extend 5 min",
       "extend5min": "Add 5 min break",
       "extendShort": "+5 Minutes",
+      "pause": "Pause",
+      "resume": "Resume",
       "startBreak": "Start Break Now"
     },
     "panel": {
@@ -386,6 +388,10 @@
     "nextBreakAt": "Next break at {{time}}",
     "nextWorkAt": "Next work at {{time}}",
     "nextEventUnavailable": "Schedule pending",
+    "actions": {
+      "pause": "Pause",
+      "resume": "Resume"
+    },
     "cardNames": {
       "status": "Focus status",
       "next": "Next session",

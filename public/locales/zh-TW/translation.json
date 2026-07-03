@@ -138,7 +138,6 @@
         "bottomRight": "右下角"
       },
       "opacity": "視窗透明度",
-      "playSound": "播放提示音",
       "restStartSoonNotification": {
         "enable": "休息前 1 分鐘系統通知",
         "description": "將在休息開始前 1 分鐘發送一次系統通知。",
@@ -241,6 +240,7 @@
     "actions": {
       "save": "儲存設定",
       "reset": "恢復預設",
+      "resetConfirm": "確定要恢復為上次儲存的設定嗎？",
       "import": "匯入設定",
       "export": "匯出設定"
     }
@@ -263,6 +263,8 @@
       "extend": "延長 5 分鐘",
       "extend5min": "增加 5 分鐘休息",
       "extendShort": "+5 分鐘",
+      "pause": "暫停",
+      "resume": "繼續",
       "startBreak": "立即休息"
     },
     "panel": {
@@ -385,6 +387,10 @@
     "nextBreakAt": "下次休息時間 {{time}}",
     "nextWorkAt": "下次開始工作 {{time}}",
     "nextEventUnavailable": "暫無排程資訊",
+    "actions": {
+      "pause": "暫停",
+      "resume": "繼續"
+    },
     "cardNames": {
       "status": "專注狀態",
       "next": "下次節奏",

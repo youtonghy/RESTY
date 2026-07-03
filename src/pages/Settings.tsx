@@ -518,8 +518,14 @@ export function Settings() {
   );
 
   /** 恢复为上次保存的设置。 */
-  const handleReset = useCallback(() => {
-    if (confirm(t('settings.actions.reset'))) {
+  const handleReset = useCallback(async () => {
+    const confirmed = await confirmDialog(t('settings.actions.resetConfirm'), {
+      title: t('settings.actions.reset'),
+      kind: 'warning',
+      okLabel: t('common.confirm'),
+      cancelLabel: t('common.cancel'),
+    });
+    if (confirmed) {
       setLocalSettings(enforceTrayDefaults(settings));
     }
   }, [settings, t]);
@@ -991,30 +997,53 @@ export function Settings() {
               </div>
 
               {localSettings.reminderMode === 'floating' && (
-                <div className="form-group">
-                  <label htmlFor="floatingPosition">
-                    {t('settings.reminder.floatingPosition')}
-                  </label>
-                  <select
-                    id="floatingPosition"
-                    className="input"
-                    value={localSettings.floatingPosition}
-                    onChange={(e) => {
-                      const next = {
-                        ...localSettings,
-                        floatingPosition: e.target.value as SettingsType['floatingPosition'],
-                      } as SettingsType;
-                      setLocalSettings(next);
-                      saveSettingsAuto(next);
-                    }}
-                  >
-                    {FLOATING_POSITION_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {t(option.labelKey)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <>
+                  <div className="form-group">
+                    <label htmlFor="floatingPosition">
+                      {t('settings.reminder.floatingPosition')}
+                    </label>
+                    <select
+                      id="floatingPosition"
+                      className="input"
+                      value={localSettings.floatingPosition}
+                      onChange={(e) => {
+                        const next = {
+                          ...localSettings,
+                          floatingPosition: e.target.value as SettingsType['floatingPosition'],
+                        } as SettingsType;
+                        setLocalSettings(next);
+                        saveSettingsAuto(next);
+                      }}
+                    >
+                      {FLOATING_POSITION_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {t(option.labelKey)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="reminderOpacity">
+                      {t('settings.reminder.opacity')}
+                      <span className="opacity-value">{localSettings.opacity}%</span>
+                    </label>
+                    <input
+                      id="reminderOpacity"
+                      type="range"
+                      min={20}
+                      max={100}
+                      step={5}
+                      value={localSettings.opacity}
+                      onChange={(e) => {
+                        const value = clampNumber(toInt(e.target.value), 20, 100);
+                        const next = { ...localSettings, opacity: value };
+                        setLocalSettings(next);
+                        saveSettingsAuto(next);
+                      }}
+                    />
+                  </div>
+                </>
               )}
 
               {localSettings.reminderMode === 'fullscreen' && (

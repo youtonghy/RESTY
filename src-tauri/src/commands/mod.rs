@@ -19,10 +19,13 @@ pub struct AppState {
     pub last_auto_close: Arc<std::sync::Mutex<Option<Instant>>>,
 }
 
-fn should_skip_main_taskbar_for_settings(state: &AppState) -> bool {
+async fn should_skip_main_taskbar_for_settings(state: &AppState) -> bool {
     #[cfg(target_os = "macos")]
     {
-        tauri::async_runtime::block_on(state.database_service.load_settings())
+        state
+            .database_service
+            .load_settings()
+            .await
             .map(|settings| settings.macos_menu_bar_only)
             .unwrap_or(false)
     }
@@ -112,6 +115,7 @@ pub async fn save_settings(
     state.timer_service.update_timer_configuration(
         settings.work_duration,
         settings.break_duration,
+        settings.enable_force_break,
         settings.segmented_work_enabled,
         settings.work_segments.clone(),
     );
@@ -125,6 +129,12 @@ pub async fn save_settings(
         .save_settings(&settings)
         .await
         .map_err(|e| e.to_string())?;
+    let normalized = state
+        .database_service
+        .load_settings()
+        .await
+        .map_err(|e| e.to_string())?;
+    let _ = app.emit("settings-change", normalized);
 
     apply_macos_menu_bar_only(&app, settings.macos_menu_bar_only)
 }
@@ -341,6 +351,7 @@ pub async fn get_achievements(
 #[tauri::command]
 pub async fn import_config(
     json_str: String,
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<Settings, String> {
     let mut settings: Settings = serde_json::from_str(&json_str)
@@ -355,6 +366,7 @@ pub async fn import_config(
     state.timer_service.update_timer_configuration(
         settings.work_duration,
         settings.break_duration,
+        settings.enable_force_break,
         settings.segmented_work_enabled,
         settings.work_segments.clone(),
     );
@@ -368,8 +380,14 @@ pub async fn import_config(
         .save_settings(&settings)
         .await
         .map_err(|e| e.to_string())?;
+    let normalized = state
+        .database_service
+        .load_settings()
+        .await
+        .map_err(|e| e.to_string())?;
+    let _ = app.emit("settings-change", normalized.clone());
 
-    Ok(settings)
+    Ok(normalized)
 }
 
 /// Export configuration to JSON
@@ -455,6 +473,7 @@ pub async fn export_app_data_to_file(
 #[tauri::command]
 pub async fn import_app_data_from_file(
     path: String,
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<Settings, String> {
     let target = PathBuf::from(path.trim());
@@ -477,6 +496,7 @@ pub async fn import_app_data_from_file(
     state.timer_service.update_timer_configuration(
         settings.work_duration,
         settings.break_duration,
+        settings.enable_force_break,
         settings.segmented_work_enabled,
         settings.work_segments.clone(),
     );
@@ -500,8 +520,14 @@ pub async fn import_app_data_from_file(
         .save_settings_without_achievements(&settings)
         .await
         .map_err(|e| e.to_string())?;
+    let normalized = state
+        .database_service
+        .load_settings()
+        .await
+        .map_err(|e| e.to_string())?;
+    let _ = app.emit("settings-change", normalized.clone());
 
-    Ok(settings)
+    Ok(normalized)
 }
 
 /// Open the 1-minute pre-break reminder window.
@@ -536,10 +562,10 @@ pub fn close_reminder_window(app: AppHandle) -> Result<(), String> {
 
 /// Show main window (used by frontend after initialization)
 #[tauri::command]
-pub fn show_main_window(app: AppHandle) -> Result<(), String> {
+pub async fn show_main_window(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("main") {
         let state = app.state::<AppState>();
-        let should_skip_taskbar = should_skip_main_taskbar_for_settings(&state);
+        let should_skip_taskbar = should_skip_main_taskbar_for_settings(&state).await;
         let _ = window.set_skip_taskbar(should_skip_taskbar);
         let _ = window.show();
         let _ = window.set_focus();

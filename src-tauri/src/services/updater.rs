@@ -1,5 +1,5 @@
 #[cfg(target_os = "windows")]
-use crate::models::TimerPhase;
+use crate::models::{TimerPhase, TimerState};
 use crate::services::{DatabaseService, TimerService};
 use anyhow::{anyhow, Context, Result};
 use serde::Serialize;
@@ -224,20 +224,16 @@ async fn wait_for_install_slot(
 fn can_install_now(app: &AppHandle, timer_service: &Arc<TimerService>) -> bool {
     let timer_info = timer_service.get_info();
     let is_timer_idle = timer_info.phase == TimerPhase::Idle;
-
-    let main_window_hidden = app
-        .get_webview_window("main")
-        .map(|window| {
-            window.is_minimized().unwrap_or(false) || !window.is_visible().unwrap_or(true)
-        })
-        .unwrap_or(false);
+    let is_timer_break = timer_info.phase == TimerPhase::Break;
+    let is_work_session_active =
+        timer_info.phase == TimerPhase::Work && timer_info.state == TimerState::Running;
 
     let no_fullscreen_window = app
         .webview_windows()
         .values()
         .all(|window| !window.is_fullscreen().unwrap_or(false));
 
-    (is_timer_idle || main_window_hidden) && no_fullscreen_window
+    (is_timer_idle || is_timer_break) && !is_work_session_active && no_fullscreen_window
 }
 
 fn normalize_notes(notes: Option<String>) -> Option<String> {

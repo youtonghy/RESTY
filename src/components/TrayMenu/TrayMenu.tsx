@@ -15,8 +15,10 @@ interface TrayMenuProps {
 export function TrayMenu({ onClose }: TrayMenuProps) {
   const { t } = useTranslation();
   const [menuLevel, setMenuLevel] = useState<'main' | 'no_break'>('main');
+  const [isFocusPollingEnabled, setIsFocusPollingEnabled] = useState(true);
 
   const closeMenu = useCallback(async () => {
+    setIsFocusPollingEnabled(false);
     setMenuLevel('main');
     onClose?.();
     try {
@@ -72,30 +74,43 @@ export function TrayMenu({ onClose }: TrayMenuProps) {
       }
     };
 
+    let blurTimer: ReturnType<typeof setTimeout> | undefined;
     const handleBlur = () => {
       // Small delay to allow click events to process first
       // Reduced to 50ms for snappier response
-      setTimeout(() => {
+      if (blurTimer) clearTimeout(blurTimer);
+      blurTimer = setTimeout(() => {
         void closeMenu();
       }, 50);
     };
 
+    const handleFocus = () => {
+      setIsFocusPollingEnabled(true);
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
 
     // Polling check for focus - reliable fallback for Linux
-    const focusCheckInterval = setInterval(() => {
-      if (!document.hasFocus()) {
-        void closeMenu();
-      }
-    }, 150);
+    const focusCheckInterval = isFocusPollingEnabled
+      ? setInterval(() => {
+          if (!document.hasFocus()) {
+            void closeMenu();
+          }
+        }, 150)
+      : undefined;
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('blur', handleBlur);
-      clearInterval(focusCheckInterval);
+      window.removeEventListener('focus', handleFocus);
+      if (blurTimer) clearTimeout(blurTimer);
+      if (focusCheckInterval) {
+        clearInterval(focusCheckInterval);
+      }
     };
-  }, [closeMenu]);
+  }, [closeMenu, isFocusPollingEnabled]);
 
   if (menuLevel === 'no_break') {
     return (

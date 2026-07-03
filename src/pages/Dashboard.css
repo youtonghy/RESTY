@@ -139,6 +139,31 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
+.dashboard-control-button {
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  padding: 0 16px;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.dashboard-control-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.dashboard-control-button:focus-visible {
+  outline: 2px solid rgba(94, 160, 255, 0.6);
+  outline-offset: 3px;
+}
+
 .dashboard-add-button:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-lg);

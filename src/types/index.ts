@@ -34,7 +34,6 @@ export interface Settings {
   reminderFullscreenDisplay: ReminderFullscreenDisplay;
   floatingPosition: FloatingPosition;
   opacity: number; // 0-100
-  playSound: boolean;
   restMusicEnabled: boolean;
   restMusicDirectory: string;
   restStartSoonNotificationEnabled: boolean;
@@ -142,7 +141,6 @@ export const DEFAULT_SETTINGS: Settings = {
   reminderFullscreenDisplay: 'panel',
   floatingPosition: 'top-right',
   opacity: 95,
-  playSound: true,
   restMusicEnabled: false,
   restMusicDirectory: '',
   restStartSoonNotificationEnabled: false,

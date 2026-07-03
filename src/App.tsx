@@ -96,11 +96,13 @@ function App() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentTrackRef = useRef<string | null>(null);
+  const restMusicRequestRef = useRef(0);
   const notifiedAchievementKeysRef = useRef<Set<string>>(new Set());
   const preBreakNotifiedTargetRef = useRef<string | null>(null);
   const preBreakNotificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopRestMusic = useCallback(() => {
+    restMusicRequestRef.current += 1;
     const audio = audioRef.current;
     if (audio) {
       audio.pause();
@@ -119,9 +121,12 @@ function App() {
       }
 
       const previousTrack = currentTrackRef.current;
+      const requestId = restMusicRequestRef.current + 1;
+      restMusicRequestRef.current = requestId;
 
       try {
         const files = await api.getRestMusicFiles();
+        if (restMusicRequestRef.current !== requestId) return;
         if (files.length === 0) {
           stopRestMusic();
           return;
@@ -137,23 +142,37 @@ function App() {
           }
         }
 
-        stopRestMusic();
+        const existingAudio = audioRef.current;
+        if (existingAudio) {
+          existingAudio.pause();
+          existingAudio.src = '';
+        }
+        audioRef.current = null;
+        currentTrackRef.current = null;
 
         const audio = new Audio(convertFileSrc(nextTrack));
         audio.loop = true;
+        audioRef.current = audio;
+        currentTrackRef.current = nextTrack;
 
         try {
           await audio.play();
-          audioRef.current = audio;
-          currentTrackRef.current = nextTrack;
+          if (restMusicRequestRef.current !== requestId) {
+            audio.pause();
+            audio.src = '';
+          }
         } catch (error) {
           console.error('Failed to play rest music:', error);
-          audioRef.current = null;
-          currentTrackRef.current = null;
+          if (audioRef.current === audio) {
+            audioRef.current = null;
+            currentTrackRef.current = null;
+          }
         }
       } catch (error) {
         console.error('Failed to load rest music files:', error);
-        stopRestMusic();
+        if (restMusicRequestRef.current === requestId) {
+          stopRestMusic();
+        }
       }
     },
     [isSpecialWindow, stopRestMusic]
@@ -208,7 +227,8 @@ function App() {
     (nextBreakTime: string | null | undefined, remainingSeconds?: number) => {
       clearPreBreakNotificationTimer();
 
-      if (isSpecialWindow || !settings.restStartSoonNotificationEnabled || !nextBreakTime) {
+      const preBreakEnabled = useAppStore.getState().settings.restStartSoonNotificationEnabled;
+      if (isSpecialWindow || !preBreakEnabled || !nextBreakTime) {
         return;
       }
 
@@ -247,7 +267,6 @@ function App() {
       clearPreBreakNotificationTimer,
       isSpecialWindow,
       sendPreBreakNotification,
-      settings.restStartSoonNotificationEnabled,
     ]
   );
 
@@ -360,6 +379,22 @@ function App() {
       })
     );
 
+    unsubscribers.push(
+      api.onSettingsChange((nextSettings) => {
+        if (!isMountedRef.current) return;
+        const normalizedLanguage = normalizeLanguage(nextSettings.language);
+        useAppStore.getState().setSettings({
+          ...nextSettings,
+          language: normalizedLanguage,
+        } as AppSettings);
+        if (i18n.language !== normalizedLanguage) {
+          changeLanguage(normalizedLanguage).catch((error) => {
+            console.error('Failed to change language after settings update:', error);
+          });
+        }
+      })
+    );
+
     // For reminder window, proactively fetch timer info once for immediate render
     if (isSpecialWindow) {
       api.getTimerInfo().then((info) => {
@@ -425,6 +460,7 @@ function App() {
     };
   }, [
     clearPreBreakNotificationTimer,
+    i18n,
     isSpecialWindow,
     schedulePreBreakNotification,
     setTimerInfo,

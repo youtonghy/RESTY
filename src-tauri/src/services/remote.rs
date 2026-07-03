@@ -23,7 +23,7 @@ fn extract_viewbits_quote(payload: &Value) -> Option<String> {
     }
     if let Some(items) = payload.get("data").and_then(|item| item.as_array()) {
         if let Some(value) = items
-            .get(0)
+            .first()
             .and_then(|item| item.get("q"))
             .and_then(|item| item.as_str())
         {
@@ -32,7 +32,7 @@ fn extract_viewbits_quote(payload: &Value) -> Option<String> {
     }
     if let Some(items) = payload.as_array() {
         if let Some(value) = items
-            .get(0)
+            .first()
             .and_then(|item| item.get("q"))
             .and_then(|item| item.as_str())
         {
@@ -84,7 +84,9 @@ pub async fn fetch_tip_quote(language: &str) -> Result<Option<String>> {
     };
 
     if is_zh {
-        Ok(normalize_quote(payload.get("hitokoto").and_then(|item| item.as_str())))
+        Ok(normalize_quote(
+            payload.get("hitokoto").and_then(|item| item.as_str()),
+        ))
     } else {
         Ok(extract_viewbits_quote(&payload))
     }

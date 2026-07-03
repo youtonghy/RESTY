@@ -233,7 +233,9 @@ mod macos_impl {
     const SYSTEM_WILL_SLEEP: &str = "NSWorkspaceWillSleepNotification";
     const SYSTEM_DID_WAKE: &str = "NSWorkspaceDidWakeNotification";
 
-    struct ObserverHandle(id);
+    struct ObserverHandle {
+        _id: id,
+    }
 
     unsafe impl Send for ObserverHandle {}
     unsafe impl Sync for ObserverHandle {}
@@ -261,7 +263,7 @@ mod macos_impl {
             add_observer(center, observer, sel!(systemWillSleep:), SYSTEM_WILL_SLEEP);
             add_observer(center, observer, sel!(systemDidWake:), SYSTEM_DID_WAKE);
 
-            let _ = OBSERVER_INSTANCE.set(ObserverHandle(observer));
+            let _ = OBSERVER_INSTANCE.set(ObserverHandle { _id: observer });
         }
     }
 
@@ -296,7 +298,8 @@ mod macos_impl {
 
     unsafe fn add_observer(center: id, observer: id, selector: Sel, name: &str) {
         let ns_name = NSString::alloc(nil).init_str(name);
-        let _: () = msg_send![center, addObserver: observer selector: selector name: ns_name object: nil];
+        let _: () =
+            msg_send![center, addObserver: observer selector: selector name: ns_name object: nil];
     }
 
     extern "C" fn screen_did_sleep(_: &Object, _: Sel, _: id) {
@@ -409,10 +412,7 @@ mod linux_impl {
         Ok(())
     }
 
-    fn handle_sleep_signal(
-        timer: &Arc<TimerService>,
-        msg: zbus::Message,
-    ) -> zbus::Result<()> {
+    fn handle_sleep_signal(timer: &Arc<TimerService>, msg: zbus::Message) -> zbus::Result<()> {
         if let Ok((sleeping,)) = msg.body().deserialize::<(bool,)>() {
             if sleeping {
                 eprintln!("[Power] System suspending, pausing timer");
@@ -429,10 +429,7 @@ mod linux_impl {
         Ok(())
     }
 
-    fn handle_screen_signal(
-        timer: &Arc<TimerService>,
-        msg: zbus::Message,
-    ) -> zbus::Result<()> {
+    fn handle_screen_signal(timer: &Arc<TimerService>, msg: zbus::Message) -> zbus::Result<()> {
         if let Ok((active,)) = msg.body().deserialize::<(bool,)>() {
             if active {
                 eprintln!("[Power] Screen saver active, pausing timer");

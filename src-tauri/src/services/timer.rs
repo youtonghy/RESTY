@@ -28,6 +28,7 @@ struct TimerServiceState {
     base_work_duration: u32,
     base_break_duration: u32,
     flow_mode: bool,
+    enable_force_break: bool,
     segmented_enabled: bool,
     segments: Vec<WorkSegment>,
     segment_index: usize,
@@ -42,6 +43,15 @@ struct TimerServiceState {
     paused_due_to_system_suspend: bool,
     last_power_restart_at: Option<chrono::DateTime<Utc>>,
     pending_power_restart: bool,
+}
+
+pub struct TimerServiceConfig {
+    pub work_duration: u32,
+    pub break_duration: u32,
+    pub flow_mode: bool,
+    pub enable_force_break: bool,
+    pub segmented_enabled: bool,
+    pub segments: Vec<WorkSegment>,
 }
 
 impl TimerServiceState {
@@ -182,27 +192,20 @@ impl TimerService {
 
     /// Create a new timer service
     /// 初始化服务，记录工作/休息时长并保留 AppHandle。
-    pub fn new(
-        app: AppHandle,
-        db: Arc<DatabaseService>,
-        work_duration: u32,
-        break_duration: u32,
-        flow_mode: bool,
-        segmented_enabled: bool,
-        segments: Vec<WorkSegment>,
-    ) -> Arc<Self> {
-        let sanitized_segments = Self::sanitize_segments(segments);
+    pub fn new(app: AppHandle, db: Arc<DatabaseService>, config: TimerServiceConfig) -> Arc<Self> {
+        let sanitized_segments = Self::sanitize_segments(config.segments);
         let mut state = TimerServiceState {
             phase: TimerPhase::Idle,
             state: TimerState::Stopped,
             remaining_seconds: 0,
             total_seconds: 0,
-            work_duration,
-            break_duration,
-            base_work_duration: work_duration,
-            base_break_duration: break_duration,
-            flow_mode,
-            segmented_enabled: segmented_enabled && !sanitized_segments.is_empty(),
+            work_duration: config.work_duration,
+            break_duration: config.break_duration,
+            base_work_duration: config.work_duration,
+            base_break_duration: config.break_duration,
+            flow_mode: config.flow_mode,
+            enable_force_break: config.enable_force_break,
+            segmented_enabled: config.segmented_enabled && !sanitized_segments.is_empty(),
             segments: sanitized_segments,
             segment_index: 0,
             segment_iteration: 0,
@@ -243,8 +246,8 @@ impl TimerService {
         state.paused_due_to_system_suspend = false;
         drop(state);
 
-        self.emit_timer_update()?;
         self.persist_session_start();
+        self.emit_timer_update();
         Ok(())
     }
 
@@ -266,8 +269,8 @@ impl TimerService {
         state.paused_due_to_system_suspend = false;
         drop(state);
 
-        self.emit_timer_update()?;
         self.persist_session_start();
+        self.emit_timer_update();
         Ok(())
     }
 
@@ -280,7 +283,7 @@ impl TimerService {
             Self::update_remaining_seconds(&mut state);
             state.phase_end_time = None;
             drop(state);
-            self.emit_timer_update()?;
+            self.emit_timer_update();
         }
         Ok(())
     }
@@ -301,7 +304,7 @@ impl TimerService {
             state.paused_due_to_display_off = false;
             state.paused_due_to_system_suspend = false;
             drop(state);
-            self.emit_timer_update()?;
+            self.emit_timer_update();
         }
         Ok(())
     }
@@ -315,6 +318,10 @@ impl TimerService {
             let state = self.state.lock().unwrap();
             if state.phase == TimerPhase::Idle {
                 println!("TimerService: skip ignored (Idle)");
+                return Ok(None);
+            }
+            if state.phase == TimerPhase::Break && state.enable_force_break {
+                println!("TimerService: skip ignored (force break active)");
                 return Ok(None);
             }
             (
@@ -365,7 +372,7 @@ impl TimerService {
                 Some(end_time + ChronoDuration::seconds(additional_seconds as i64));
         }
         drop(state);
-        self.emit_timer_update()?;
+        self.emit_timer_update();
         Ok(())
     }
 
@@ -383,7 +390,7 @@ impl TimerService {
         state.paused_due_to_display_off = false;
         state.paused_due_to_system_suspend = false;
         drop(state);
-        self.emit_timer_update()?;
+        self.emit_timer_update();
         Ok(())
     }
 
@@ -429,7 +436,6 @@ impl TimerService {
             false
         };
         drop(state);
-        self.emit_timer_update()?;
 
         if timer_finished {
             println!(
@@ -454,7 +460,7 @@ impl TimerService {
                             println!("TimerService: Auto-cycling to break");
                             // Start break and show reminder
                             self.start_break()?;
-                            self.show_break_reminder()?;
+                            self.show_break_reminder();
                         }
                     }
                     TimerPhase::Break => {
@@ -468,6 +474,7 @@ impl TimerService {
             }
         }
 
+        self.emit_timer_update();
         Ok(session)
     }
 
@@ -572,17 +579,28 @@ impl TimerService {
         }
     }
 
+    /// Build a current in-flight session snapshot for graceful shutdown.
+    pub fn current_session_snapshot(&self) -> Option<Session> {
+        let state = self.state.lock().unwrap();
+        if state.phase == TimerPhase::Idle {
+            return None;
+        }
+        Some(self.create_session_record(&state, false, Some("app-quit")))
+    }
+
     /// Update core timer configuration from settings.
     pub fn update_timer_configuration(
         &self,
         work_duration: u32,
         break_duration: u32,
+        enable_force_break: bool,
         segmented_enabled: bool,
         segments: Vec<WorkSegment>,
     ) {
         let mut state = self.state.lock().unwrap();
         state.base_work_duration = work_duration.max(1);
         state.base_break_duration = break_duration.max(1);
+        state.enable_force_break = enable_force_break;
         state.segments = Self::sanitize_segments(segments);
         state.segmented_enabled = segmented_enabled && !state.segments.is_empty();
 
@@ -619,7 +637,7 @@ impl TimerService {
                 self.persist_session_finish(session);
             }
         } else {
-            self.emit_timer_update()?;
+            self.emit_timer_update();
         }
 
         Ok(())
@@ -632,7 +650,7 @@ impl TimerService {
         state.suppress_breaks_until = Some(until);
         drop(state);
         // 立即推送一次状态，确保前端的“下次休息时间”实时更新
-        let _ = self.emit_timer_update();
+        self.emit_timer_update();
     }
 
     /// Do not take breaks until tomorrow morning (08:00 local time).
@@ -655,7 +673,7 @@ impl TimerService {
         state.suppress_breaks_until = Some(until_utc);
         drop(state);
         // 立即推送一次状态，确保前端的"下次休息时间"实时更新
-        let _ = self.emit_timer_update();
+        self.emit_timer_update();
     }
 
     /// Create session record from current state
@@ -737,21 +755,19 @@ impl TimerService {
 
     /// Emit timer update event
     /// 将计时器状态推送给前端，驱动 UI 更新。
-    fn emit_timer_update(&self) -> AppResult<()> {
+    fn emit_timer_update(&self) {
         let info = self.get_info();
-        self.app
-            .emit("timer-update", info)
-            .map_err(|e| crate::utils::AppError::TauriError(e.to_string()))?;
-        Ok(())
+        if let Err(e) = self.app.emit("timer-update", info) {
+            eprintln!("Failed to emit timer-update: {}", e);
+        }
     }
 
     /// Show break reminder window
     /// 触发前端或主进程创建休息提醒窗口。
-    fn show_break_reminder(&self) -> AppResult<()> {
-        self.app
-            .emit("show-break-reminder", ())
-            .map_err(|e| crate::utils::AppError::TauriError(e.to_string()))?;
-        Ok(())
+    fn show_break_reminder(&self) {
+        if let Err(e) = self.app.emit("show-break-reminder", ()) {
+            eprintln!("Failed to emit show-break-reminder: {}", e);
+        }
     }
 
     /// Start background ticker
@@ -765,11 +781,7 @@ impl TimerService {
             interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
             loop {
                 interval.tick().await;
-                if let Ok(session) = service.tick() {
-                    if let Some(_session) = session {
-                        // Session ended, could save to database here
-                    }
-                }
+                let _ = service.tick();
             }
         });
     }
