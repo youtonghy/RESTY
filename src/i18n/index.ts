@@ -46,7 +46,10 @@ const backend = {
         callback(null, resources as Record<string, unknown>);
       })
       .catch((error) => {
-        callback(error, null);
+        // Never leave react-i18next suspended forever: return an empty bundle so
+        // the UI can still mount (keys will fall back to defaultValue / raw keys).
+        console.error(`Failed to load i18n resources for ${language}/${namespace}:`, error);
+        callback(null, {});
       });
   },
 };
@@ -62,6 +65,11 @@ i18n
     partialBundledLanguages: true,
     interpolation: {
       escapeValue: false,
+    },
+    // Default is true; without a Suspense boundary this blanks the entire #root
+    // until translations resolve (or forever if load_translation fails / hangs).
+    react: {
+      useSuspense: false,
     },
   });
 

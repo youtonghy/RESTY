@@ -8,10 +8,14 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Emitter, Manager};
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{watch, Mutex, RwLock};
 
 const ACHIEVEMENT_FIRST_BREAK: &str = "first_break";
 const ACHIEVEMENT_FIRST_WORK: &str = "first_work";
+
+fn mark_persisted_ready(sender: &watch::Sender<bool>) {
+    sender.send_replace(true);
+}
 const ACHIEVEMENT_ENABLE_AUTOSTART: &str = "enable_autostart";
 
 const POWER_INTERRUPT_BREAK_NOTE: &str = "power-interrupt-break";
@@ -74,6 +78,14 @@ pub struct DatabaseService {
     achievements: Mutex<Vec<AchievementUnlock>>,
     file_write_lock: Mutex<()>,
     data_dir: PathBuf,
+    /// Flips to `true` once sessions/achievements have been read from disk.
+    ///
+    /// Loading those files is deferred off the startup path (see
+    /// `initialize_persisted_data`) because deserializing a large `sessions.json`
+    /// on the main thread delays the WebView's first navigation and can leave the
+    /// window blank. Every accessor waits on this gate, so a session written
+    /// before the load finishes can never be overwritten by the loaded snapshot.
+    persisted_ready: watch::Sender<bool>,
 }
 
 impl DatabaseService {
@@ -93,32 +105,80 @@ impl DatabaseService {
             achievements: Mutex::new(Vec::new()),
             file_write_lock: Mutex::new(()),
             data_dir,
+            persisted_ready: watch::channel(false).0,
         }
     }
 
-    /// Initialize database schema
-    /// 创建数据目录，加载已有设置与历史会话。
-    pub async fn initialize(&self) -> AppResult<()> {
-        // Create data directory if it doesn't exist
+    /// Prepare the data directory and load settings only.
+    ///
+    /// Kept deliberately cheap: startup blocks on this to decide window
+    /// visibility, so it must not touch `sessions.json`.
+    /// 创建数据目录并加载设置（启动关键路径，必须保持轻量）。
+    pub async fn initialize_settings(&self) -> AppResult<()> {
         if !self.data_dir.exists() {
             fs::create_dir_all(&self.data_dir).map_err(|e| {
                 AppError::DatabaseError(format!("Failed to create data directory: {}", e))
             })?;
         }
 
-        // Load settings from file
         self.load_settings_from_file().await?;
 
-        // Load sessions from file
-        self.load_sessions_from_file().await?;
+        Ok(())
+    }
 
-        // Load achievements from file
-        self.load_achievements_from_file().await?;
+    /// Load session/achievement history, then reconcile achievements.
+    ///
+    /// Run this off the startup path. Opens the `persisted_ready` gate as soon as
+    /// both files are in memory, so waiting readers/writers resume before the
+    /// (comparatively slow) reconciliation finishes.
+    /// 加载会话与成就历史并补齐成就（在启动关键路径之外执行）。
+    pub async fn initialize_persisted_data(&self) -> AppResult<()> {
+        let load_result = async {
+            self.load_sessions_from_file().await?;
+            self.load_achievements_from_file().await
+        }
+        .await;
 
-        // Reconcile achievements for existing data
+        // Open the gate even on failure, otherwise every session read/write
+        // would block forever on a transient disk error.
+        mark_persisted_ready(&self.persisted_ready);
+        load_result?;
+
         self.reconcile_achievements().await?;
 
         Ok(())
+    }
+
+    /// Wait until session/achievement history has been read from disk.
+    async fn wait_persisted_ready(&self) {
+        let mut rx = self.persisted_ready.subscribe();
+        loop {
+            if *rx.borrow_and_update() {
+                return;
+            }
+            if rx.changed().await.is_err() {
+                // Sender lives as long as `self`; treat closure as "ready".
+                return;
+            }
+        }
+    }
+
+    /// Gated read guard for `sessions`.
+    async fn sessions_read(&self) -> tokio::sync::RwLockReadGuard<'_, Vec<Session>> {
+        self.wait_persisted_ready().await;
+        self.sessions.read().await
+    }
+
+    /// Gated write guard for `sessions`.
+    async fn sessions_write(&self) -> tokio::sync::RwLockWriteGuard<'_, Vec<Session>> {
+        self.wait_persisted_ready().await;
+        self.sessions.write().await
+    }
+
+    /// Gated guard for `achievements`.
+    async fn achievements_lock(&self) -> tokio::sync::MutexGuard<'_, Vec<AchievementUnlock>> {
+        self.wait_persisted_ready().await;
+        self.achievements.lock().await
     }
 
     /// Get settings file path
@@ -397,7 +457,7 @@ impl DatabaseService {
     }
 
     async fn unlock_achievement(&self, id: &str) -> AppResult<Option<AchievementUnlock>> {
-        let mut achievements = self.achievements.lock().await;
+        let mut achievements = self.achievements_lock().await;
         if achievements.iter().any(|item| item.id == id) {
             return Ok(None);
         }
@@ -453,7 +513,7 @@ impl DatabaseService {
 
     async fn reconcile_achievements(&self) -> AppResult<()> {
         let sessions_snapshot = {
-            let sessions = self.sessions.read().await;
+            let sessions = self.sessions_read().await;
             sessions.clone()
         };
         let settings_snapshot = {
@@ -488,7 +548,7 @@ impl DatabaseService {
 
     async fn remove_session_by_id(&self, session_id: &str) -> AppResult<()> {
         let sessions_snapshot = {
-            let mut sessions = self.sessions.write().await;
+            let mut sessions = self.sessions_write().await;
             let original_len = sessions.len();
             sessions.retain(|session| session.id != session_id);
             if sessions.len() == original_len {
@@ -502,18 +562,18 @@ impl DatabaseService {
     }
 
     pub async fn get_achievements(&self) -> AppResult<Vec<AchievementUnlock>> {
-        let achievements = self.achievements.lock().await;
+        let achievements = self.achievements_lock().await;
         Ok(achievements.clone())
     }
 
     pub async fn get_sessions(&self) -> AppResult<Vec<Session>> {
-        let sessions = self.sessions.read().await;
+        let sessions = self.sessions_read().await;
         Ok(sessions.clone())
     }
 
     pub async fn replace_sessions(&self, sessions: Vec<Session>) -> AppResult<()> {
         {
-            let mut stored = self.sessions.write().await;
+            let mut stored = self.sessions_write().await;
             *stored = sessions.clone();
         }
 
@@ -527,7 +587,7 @@ impl DatabaseService {
         achievements: Vec<AchievementUnlock>,
     ) -> AppResult<()> {
         {
-            let mut stored = self.achievements.lock().await;
+            let mut stored = self.achievements_lock().await;
             *stored = achievements.clone();
         }
 
@@ -548,7 +608,7 @@ impl DatabaseService {
         }
 
         let sessions_snapshot = {
-            let sessions = self.sessions.read().await;
+            let sessions = self.sessions_read().await;
             sessions.clone()
         };
         self.unlock_duration_achievements(&sessions_snapshot, normalized.more_rest_enabled)
@@ -672,7 +732,7 @@ impl DatabaseService {
         }
 
         let sessions_snapshot = {
-            let mut sessions = self.sessions.write().await;
+            let mut sessions = self.sessions_write().await;
 
             if let Some(existing) = sessions.iter_mut().find(|s| s.id == session.id) {
                 if !(existing.duration > 0 && session.duration == 0) {
@@ -706,7 +766,7 @@ impl DatabaseService {
     pub async fn clear_sessions(&self) -> AppResult<()> {
         let empty: Vec<Session> = Vec::new();
         {
-            let mut sessions = self.sessions.write().await;
+            let mut sessions = self.sessions_write().await;
             *sessions = empty.clone();
         }
 
@@ -730,7 +790,7 @@ impl DatabaseService {
         }
 
         let filtered: Vec<Session> = {
-            let sessions = self.sessions.read().await;
+            let sessions = self.sessions_read().await;
 
             // Filter sessions by overlap with date range [start_date, end_date]
             // 选择与区间有任意重叠的会话（而非仅按开始时间落在区间内）
@@ -807,12 +867,29 @@ impl DatabaseService {
             });
         }
 
-        let sessions = self.sessions.read().await;
+        let sessions = self.sessions_read().await;
         let earliest_start = sessions.iter().map(|s| s.start_time).min();
         let latest_end = sessions.iter().map(|s| s.end_time).max();
         Ok(SessionsBounds {
             earliest_start,
             latest_end,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::mark_persisted_ready;
+    use tokio::sync::watch;
+
+    #[test]
+    fn persisted_ready_is_visible_to_late_subscribers() {
+        let (sender, receiver) = watch::channel(false);
+        drop(receiver);
+
+        mark_persisted_ready(&sender);
+
+        let late_subscriber = sender.subscribe();
+        assert!(*late_subscriber.borrow());
     }
 }

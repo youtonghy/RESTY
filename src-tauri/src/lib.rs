@@ -430,17 +430,27 @@ pub fn run() {
             // Initialize database service
             let db_service = Arc::new(DatabaseService::new(app_handle.clone()));
 
-            // Initialize database schema and load settings before starting the timer.
+            // Only settings are needed before the timer starts. Session and
+            // achievement history can load after the event loop begins.
             let db_clone = Arc::clone(&db_service);
             let initial_settings = tauri::async_runtime::block_on(async move {
-                if let Err(e) = db_clone.initialize().await {
-                    eprintln!("Failed to initialize database: {}", e);
+                if let Err(e) = db_clone.initialize_settings().await {
+                    eprintln!("Failed to initialize settings: {}", e);
                 }
 
                 db_clone.load_settings().await.unwrap_or_else(|e| {
                     eprintln!("Failed to load settings: {}", e);
                     Default::default()
                 })
+            });
+
+            // Session/achievement history loads off the startup path. Database
+            // accessors block until it lands, so nothing observes an empty cache.
+            let db_deferred = Arc::clone(&db_service);
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = db_deferred.initialize_persisted_data().await {
+                    eprintln!("Failed to load persisted data: {}", e);
+                }
             });
 
             // Create timer service after the database lock has been dropped.
