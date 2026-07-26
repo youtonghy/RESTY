@@ -44,7 +44,7 @@ export async function cleanTauriBundleArtifacts(rootDirectory = bundleDir) {
   return removed;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.main) {
   const removed = await cleanTauriBundleArtifacts();
 
   if (removed.length > 0) {

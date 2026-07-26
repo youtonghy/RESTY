@@ -70,7 +70,7 @@ export async function prepareReleaseVersion(input) {
   };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.main) {
   try {
     const { appVersion, releaseTag } = await prepareReleaseVersion(process.env.VERSION_TAG);
     const githubOutput = process.env.GITHUB_OUTPUT;

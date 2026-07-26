@@ -76,7 +76,7 @@ export function shouldRetryDmgBuild(args, exitCode, output, platform = process.p
   return exitCode !== 0 && isDmgBuild(args, platform) && output.includes('bundle_dmg.sh');
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.main) {
   const args = normalizeTauriArgs(process.argv.slice(2));
   const removedArtifacts = await cleanTauriBundleArtifacts();
   const tauriCli = getTauriCliCommand();

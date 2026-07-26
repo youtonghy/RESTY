@@ -105,6 +105,6 @@ export async function retryTauriDmg() {
   return result.code;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.main) {
   process.exitCode = await retryTauriDmg();
 }
