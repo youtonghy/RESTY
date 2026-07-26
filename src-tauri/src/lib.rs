@@ -13,8 +13,7 @@ use tauri::image::Image;
 use tauri::tray::{TrayIcon, TrayIconBuilder};
 use tauri::{Emitter, Listener, Manager, Theme, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
-const TRAY_ICON_LIGHT: &[u8] = include_bytes!("../icons/128x128.png");
-const TRAY_ICON_DARK: &[u8] = include_bytes!("../icons/128x128Night.png");
+const TRAY_ICON: &[u8] = include_bytes!("../icons/tray-template.png");
 const MAIN_TRAY_ID: &str = "resty-main-tray";
 #[cfg(target_os = "windows")]
 const TRAY_MENU_WIDTH: f64 = 240.0;
@@ -156,18 +155,13 @@ fn load_tray_image(bytes: &[u8]) -> Option<Image<'static>> {
     Image::from_bytes(bytes).ok()
 }
 
-fn apply_tray_theme_icon(tray: &TrayIcon, theme: Theme) {
-    let icon_bytes = match theme {
-        Theme::Dark => TRAY_ICON_DARK,
-        _ => TRAY_ICON_LIGHT,
-    };
-
-    if let Some(image) = load_tray_image(icon_bytes) {
+fn apply_tray_theme_icon(tray: &TrayIcon, _theme: Theme) {
+    if let Some(image) = load_tray_image(TRAY_ICON) {
         if let Err(err) = tray.set_icon(Some(image)) {
-            eprintln!("Failed to set tray icon for theme {:?}: {}", theme, err);
+            eprintln!("Failed to set tray icon: {}", err);
         }
     } else {
-        eprintln!("Failed to decode tray icon for theme {:?}", theme);
+        eprintln!("Failed to decode tray icon");
     }
 }
 
@@ -589,6 +583,7 @@ pub fn run() {
                     .build()?;
                 let mut tray_builder = TrayIconBuilder::with_id(MAIN_TRAY_ID)
                     .menu(&menu)
+                    .icon_as_template(cfg!(target_os = "macos"))
                     .on_menu_event(|app, event| {
                         let app = app.clone();
                         let action = event.id().as_ref().to_string();
@@ -627,7 +622,7 @@ pub fn run() {
                     .tooltip("RESTY");
 
                 if let Some(icon) =
-                    load_tray_image(TRAY_ICON_LIGHT).or_else(|| app.default_window_icon().cloned())
+                    load_tray_image(TRAY_ICON).or_else(|| app.default_window_icon().cloned())
                 {
                     tray_builder = tray_builder.icon(icon);
                 }
@@ -694,7 +689,7 @@ pub fn run() {
                     .tooltip("RESTY");
 
                 if let Some(icon) =
-                    load_tray_image(TRAY_ICON_LIGHT).or_else(|| app.default_window_icon().cloned())
+                    load_tray_image(TRAY_ICON).or_else(|| app.default_window_icon().cloned())
                 {
                     tray_builder = tray_builder.icon(icon);
                 }
