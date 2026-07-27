@@ -475,7 +475,7 @@
   box-sizing: border-box;
   appearance: none;
   -webkit-appearance: none;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   background: var(--color-surface-muted, var(--color-surface));
   padding: 9px 34px 9px 10px;
@@ -500,7 +500,7 @@
 .card-style-input {
   width: 100%;
   box-sizing: border-box;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   background: var(--color-surface-muted, var(--color-surface));
   padding: 9px 10px;
